@@ -123,6 +123,17 @@ export function agentTelemetrySettings(
 
 export const OPENCODE_CONFIG = '{ "experimental": { "openTelemetry": true } }';
 
+export const OPENCODE_PLUGIN = "github:BerriAI/litellm-lens-plugins";
+
+export function opencodePluginSettings(address: string, key: string): string {
+  return [
+    `opencode plugin add ${OPENCODE_PLUGIN}`,
+    `export LITELLM_LENS_OPENCODE_URL="${address}"`,
+    `export LITELLM_LENS_OPENCODE_API_KEY="${key}"`,
+    "opencode service stop",
+  ].join("\n");
+}
+
 const CODING_AGENTS: Record<
   SetupAgent,
   {
@@ -166,11 +177,11 @@ const CODING_AGENTS: Record<
     traceName: "opencode",
     gatewayHint:
       "the baseURL and apiKey of the provider in opencode.json or ~/.config/opencode/opencode.json",
-    install: `Merge ${OPENCODE_CONFIG} into this project's opencode.json, or ~/.config/opencode/opencode.json to cover every project, keeping everything already there. Then make these environment variables present wherever opencode is started, for example in my shell profile. If OTEL_EXPORTER_OTLP_TRACES_ENDPOINT is set and points somewhere else, unset it, because that address would receive the key:`,
+    install: `Run opencode --version first, because the setup depends on it. On OpenCode 2.3.2 or later, Lens records sessions through its OpenCode plugin: run the commands in the first block wherever opencode is started, and add the two exports to my shell profile so they persist. On OpenCode 1.x, use the second block instead and do not install the plugin: merge ${OPENCODE_CONFIG} into this project's opencode.json, or ~/.config/opencode/opencode.json to cover every project, keeping everything already there, then make those environment variables present wherever opencode is started. If OTEL_EXPORTER_OTLP_TRACES_ENDPOINT is set and points somewhere else, unset it, because that address would receive the key:`,
     keyNote:
-      "Where the key already sits in an environment variable, reference that variable in OTEL_EXPORTER_OTLP_HEADERS instead of copying the key.",
+      "Where the key already sits in an environment variable, reference that variable instead of copying the key.",
     caveat:
-      "Lens then shows each model call with the messages sent and the reply, and each tool step with its input and output. OpenCode does not flush telemetry on exit, so the last model call of a one-shot run can be missing, and it also sends internal spans that carry no content.",
+      "With the plugin, Lens then shows each turn with the prompt and the reply, each model call with the messages sent, the reply and the cost the gateway billed, and each tool step with its input and output. On OpenCode 1.x, Lens shows each model call and tool step with its content, but OpenCode does not flush telemetry on exit, so the last model call of a one-shot run can be missing.",
     run: 'opencode run "Run the date command, then tell me what it printed."',
   },
 };
@@ -224,7 +235,23 @@ export function agentTracingPrompt({
           "Lens responds, but its trace storage is not ready. Diagnose ClickHouse first, and do not report success until a trace is stored.",
         ]
       : []),
-    `${install}\n\n${agentTelemetrySettings(agent, address ?? `<${addressName}>`, `<${keyName}>`)}\n\n${keyNote}`,
+    [
+      install,
+      ...(agent === "opencode"
+        ? [
+            opencodePluginSettings(
+              address ?? `<${addressName}>`,
+              `<${keyName}>`,
+            ),
+          ]
+        : []),
+      agentTelemetrySettings(
+        agent,
+        address ?? `<${addressName}>`,
+        `<${keyName}>`,
+      ),
+      keyNote,
+    ].join("\n\n"),
     `${caveat} When you save them, tell me that these settings send my typed prompts, the file contents ${label} reads, tool arguments and tool output to Lens, then carry on without waiting for my reply.`,
     `${label} reads these settings when it starts, so check them with a new run: ${run} Report any telemetry export error it prints. Do not substitute demo data, an older trace, or a readiness check. Report a rejected upload, a missing key or ${gateway ? "a gateway that is not connected to Lens" : "an unreachable Lens address"} instead of claiming success.`,
     `Then tell me to restart my open ${label} sessions, and ask me to open Traces in Lens${lens ? ` at ${JSON.stringify(lens)}` : ""} and confirm a trace from the agent ${JSON.stringify(traceName)} arrived for that run.`,
