@@ -2725,7 +2725,6 @@ fn contextless_native_logs_preserve_the_entire_batch(
     #[case] missing_trace: bool,
     #[case] missing_parent: bool,
 ) {
-    use opentelemetry_proto::tonic::common::v1::{AnyValue, KeyValue, any_value::Value};
     use prost::Message;
     let mut request = log_request("repl_main_thread");
     let valid = request.resource_logs[0].scope_logs[0].log_records[0].clone();
