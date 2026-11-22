@@ -65,7 +65,7 @@ impl Config {
         Self::read(|name| std::env::var(name).ok())
     }
 
-    fn read(read: impl Fn(&str) -> Option<String>) -> Result<Self, Error> {
+    pub(crate) fn read(read: impl Fn(&str) -> Option<String>) -> Result<Self, Error> {
         match read("LENS_MODE").as_deref() {
             None | Some("standalone") => {}
             _ => {

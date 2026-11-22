@@ -27,7 +27,7 @@ type Connected = Box<dyn Fn() -> Option<(String, String)> + Send + Sync>;
 
 #[derive(Clone)]
 struct Endpoint {
-    url: Option<url::Url>,
+    url: url::Url,
     token: Arc<str>,
 }
 
@@ -53,7 +53,8 @@ pub enum Hydrated {
 }
 
 impl ContentGateway {
-    pub fn new(fixed: Option<(Option<&url::Url>, &str)>) -> Result<Self, Error> {
+    /// `fixed` is a statically configured gateway, used only as a complete base and token pair.
+    pub fn new(fixed: Option<(&url::Url, &str)>) -> Result<Self, Error> {
         let config = litellm_http::Resolution::from(&litellm_http::HttpSettings::default()).config;
         let client = reqwest::ClientBuilder::try_from(&config)?
             .redirect(reqwest::redirect::Policy::none())
@@ -62,9 +63,11 @@ impl ContentGateway {
             .build()?;
         Ok(Self {
             client,
-            fixed: fixed.map(|(base, token)| Endpoint {
-                url: base.and_then(|base| content_url(base.as_str())),
-                token: token.into(),
+            fixed: fixed.and_then(|(base, token)| {
+                Some(Endpoint {
+                    url: content_url(base.as_str())?,
+                    token: token.into(),
+                })
             }),
             connected: Arc::new(OnceLock::new()),
             slots: Arc::new(Semaphore::new(MAX_CONCURRENT_READS)),
@@ -72,12 +75,8 @@ impl ContentGateway {
     }
 
     pub fn from_config(config: &crate::config::Config) -> Result<Self, Error> {
-        Self::new(config.gateway_service_token.as_deref().map(|token| {
-            (
-                config.gateway_models.as_ref().map(|gateway| &gateway.base),
-                token,
-            )
-        }))
+        let base = config.gateway_models.as_ref().map(|gateway| &gateway.base);
+        Self::new(base.zip(config.gateway_service_token.as_deref()))
     }
 
     /// Reads the connected gateway's URL and service token on every use, so a gateway connected after
@@ -93,7 +92,7 @@ impl ContentGateway {
         self.fixed.clone().or_else(|| {
             let (base, token) = (self.connected.get()?)()?;
             Some(Endpoint {
-                url: content_url(&base),
+                url: content_url(&base)?,
                 token: token.into(),
             })
         })
@@ -134,7 +133,7 @@ impl ContentGateway {
         bytes: u64,
         sha256: &str,
     ) -> Result<Hydrated, &'static str> {
-        let url = endpoint.url.clone().ok_or("retrieval_not_configured")?;
+        let url = endpoint.url.clone();
         let _permit = self
             .slots
             .clone()
@@ -467,7 +466,7 @@ mod tests {
     fn read_url(gateway: &ContentGateway, raw: &str) -> Result<String, Hydrated> {
         gateway
             .verified(&fixture_owner(), raw)
-            .map(|(endpoint, _)| endpoint.url.map(String::from).unwrap_or_default())
+            .map(|(endpoint, _)| String::from(endpoint.url))
     }
 
     #[test]
@@ -498,9 +497,34 @@ mod tests {
     }
 
     #[test]
+    fn a_static_token_without_a_static_gateway_reads_through_the_connected_gateway() {
+        let config = crate::config::Config::read(|name| match name {
+            "LENS_ADMIN_TOKEN" => Some("standalone-setup-token-at-least-32-characters".into()),
+            "LITELLM_LENS_SERVICE_TOKEN" => Some(TOKEN.into()),
+            _ => None,
+        })
+        .unwrap();
+        assert!(config.gateway_models.is_none());
+        let gateway = ContentGateway::from_config(&config).unwrap();
+        assert_eq!(
+            read_url(&gateway, UNAVAILABLE),
+            Err(Hydrated::Unavailable("retrieval_not_configured".into()))
+        );
+        gateway.connected_by(|| Some(("http://gateway.test".into(), TOKEN.into())));
+        assert_eq!(
+            read_url(&gateway, STORED).unwrap(),
+            "http://gateway.test/lens/content"
+        );
+        assert!(matches!(
+            gateway.verified(&fixture_owner(), UNAVAILABLE),
+            Ok((_, ContentReference::Unavailable(reason))) if reason == "upload_failed"
+        ));
+    }
+
+    #[test]
     fn a_statically_configured_gateway_wins_over_a_connected_one() {
         let base: url::Url = "http://static.test".parse().unwrap();
-        let gateway = ContentGateway::new(Some((Some(&base), TOKEN))).unwrap();
+        let gateway = ContentGateway::new(Some((&base, TOKEN))).unwrap();
         gateway.connected_by(|| {
             Some((
                 "http://other.test".into(),
@@ -516,7 +540,7 @@ mod tests {
     #[test]
     fn a_reference_that_does_not_verify_is_never_fetched() {
         let base: url::Url = "http://static.test".parse().unwrap();
-        let gateway = ContentGateway::new(Some((Some(&base), TOKEN))).unwrap();
+        let gateway = ContentGateway::new(Some((&base, TOKEN))).unwrap();
         let tampered = STORED.replace("\"bytes\":45", "\"bytes\":46");
         let reasoned = UNAVAILABLE.replace("upload_failed", "too_large");
         let refused = [
