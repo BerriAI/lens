@@ -392,12 +392,13 @@ pub(super) fn decode(
                         return Ok(Some(span));
                     }
                     if !is_claude
-                        || !(matches!(event, "tool_result" | "compaction")
-                            || (matches!(event, "assistant_response" | "api_request_body")
-                                && visible_claude_response(
-                                    "assistant_response",
-                                    text(&record.attributes, "query_source"),
-                                )))
+                        || !(matches!(
+                            event,
+                            "tool_result" | "compaction" | "api_request_body" | "api_response_body"
+                        ) || visible_claude_response(
+                            event,
+                            text(&record.attributes, "query_source"),
+                        ))
                     {
                         return Ok(None);
                     }

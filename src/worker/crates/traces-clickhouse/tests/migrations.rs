@@ -2690,6 +2690,167 @@ async fn agent_final_answer_stays_within_its_own_turn_when_a_trace_holds_several
 }
 
 #[rstest]
+#[case::call_with_both_bodies("call-one", "alpha", "conversation one", "reply one")]
+#[case::call_matched_by_request_id("call-two", "alpha", "conversation two", "reply two")]
+#[case::call_without_bodies_keeps_its_own_content("call-three", "alpha", "own input", "own output")]
+#[case::response_without_request_body("call-four", "alpha", "own input", "reply four")]
+#[case::another_team_reusing_the_request_id("call-one", "beta", "own input", "own output")]
+#[case::other_spans_never_take_a_body("tool", "alpha", "own input", "own output")]
+#[tokio::test]
+async fn claude_model_call_reads_the_request_and_response_its_body_exports_recorded(
+    #[future(awt)] database: TestResult<ClickHouseDatabase>,
+    #[case] span: &str,
+    #[case] team: &str,
+    #[case] input: &str,
+    #[case] output: &str,
+) -> TestResult {
+    use litellm_traces_clickhouse::query::named::{ReadAccessParams, SpanDetail, SpanDetailParams};
+
+    let database = database?;
+    let writer = Connection::writer(&database.url)?;
+    ensure_schema(&database.client, &writer, "trace_test", 7).await?;
+    let timestamp = time::OffsetDateTime::now_utc().unix_timestamp_nanos() as i64;
+    let call = "claude_code.llm_request";
+    let request = "claude_code.api_request_body";
+    let response = "claude_code.api_response_body";
+    let rows = [
+        (
+            "alpha",
+            "call-one",
+            call,
+            "req-1",
+            "",
+            "own input",
+            "own output",
+        ),
+        (
+            "alpha",
+            "call-two",
+            call,
+            "req-2",
+            "",
+            "own input",
+            "own output",
+        ),
+        (
+            "alpha",
+            "call-three",
+            call,
+            "req-3",
+            "",
+            "own input",
+            "own output",
+        ),
+        (
+            "alpha",
+            "call-four",
+            call,
+            "req-4",
+            "",
+            "own input",
+            "own output",
+        ),
+        (
+            "beta",
+            "call-one",
+            call,
+            "req-1",
+            "",
+            "own input",
+            "own output",
+        ),
+        (
+            "alpha",
+            "tool",
+            "claude_code.tool",
+            "req-1",
+            "",
+            "own input",
+            "own output",
+        ),
+        (
+            "alpha",
+            "request-one",
+            request,
+            "",
+            "body-1",
+            "conversation one",
+            "{\"tool_results\":[]}",
+        ),
+        (
+            "alpha",
+            "response-one",
+            response,
+            "req-1",
+            "body-1",
+            "",
+            "reply one",
+        ),
+        (
+            "alpha",
+            "request-two",
+            request,
+            "",
+            "body-2",
+            "conversation two",
+            "",
+        ),
+        (
+            "alpha",
+            "response-two",
+            response,
+            "req-2",
+            "body-2",
+            "",
+            "reply two",
+        ),
+        (
+            "alpha",
+            "response-four",
+            response,
+            "req-4",
+            "body-4",
+            "",
+            "reply four",
+        ),
+    ]
+    .into_iter()
+    .enumerate()
+    .map(
+        |(index, (team, span, name, request_id, body_id, input, output))| {
+            serde_json::from_value(serde_json::json!({
+                "Timestamp": timestamp + index as i64, "TraceId": "session", "SpanId": span,
+                "ParentSpanId": "root", "TeamId": team, "ApiKeyHash": "one", "UserId": "owner",
+                "SpanName": name, "ObservationType": "llm", "Input": input, "Output": output,
+                "SpanAttributes": {"request_id": request_id, "request_body_id": body_id},
+            }))
+        },
+    )
+    .collect::<Result<Vec<_>, _>>()?;
+    insert_rows(&database, "otel_traces", rows).await?;
+    let reader = Connection::reader(&database.url, "trace_test")?;
+    let details = litellm_storage_clickhouse::fetch::<SpanDetail>(
+        &database.client,
+        &reader,
+        &SpanDetailParams {
+            access: ReadAccessParams {
+                all_teams: false,
+                user_id: String::new(),
+                team_ids: vec![team.to_owned()],
+            },
+            trace_id: "session".into(),
+            trace_ref: String::new(),
+            span_id: span.into(),
+        },
+    )
+    .await?;
+    assert_eq!(details.len(), 1);
+    assert_eq!(details[0].input, input);
+    assert_eq!(details[0].output, output);
+    Ok(())
+}
+
+#[rstest]
 #[tokio::test]
 async fn nullable_spend_upgrade_preserves_existing_costs_and_unknown_new_costs(
     #[future(awt)] database: TestResult<ClickHouseDatabase>,

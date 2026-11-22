@@ -3023,6 +3023,118 @@ fn native_body_exports_do_not_replay_old_tool_results(#[case] final_message: ser
     );
 }
 
+fn claude_body_log(event: &str, source: &str, body: &str) -> litellm_traces::DecodedSpan {
+    use opentelemetry_proto::tonic::common::v1::{AnyValue, KeyValue, any_value::Value};
+    use prost::Message;
+    let mut request = log_request(source);
+    request.resource_logs[0].scope_logs[0].log_records[0].attributes = [
+        ("event.name", event),
+        ("query_source", source),
+        ("body", body),
+        ("request_body_id", "body-one"),
+        ("request_id", "req-one"),
+    ]
+    .into_iter()
+    .map(|(key, text)| KeyValue {
+        key: key.into(),
+        value: Some(AnyValue {
+            value: Some(Value::StringValue(text.into())),
+        }),
+        ..Default::default()
+    })
+    .collect();
+    litellm_traces::decode_otlp_logs(&request.encode_to_vec(), None)
+        .unwrap()
+        .remove(0)
+}
+
+#[rstest]
+#[case::main_thread("repl_main_thread")]
+#[case::title_generation("generate_session_title")]
+fn claude_request_body_becomes_the_conversation_a_model_call_received(#[case] source: &str) {
+    let body = serde_json::json!({
+        "model": "test-model",
+        "system": [{"type": "text", "text": "SYSTEM-RULES"}],
+        "tools": [{"name": "Bash", "description": "TOOL-DEFINITION"}],
+        "messages": [
+            {"role": "user", "content": "Read the note"},
+            {"role": "assistant", "content": [
+                {"type": "thinking", "thinking": "PRIVATE-THOUGHT"},
+                {"type": "text", "text": "Reading it"},
+                {"type": "tool_use", "id": "call-1", "name": "Bash", "input": {"command": "cat note.txt"}}
+            ]},
+            {"role": "user", "content": [
+                {"type": "tool_result", "tool_use_id": "call-1", "content": [{"type": "text", "text": "NOTE-CONTENT"}]}
+            ]}
+        ]
+    })
+    .to_string();
+    let span = claude_body_log("api_request_body", source, &body);
+    assert_eq!(span.name, "claude_code.api_request_body");
+    assert_eq!(
+        span.attributes.get("request_body_id").map(String::as_str),
+        Some("body-one")
+    );
+    assert!(span.consumed_attributes.contains(&"body"));
+    assert_eq!(
+        serde_json::from_str::<serde_json::Value>(&span.normalized.input).unwrap(),
+        serde_json::json!([
+            {"role": "system", "content": "SYSTEM-RULES"},
+            {"role": "user", "content": "Read the note"},
+            {"role": "assistant", "content": "Reading it", "tool_calls": [
+                {"name": "Bash", "arguments": {"command": "cat note.txt"}}
+            ]},
+            {"role": "tool", "content": "NOTE-CONTENT"}
+        ])
+    );
+}
+
+#[rstest]
+#[case::tool_call(
+    serde_json::json!([{"type": "tool_use", "id": "call-1", "name": "Bash", "input": {"command": "cat note.txt"}}]),
+    serde_json::json!({"role": "assistant", "content": "", "tool_calls": [{"name": "Bash", "arguments": {"command": "cat note.txt"}}]})
+)]
+#[case::final_text(
+    serde_json::json!([{"type": "thinking", "thinking": "PRIVATE-THOUGHT"}, {"type": "text", "text": "The note says hi"}]),
+    serde_json::json!({"role": "assistant", "content": "The note says hi"})
+)]
+fn claude_response_body_becomes_what_the_model_returned(
+    #[case] content: serde_json::Value,
+    #[case] expected: serde_json::Value,
+) {
+    let body = serde_json::json!({"id": "msg-1", "role": "assistant", "content": content, "stop_reason": "end_turn"})
+        .to_string();
+    let span = claude_body_log("api_response_body", "generate_session_title", &body);
+    assert_eq!(span.name, "claude_code.api_response_body");
+    assert_eq!(
+        span.attributes.get("request_id").map(String::as_str),
+        Some("req-one")
+    );
+    assert_eq!(
+        span.attributes.get("request_body_id").map(String::as_str),
+        Some("body-one")
+    );
+    assert!(span.consumed_attributes.contains(&"body"));
+    assert_eq!(
+        serde_json::from_str::<serde_json::Value>(&span.normalized.output).unwrap(),
+        expected
+    );
+}
+
+#[rstest]
+#[case::truncated_request("api_request_body", "{truncated")]
+#[case::request_without_messages("api_request_body", "{}")]
+#[case::truncated_response("api_response_body", "{truncated")]
+#[case::response_without_content("api_response_body", "{}")]
+fn unreadable_claude_bodies_leave_the_model_call_without_content(
+    #[case] event: &str,
+    #[case] body: &str,
+) {
+    let span = claude_body_log(event, "generate_session_title", body);
+    assert_eq!(span.normalized.input, "");
+    assert_eq!(span.normalized.output, "");
+}
+
 #[rstest]
 #[case::cli("codex_cli_rs", "session_task.turn")]
 #[case::ide("codex-app-server", "turn/start")]

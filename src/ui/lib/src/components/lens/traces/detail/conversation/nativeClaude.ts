@@ -2,7 +2,8 @@ import type { Span, SpanDetail } from "../../types";
 
 export function isClaudeSupplement(span: Span): boolean {
   return (
-    span.framework === "claude-code" && ["claude_code.tool_result", "claude_code.api_request_body"].includes(span.name)
+    span.framework === "claude-code" &&
+    ["claude_code.tool_result", "claude_code.api_request_body", "claude_code.api_response_body"].includes(span.name)
   );
 }
 
