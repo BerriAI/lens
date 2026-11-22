@@ -122,7 +122,7 @@ it.each(["home", "agents", "traces"])("offers setup instructions immediately fro
   await user.click(screen.getByRole("button", { name: "Copy setup instructions" }));
   const instructions = await navigator.clipboard.readText();
   expect(instructions).toContain("the same LiteLLM key");
-  expect(instructions).toContain("CLAUDE_CODE_ENABLE_TELEMETRY=1");
+  expect(instructions).toContain("claude plugin install litellm-lens@berriai-lens");
   expect(instructions).not.toContain("Lens tracing key:");
   expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
   expect(screen.queryByRole("region", { name: "Get Lens running" })).not.toBeInTheDocument();

@@ -88,7 +88,7 @@ describe("Lens Home connection", () => {
       screen.getByRole("button", { name: "Copy instructions with new key" }),
     );
     expect(await navigator.clipboard.readText()).toContain(
-      "CLAUDE_CODE_ENABLE_TELEMETRY=1",
+      "claude plugin install litellm-lens@berriai-lens",
     );
     expect(await navigator.clipboard.readText()).toContain(secret);
     expect(
@@ -127,7 +127,7 @@ describe("Lens Home connection", () => {
     );
     const instructions = await navigator.clipboard.readText();
     expect(instructions).toContain(secret);
-    expect(instructions).toContain("Bearer <the Lens tracing key>");
+    expect(instructions).toContain('--config lens_key="$LITELLM_TRACING_KEY"');
     await user.click(
       screen.getByRole("button", { name: "Manage tracing keys" }),
     );
@@ -452,7 +452,7 @@ describe("Lens Home connection", () => {
       );
       const copied = await navigator.clipboard.readText();
       expect(copied).toContain("codex plugin add litellm-lens@berriai-lens");
-      expect(copied).not.toContain("CLAUDE_CODE_ENABLE_TELEMETRY");
+      expect(copied).not.toContain("claude plugin install");
       expect(copied).not.toMatch(/README|github\.com|\/docs\//);
     },
   );
@@ -606,11 +606,8 @@ describe("Lens Home connection", () => {
     renderWithLens(home());
     await user.click(screen.getByRole("button", { name: "Set up manually" }));
     expect(
-      screen.getByText(/export CLAUDE_CODE_ENABLE_TELEMETRY="1"/),
-    ).toBeVisible();
-    expect(
       screen.getByText(
-        /export OTEL_EXPORTER_OTLP_HEADERS="Authorization=Bearer <your LiteLLM key>"/,
+        /claude plugin install litellm-lens@berriai-lens --config lens_url=\S+ --config lens_key="\$ANTHROPIC_AUTH_TOKEN"/,
       ),
     ).toBeVisible();
     await user.click(screen.getByRole("radio", { name: "OpenCode" }));
@@ -625,7 +622,7 @@ describe("Lens Home connection", () => {
       ),
     ).toBeVisible();
     expect(
-      screen.queryByText(/CLAUDE_CODE_ENABLE_TELEMETRY/),
+      screen.queryByText(/claude plugin install/),
     ).not.toBeInTheDocument();
     expect(screen.queryByText(/LITELLM_TRACING_KEY/)).not.toBeInTheDocument();
     await user.click(screen.getByRole("radio", { name: /Standalone Lens/ }));
