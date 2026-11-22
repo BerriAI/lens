@@ -451,7 +451,7 @@ describe("Lens Home connection", () => {
         }),
       );
       const copied = await navigator.clipboard.readText();
-      expect(copied).toContain("~/.codex/config.toml");
+      expect(copied).toContain("codex plugin add litellm-lens@berriai-lens");
       expect(copied).not.toContain("CLAUDE_CODE_ENABLE_TELEMETRY");
       expect(copied).not.toMatch(/README|github\.com|\/docs\//);
     },

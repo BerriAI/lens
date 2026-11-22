@@ -1,6 +1,40 @@
-# Codex CLI telemetry
+# Codex
 
-Codex sends no telemetry by default, and Lens needs it to record Codex turns. Codex sends trace spans and log records through two separate OTLP exporters. Add both to `~/.codex/config.toml` and keep any settings already there:
+Lens records Codex through the LiteLLM Lens plugin for Codex. The plugin is the recommended setup: every Codex chat becomes exactly one trace. Codex's own OpenTelemetry export remains supported as a [fallback](#fallback-codex-opentelemetry-export) for machines that cannot run the plugin.
+
+## Install the plugin
+
+The plugin needs Codex CLI or desktop, Python 3.11 or newer, and macOS or Linux.
+
+```sh
+codex plugin marketplace add BerriAI/litellm-lens-plugins
+codex plugin add litellm-lens@berriai-lens
+bash "$(ls -d "${CODEX_HOME:-$HOME/.codex}"/plugins/cache/berriai-lens/litellm-lens/*/ | tail -1)scripts/run.sh" \
+  setup --url <address> --key-env <variable holding the key> --agent-name codex-cli
+```
+
+`setup` checks the address and key, trusts the plugin's hooks, starts a small local helper and turns recording on. Leave out the options to answer the same questions in the terminal instead, with the key hidden as you type. The address must use https unless it is localhost.
+
+| Setup | `<address>` | Key |
+| --- | --- | --- |
+| Codex routed through a LiteLLM gateway [connected to Lens](https://docs.litellm.ai/docs/proxy/lens/deployment/litellm) | Your gateway address, such as `http://localhost:4000` | The LiteLLM key Codex already uses for model calls |
+| Standalone Lens | Your Lens address, such as `http://localhost:4318` | A Lens tracing key |
+
+Through a gateway, the gateway stamps each trace with the key's user and team and forwards it to Lens.
+
+## What Lens shows with the plugin
+
+One trace per Codex chat. Resuming a chat adds its turns to the same trace. Each turn shows the prompt you typed and the reply, each tool call with its input and output, and one step per model call with its tokens and reply. When Codex's model calls go through the LiteLLM gateway, each model-call step also shows its cost, matched to the gateway's spend record by response ID.
+
+The plugin reads the transcript Codex writes locally after each turn, so a trace updates when a turn completes or is interrupted. Model-call steps do not include the full request sent to the model, and their start time is an estimate. Hidden reasoning and images are not sent. Only chats after setup are recorded.
+
+The plugin stores what you type, the replies, and the input and output of the commands Codex runs, which can include file contents or secrets. Use it only with a Lens deployment where you intend to keep that content. Pause, resume or remove recording with the same `run.sh` and `pause`, `resume` or `uninstall`. See the [plugin README](https://github.com/BerriAI/litellm-lens-plugins/tree/main/codex) for details.
+
+Verified with Codex CLI 0.171.0 on Linux
+
+## Fallback: Codex OpenTelemetry export
+
+Use this when the plugin cannot run, for example on Windows or without Python. Do not enable both on one machine, or each chat is recorded twice. Codex sends trace spans and log records through two separate OTLP exporters. Add both to `~/.codex/config.toml` and keep any settings already there:
 
 ```toml
 [otel]
@@ -25,7 +59,7 @@ The address and key depend on how you run Lens:
 | Codex routed through a LiteLLM gateway [connected to Lens](https://docs.litellm.ai/docs/proxy/lens/deployment/litellm) | Your gateway address, such as `http://localhost:4000` | The LiteLLM key Codex already uses for model calls |
 | Standalone Lens | Your Lens address, such as `http://localhost:4318` | A Lens tracing key |
 
-## What Lens shows
+### What Lens shows with the OpenTelemetry export
 
 A Codex conversation appears as one trace, grouped by the `conversation.id` Codex stamps on its telemetry. Each turn in it shows the prompt you typed, each tool call with its arguments and output, and the model calls with their duration and token counts. Resuming a conversation adds its new turns to the same trace. Codex puts `conversation.id` on only some of its spans and exports them in batches a few seconds apart, so a model call exported in a batch with none of those spans appears as its own small trace instead of joining the conversation. Model call steps have no input or output: Codex exports neither the request it sent nor the model's reply. `log_agent_responses = true` is accepted and sends nothing
 
