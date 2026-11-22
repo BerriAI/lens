@@ -1,4 +1,8 @@
-use std::{collections::BTreeMap, sync::Arc, time::Duration};
+use std::{
+    collections::BTreeMap,
+    sync::{Arc, OnceLock},
+    time::Duration,
+};
 
 use litellm_traces::{SpanDetail, hydrated_input_output, to_ui_content};
 use litellm_storage_clickhouse::fetch;
@@ -19,14 +23,26 @@ use crate::Error;
 const MAX_CONCURRENT_READS: usize = 4;
 const READ_TIMEOUT: Duration = Duration::from_secs(15);
 
+type Connected = Box<dyn Fn() -> Option<(String, String)> + Send + Sync>;
+
+#[derive(Clone)]
+struct Endpoint {
+    url: Option<url::Url>,
+    token: Arc<str>,
+}
+
+fn content_url(base: &str) -> Option<url::Url> {
+    format!("{}/lens/content", base.trim_end_matches('/')).parse().ok()
+}
+
 /// Reads proxy-generated trace content LiteLLM stored in object storage, through the gateway that holds the
-/// storage credentials. Lens never holds them.
+/// storage credentials. Lens never holds them. The gateway is the static one when configured, else the one
+/// connected at the time of the read.
 #[derive(Clone)]
 pub struct ContentGateway {
     client: reqwest::Client,
-    endpoint: Option<url::Url>,
-    token: Arc<str>,
-    key: [u8; 32],
+    fixed: Option<Endpoint>,
+    connected: Arc<OnceLock<Connected>>,
     slots: Arc<Semaphore>,
 }
 
@@ -37,14 +53,7 @@ pub enum Hydrated {
 }
 
 impl ContentGateway {
-    pub fn new(base: Option<&url::Url>, service_token: &str) -> Result<Self, Error> {
-        let endpoint = base
-            .map(|base| {
-                format!("{}/lens/content", base.as_str().trim_end_matches('/'))
-                    .parse()
-                    .map_err(|_| Error::Configuration("LENS_GATEWAY_API_BASE"))
-            })
-            .transpose()?;
+    pub fn new(fixed: Option<(Option<&url::Url>, &str)>) -> Result<Self, Error> {
         let config = litellm_http::Resolution::from(&litellm_http::HttpSettings::default()).config;
         let client = reqwest::ClientBuilder::try_from(&config)?
             .redirect(reqwest::redirect::Policy::none())
@@ -53,46 +62,79 @@ impl ContentGateway {
             .build()?;
         Ok(Self {
             client,
-            endpoint,
-            token: service_token.into(),
-            key: content_reference::signing_key(service_token),
+            fixed: fixed.map(|(base, token)| Endpoint {
+                url: base.and_then(|base| content_url(base.as_str())),
+                token: token.into(),
+            }),
+            connected: Arc::new(OnceLock::new()),
             slots: Arc::new(Semaphore::new(MAX_CONCURRENT_READS)),
         })
     }
 
-    pub fn from_config(config: &crate::config::Config) -> Result<Option<Self>, Error> {
-        config
-            .gateway_service_token
-            .as_deref()
-            .map(|token| {
-                Self::new(
-                    config.gateway_models.as_ref().map(|gateway| &gateway.base),
-                    token,
-                )
-            })
-            .transpose()
+    pub fn from_config(config: &crate::config::Config) -> Result<Self, Error> {
+        Self::new(config.gateway_service_token.as_deref().map(|token| {
+            (
+                config.gateway_models.as_ref().map(|gateway| &gateway.base),
+                token,
+            )
+        }))
     }
 
-    /// The span's stored content, or why it cannot be shown; None when the reference does not verify for it.
-    pub async fn hydrate(&self, owner: &Owner<'_>, raw: &str) -> Option<Hydrated> {
-        match content_reference::verify(&self.key, owner, raw)? {
-            ContentReference::Unavailable(reason) => Some(Hydrated::Unavailable(reason)),
-            ContentReference::Stored { bytes, sha256, .. } => Some(
-                self.download(owner, raw, bytes, &sha256)
-                    .await
-                    .unwrap_or_else(|reason| Hydrated::Unavailable(reason.into())),
-            ),
+    /// Reads the connected gateway's URL and service token on every use, so a gateway connected after
+    /// startup is used without a restart.
+    pub fn connected_by(
+        &self,
+        connected: impl Fn() -> Option<(String, String)> + Send + Sync + 'static,
+    ) {
+        let _ = self.connected.set(Box::new(connected));
+    }
+
+    fn endpoint(&self) -> Option<Endpoint> {
+        self.fixed.clone().or_else(|| {
+            let (base, token) = (self.connected.get()?)()?;
+            Some(Endpoint {
+                url: content_url(&base),
+                token: token.into(),
+            })
+        })
+    }
+
+    /// What the reference says, verified for exactly this span before anything is fetched.
+    fn verified(
+        &self,
+        owner: &Owner<'_>,
+        raw: &str,
+    ) -> Result<(Endpoint, ContentReference), Hydrated> {
+        let endpoint = self
+            .endpoint()
+            .ok_or_else(|| Hydrated::Unavailable("retrieval_not_configured".into()))?;
+        let key = content_reference::signing_key(&endpoint.token);
+        let reference = content_reference::verify(&key, owner, raw)
+            .ok_or_else(|| Hydrated::Unavailable("unverified".into()))?;
+        Ok((endpoint, reference))
+    }
+
+    /// The span's stored content, or why it cannot be shown.
+    pub async fn hydrate(&self, owner: &Owner<'_>, raw: &str) -> Hydrated {
+        match self.verified(owner, raw) {
+            Err(unavailable) => unavailable,
+            Ok((_, ContentReference::Unavailable(reason))) => Hydrated::Unavailable(reason),
+            Ok((endpoint, ContentReference::Stored { bytes, sha256, .. })) => self
+                .download(&endpoint, owner, raw, bytes, &sha256)
+                .await
+                .unwrap_or_else(|reason| Hydrated::Unavailable(reason.into())),
         }
     }
 
     async fn download(
         &self,
+        endpoint: &Endpoint,
         owner: &Owner<'_>,
         raw: &str,
         bytes: u64,
         sha256: &str,
     ) -> Result<Hydrated, &'static str> {
-        let endpoint = self.endpoint.clone().ok_or("retrieval_not_configured")?;
+        let url = endpoint.url.clone().ok_or("retrieval_not_configured")?;
         let _permit = self
             .slots
             .clone()
@@ -102,8 +144,8 @@ impl ContentGateway {
             serde_json::from_str(raw).map_err(|_| "retrieval_failed")?;
         let mut response = self
             .client
-            .post(endpoint)
-            .bearer_auth(&*self.token)
+            .post(url)
+            .bearer_auth(&*endpoint.token)
             .json(&serde_json::json!({
                 "team_id": owner.team_id,
                 "api_key": owner.api_key,
@@ -194,6 +236,17 @@ struct ReadBack {
     verifiable: bool,
 }
 
+fn proves(read: &ReadBack, row: &LensContentReferenceRow, quote: &str) -> bool {
+    let (content, _) = content_reference::page(
+        &read.input,
+        &read.output,
+        &row.status_code,
+        &row.status_message,
+        0,
+    );
+    read.verifiable && content.contains(quote)
+}
+
 impl super::Storage {
     async fn references(
         &self,
@@ -218,10 +271,7 @@ impl super::Storage {
             span_id: &row.span_id,
         };
         let hydrated = match &self.content {
-            Some(gateway) => gateway
-                .hydrate(&owner, raw)
-                .await
-                .unwrap_or_else(|| Hydrated::Unavailable("unverified".into())),
+            Some(gateway) => gateway.hydrate(&owner, raw).await,
             None => Hydrated::Unavailable("retrieval_not_configured".into()),
         };
         let content = match hydrated {
@@ -299,14 +349,7 @@ impl super::Storage {
             .await;
         for row in &rows {
             let read = self.read_back(&parameters.id, row).await;
-            let (content, _) = content_reference::page(
-                &read.input,
-                &read.output,
-                &row.status_code,
-                &row.status_message,
-                0,
-            );
-            if read.verifiable && content.contains(parameters.quote.as_str()) {
+            if proves(&read, row, &parameters.quote) {
                 return true;
             }
         }
@@ -406,5 +449,117 @@ mod tests {
         );
         assert_eq!(shown.input, "[content unavailable: upload_failed]");
         assert_eq!(shown.attributes["gen_ai.operation.name"], "chat");
+    }
+
+    const TOKEN: &str = "fixture-service-token-with-32-chars!";
+    const STORED: &str = r#"{"v":2,"state":"stored","object_key":"logs/lens-content/2023-11-14/abc.json","bytes":45,"sha256":"0e469198a46d22437fab286514c9c8a42c17552d50e8613225e2c31bd5407968","mac":"c2172cc69bbddfc0003ccea9602142710e9f4e3a9a639f62d18715f667ce0a0f"}"#;
+    const UNAVAILABLE: &str = r#"{"v":2,"state":"unavailable","reason":"upload_failed","mac":"b691bdbb706af2a54e56f68077a6a63c909d5e6248aa37c1764feff4d88f30b9"}"#;
+
+    fn fixture_owner() -> Owner<'static> {
+        Owner {
+            team_id: "team-\u{e9}",
+            api_key: "hash-a",
+            trace_id: "0af7651916cd43dd8448eb211c80319c",
+            span_id: "b7ad6b7169203331",
+        }
+    }
+
+    fn read_url(gateway: &ContentGateway, raw: &str) -> Result<String, Hydrated> {
+        gateway
+            .verified(&fixture_owner(), raw)
+            .map(|(endpoint, _)| endpoint.url.map(String::from).unwrap_or_default())
+    }
+
+    #[test]
+    fn a_gateway_connected_after_startup_is_used_with_its_current_token() {
+        let connected = Arc::new(std::sync::RwLock::new(None::<(String, String)>));
+        let gateway = ContentGateway::new(None).unwrap();
+        let shared = connected.clone();
+        gateway.connected_by(move || shared.read().unwrap().clone());
+        assert_eq!(
+            read_url(&gateway, UNAVAILABLE),
+            Err(Hydrated::Unavailable("retrieval_not_configured".into()))
+        );
+        *connected.write().unwrap() = Some(("http://gateway.test/".into(), TOKEN.into()));
+        assert_eq!(
+            read_url(&gateway, UNAVAILABLE).unwrap(),
+            "http://gateway.test/lens/content"
+        );
+        assert!(matches!(
+            gateway.verified(&fixture_owner(), UNAVAILABLE),
+            Ok((_, ContentReference::Unavailable(reason))) if reason == "upload_failed"
+        ));
+        *connected.write().unwrap() =
+            Some(("http://gateway.test/".into(), "a-rotated-service-token-32-characters".into()));
+        assert_eq!(
+            read_url(&gateway, UNAVAILABLE),
+            Err(Hydrated::Unavailable("unverified".into()))
+        );
+    }
+
+    #[test]
+    fn a_statically_configured_gateway_wins_over_a_connected_one() {
+        let base: url::Url = "http://static.test".parse().unwrap();
+        let gateway = ContentGateway::new(Some((Some(&base), TOKEN))).unwrap();
+        gateway.connected_by(|| {
+            Some((
+                "http://other.test".into(),
+                "another-token-with-32-characters!!".into(),
+            ))
+        });
+        assert_eq!(
+            read_url(&gateway, STORED).unwrap(),
+            "http://static.test/lens/content"
+        );
+    }
+
+    #[test]
+    fn a_reference_that_does_not_verify_is_never_fetched() {
+        let base: url::Url = "http://static.test".parse().unwrap();
+        let gateway = ContentGateway::new(Some((Some(&base), TOKEN))).unwrap();
+        let tampered = STORED.replace("\"bytes\":45", "\"bytes\":46");
+        let reasoned = UNAVAILABLE.replace("upload_failed", "too_large");
+        let refused = [
+            "",
+            "{",
+            &STORED[..60],
+            tampered.as_str(),
+            reasoned.as_str(),
+        ];
+        for raw in refused {
+            assert_eq!(
+                read_url(&gateway, raw),
+                Err(Hydrated::Unavailable("unverified".into()))
+            );
+        }
+    }
+
+    #[test]
+    fn an_unavailable_placeholder_never_proves_a_quote() {
+        let row = LensContentReferenceRow {
+            span_id: "b7ad6b7169203331".into(),
+            team_id: "team-a".into(),
+            api_key: "hash-a".into(),
+            scope: "litellm".into(),
+            name: "chat".into(),
+            parent_span_id: String::new(),
+            resource_attributes: BTreeMap::new(),
+            status_code: "Unset".into(),
+            status_message: String::new(),
+            attributes: BTreeMap::new(),
+        };
+        let placeholder = ReadBack {
+            input: unavailable_text("upload_failed"),
+            output: String::new(),
+            verifiable: false,
+        };
+        assert!(!proves(&placeholder, &row, "content unavailable"));
+        let content = ReadBack {
+            input: "list the files".into(),
+            output: "one file".into(),
+            verifiable: true,
+        };
+        assert!(proves(&content, &row, "one file"));
+        assert!(!proves(&content, &row, "two files"));
     }
 }

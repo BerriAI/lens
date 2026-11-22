@@ -118,8 +118,20 @@ impl Storage {
         }
     }
 
-    pub fn with_content(self, content: Option<ContentGateway>) -> Self {
-        Self { content, ..self }
+    pub fn with_content(self, content: ContentGateway) -> Self {
+        Self {
+            content: Some(content),
+            ..self
+        }
+    }
+
+    pub fn content_connected_by(
+        &self,
+        connected: impl Fn() -> Option<(String, String)> + Send + Sync + 'static,
+    ) {
+        if let Some(content) = &self.content {
+            content.connected_by(connected);
+        }
     }
 
     /// A span detail whose content LiteLLM stored, read back for this same scoped span; others pass unchanged.
@@ -147,14 +159,9 @@ impl Storage {
         let Some(row) = rows.into_iter().next() else {
             return Some(content::unavailable_detail(detail, "retrieval_failed"));
         };
+        let owner = content::owner(&row, &params.trace_id, &params.span_id);
         let hydrated = match &self.content {
-            Some(gateway) => gateway
-                .hydrate(
-                    &content::owner(&row, &params.trace_id, &params.span_id),
-                    &raw,
-                )
-                .await
-                .unwrap_or_else(|| content::Hydrated::Unavailable("unverified".into())),
+            Some(gateway) => gateway.hydrate(&owner, &raw).await,
             None => content::Hydrated::Unavailable("retrieval_not_configured".into()),
         };
         Some(content::hydrated_detail(detail, &row, hydrated))

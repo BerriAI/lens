@@ -194,6 +194,10 @@ impl Application {
     pub fn with_service(self, state: Arc<State>, url: String, release: String) -> Self {
         let authentication = self.authentication.clone();
         state.service_token_connected_by(move || authentication.settings.connected_service_token());
+        let content_authentication = self.authentication.clone();
+        state.storage.content_connected_by(move || {
+            content_authentication.settings.connected_content_gateway()
+        });
         if !self.authentication.settings.gateway_set_by_environment() {
             let authentication = self.authentication.clone();
             tokio::spawn(async move {

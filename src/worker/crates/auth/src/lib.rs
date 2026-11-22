@@ -205,6 +205,15 @@ impl Settings {
         self.connected()?.service_token
     }
 
+    /// The connected gateway's URL and the service token it signs stored trace content with.
+    pub fn connected_content_gateway(&self) -> Option<(String, String)> {
+        if self.gateway_secret.is_some() {
+            return None;
+        }
+        let gateway = self.connected()?;
+        Some((gateway.url, gateway.service_token?))
+    }
+
     fn connected(&self) -> Option<GatewayConnection> {
         self.connected_gateway
             .read()
