@@ -11,7 +11,13 @@ import { useConnectProjectRoute } from "../route";
 import { useOnboarding } from "./OnboardingContext";
 import { HomeConnectionStatus } from "./HomeConnectionStatus";
 import { SetupAgentPrompt } from "./SetupAgentPrompt";
-import { CLAUDE_CODE_GATEWAY_TELEMETRY, type SetupPath } from "./setupPrompt";
+import {
+  OPENCODE_CONFIG,
+  SETUP_AGENTS,
+  agentTelemetrySettings,
+  type SetupAgent,
+  type SetupPath,
+} from "./setupPrompt";
 import { useLensHost } from "../../../host/LensHost";
 import { getRequestBaseUrl } from "../../../lib/http/runtime";
 import { LensPageHeader } from "../ui/LensPageHeader";
@@ -52,16 +58,12 @@ const PATHS: readonly {
   },
 ];
 
-const gatewayEnvironment = (gatewayUrl: string) =>
-  [
-    `export ANTHROPIC_BASE_URL=${shellValue(gatewayUrl || "<your LiteLLM gateway address>")}`,
-    `export ANTHROPIC_AUTH_TOKEN='<your LiteLLM key>'`,
-    ...CLAUDE_CODE_GATEWAY_TELEMETRY.map(
-      ([name, value]) => `export ${name}=${value}`,
-    ),
-    `export OTEL_EXPORTER_OTLP_ENDPOINT="$ANTHROPIC_BASE_URL"`,
-    `export OTEL_EXPORTER_OTLP_HEADERS="Authorization=Bearer $ANTHROPIC_AUTH_TOKEN"`,
-  ].join("\n");
+const MANUAL_TARGET: Record<SetupAgent, string> = {
+  "claude-code":
+    "Add these to the env object in ~/.claude/settings.json, or export them in the terminal where you run claude.",
+  codex: "Add this to ~/.codex/config.toml.",
+  opencode: `Add ${OPENCODE_CONFIG} to opencode.json, then set these where you start opencode.`,
+};
 
 export function LensHome({
   agents,
@@ -103,6 +105,8 @@ export function LensHome({
     embedded ? "gateway" : "standalone",
   );
   const gateway = path === "gateway";
+  const [agent, setAgent] = useState<SetupAgent>("claude-code");
+  const agentLabel = SETUP_AGENTS.find((option) => option.id === agent)?.label;
   const gatewayUrl = embedded
     ? (getRequestBaseUrl() || globalThis.location?.origin || "").replace(
         /\/$/,
@@ -378,28 +382,45 @@ export function LensHome({
                       Point your agent’s telemetry at your LiteLLM gateway and
                       authenticate with the LiteLLM key it already uses for
                       model calls. The gateway forwards it to Lens, so you do
-                      not need a Lens tracing key. For Claude Code, run this in
-                      the terminal where you run <code>claude</code>.
+                      not need a Lens tracing key.
+                    </p>
+                    <div
+                      role="radiogroup"
+                      aria-label="Coding agent"
+                      className="flex flex-wrap gap-2"
+                    >
+                      {SETUP_AGENTS.map((option) => (
+                        <Button
+                          key={option.id}
+                          role="radio"
+                          aria-checked={agent === option.id}
+                          size="sm"
+                          variant={agent === option.id ? "default" : "outline"}
+                          onClick={() => setAgent(option.id)}
+                        >
+                          {option.label}
+                        </Button>
+                      ))}
+                    </div>
+                    <p className="text-sm leading-6 text-muted-foreground">
+                      {MANUAL_TARGET[agent]}
                     </p>
                     <CodeBlock
-                      code={gatewayEnvironment(gatewayUrl)}
-                      copyLabel="Copy Claude Code environment"
+                      code={agentTelemetrySettings(
+                        agent,
+                        gatewayUrl || "<your LiteLLM gateway address>",
+                        "<your LiteLLM key>",
+                      )}
+                      copyLabel={`Copy ${agentLabel} settings`}
                       wrap
                     />
-                    <p className="text-xs leading-5 text-muted-foreground">
-                      For any other agent, send OTLP/HTTP traces to your gateway
-                      address followed by <code>/v1/traces</code> with{" "}
-                      <code>
-                        Authorization: Bearer &lt;your LiteLLM key&gt;
-                      </code>{" "}
-                      and include <code>gen_ai.agent.name</code> on its root
-                      agent span.
-                    </p>
                   </div>
                 ) : (
                   <SetupAgentPrompt
                     goal="tracing"
                     path="gateway"
+                    agent={agent}
+                    onAgentChange={setAgent}
                     agentName={project?.name}
                     prominent
                   />
@@ -461,6 +482,9 @@ export function LensHome({
               ) : (
                 <SetupAgentPrompt
                   goal="tracing"
+                  path="standalone"
+                  agent={agent}
+                  onAgentChange={setAgent}
                   connection={connection.error ? undefined : connection.data}
                   agentName={project?.name}
                   tracingKey={tracingKey}

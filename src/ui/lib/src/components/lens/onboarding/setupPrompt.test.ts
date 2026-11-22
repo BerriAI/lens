@@ -1,7 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
-  CLAUDE_CODE_GATEWAY_TELEMETRY,
-  gatewayTracingPrompt,
+  agentTracingPrompt,
   setupPrompt,
   type SetupConnection,
 } from "./setupPrompt";
@@ -139,37 +138,60 @@ describe("agent setup prompt", () => {
     },
   );
 
-  it("sends gateway telemetry to the gateway with the LiteLLM key and never to Lens or a Lens tracing key", () => {
-    const prompt = gatewayTracingPrompt({
-      gatewayUrl: "https://user:pass@gateway.example/?token=1#frag",
-      agentName: " support-agent ",
-    });
-    expect(prompt).toContain('LiteLLM gateway address: "https://gateway.example"');
-    expect(prompt).not.toContain("pass");
-    expect(prompt).toContain("Do not create or use a Lens tracing key");
-    expect(prompt).toContain("Authorization: Bearer <the LiteLLM key>");
-    expect(prompt).toContain('Setup link agent name: "support-agent"');
-    expect(prompt).not.toContain("dedicated Lens tracing key");
-    expect(prompt).not.toContain("/v1/traces/receipt");
-    for (const [name, value] of CLAUDE_CODE_GATEWAY_TELEMETRY) {
-      expect(prompt).toContain(`${name}=${value}`);
-    }
+  const agents = ["claude-code", "codex", "opencode"] as const;
+  const paths = ["gateway", "standalone"] as const;
+
+  it.each(agents.flatMap((agent) => paths.map((path) => [agent, path] as const)))(
+    "gives %s a self-contained %s prompt with no document to read",
+    (agent, path) => {
+      const prompt = agentTracingPrompt({
+        agent,
+        path,
+        gatewayUrl: "https://user:pass@gateway.example/?token=1#frag",
+        lensUrl: "https://lens.example/",
+        tracingKey: "lens-key-1",
+      });
+      expect(prompt).not.toMatch(/README|github\.com|\/docs\//);
+      expect(prompt).not.toContain("pass@");
+      const address = path === "gateway" ? "https://gateway.example" : "https://lens.example";
+      const other = path === "gateway" ? "https://lens.example/v1" : "gateway.example";
+      expect(prompt).toContain(
+        agent === "codex" ? `endpoint = "${address}/v1/traces"` : `OTEL_EXPORTER_OTLP_ENDPOINT=${address}`,
+      );
+      expect(prompt).not.toContain(other);
+      if (path === "gateway") {
+        expect(prompt).toContain("Do not create or use a Lens tracing key");
+        expect(prompt).toContain("Bearer <the LiteLLM key>");
+        expect(prompt).toContain("choose Standalone Lens on Lens Home");
+        expect(prompt).not.toContain("lens-key-1");
+      } else {
+        expect(prompt).toContain('Lens tracing key: "lens-key-1"');
+        expect(prompt).toContain("Bearer <the Lens tracing key>");
+        expect(prompt).toContain("Do not add or change a LiteLLM gateway");
+      }
+    },
+  );
+
+  it("gives each agent its own settings", () => {
+    const prompt = (agent: (typeof agents)[number]) =>
+      agentTracingPrompt({ agent, path: "standalone", lensUrl: "https://lens.example" });
+    expect(prompt("claude-code")).toContain("CLAUDE_CODE_OTEL_CONTENT_MAX_LENGTH=16777216");
+    expect(prompt("claude-code")).toContain("~/.claude/settings.json");
+    expect(prompt("codex")).toContain("~/.codex/config.toml");
+    expect(prompt("codex")).toContain('exporter = { otlp-http = { endpoint = "https://lens.example/v1/logs"');
+    expect(prompt("codex")).not.toContain("CLAUDE_CODE");
+    expect(prompt("opencode")).toContain('{ "experimental": { "openTelemetry": true } }');
+    expect(prompt("opencode")).toContain("OTEL_BSP_SCHEDULE_DELAY=1000");
+    expect(prompt("opencode")).toContain("unset it");
   });
 
-  it("asks the coding agent to find the gateway when only the Lens address is known and to stop when there is none", () => {
-    const prompt = gatewayTracingPrompt({ lensUrl: "https://lens.example/ui/" });
-    expect(prompt).toContain("Find the LiteLLM gateway address");
-    expect(prompt).toContain("choose Standalone Lens on Lens Home");
-    expect(prompt).toContain('Lens address, for viewing traces only: "https://lens.example');
-    expect(prompt).not.toContain("LiteLLM gateway address: ");
-  });
-
-  it("describes direct telemetry only when the standalone path is chosen inside the gateway dashboard", () => {
-    const direct = setupPrompt({ standalone: false, path: "standalone", goal: "tracing" });
-    expect(direct).toContain("does not use a LiteLLM gateway");
-    expect(direct).not.toContain("I opened Lens from an existing LiteLLM admin dashboard");
-    expect(setupPrompt({ standalone: false, goal: "tracing" })).toContain(
-      "I opened Lens from an existing LiteLLM admin dashboard",
-    );
+  it("asks the agent to find its gateway when the page does not know it, and for a saved key when none is included", () => {
+    const gateway = agentTracingPrompt({ agent: "codex", path: "gateway", lensUrl: "https://lens.example/ui/" });
+    expect(gateway).toContain("Find the LiteLLM gateway address Codex already uses");
+    expect(gateway).toContain('endpoint = "<the LiteLLM gateway address>/v1/traces"');
+    expect(gateway).toContain('open Traces in Lens at "https://lens.example/ui"');
+    const standalone = agentTracingPrompt({ agent: "codex", path: "standalone" });
+    expect(standalone).toContain("LITELLM_TRACING_KEY");
+    expect(standalone).toContain("Ask me for the Lens address");
   });
 });

@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { Check, Copy, Loader2 } from "lucide-react";
+import { Check, Copy, Loader2, SquareTerminal } from "lucide-react";
 import { useTimeout } from "usehooks-ts";
 import { Button } from "../../ui/button";
 import { copyToClipboard } from "../../../utils/dataUtils";
@@ -9,11 +9,12 @@ import { useLensHost } from "../../../host/LensHost";
 import { getRequestBaseUrl } from "../../../lib/http/runtime";
 import claudeCodeLogo from "../../../../public/assets/logos/claude-code.svg";
 import codexLogo from "../../../../public/assets/logos/codex.svg";
-import cursorLogo from "../../../../public/assets/logos/cursor.svg";
 import { maskSecret } from "./tracing/tracingKeys";
 import {
-  gatewayTracingPrompt,
+  SETUP_AGENTS,
+  agentTracingPrompt,
   setupPrompt,
+  type SetupAgent,
   type SetupConnection,
   type SetupEval,
   type SetupGoal,
@@ -23,6 +24,8 @@ import {
 export function SetupAgentPrompt({
   goal = "start",
   path,
+  agent = "claude-code",
+  onAgentChange,
   connection,
   evaluation,
   featureConfigured,
@@ -35,6 +38,8 @@ export function SetupAgentPrompt({
 }: {
   readonly goal?: SetupGoal;
   readonly path?: SetupPath;
+  readonly agent?: SetupAgent;
+  readonly onAgentChange?: (agent: SetupAgent) => void;
   readonly connection?: SetupConnection;
   readonly evaluation?: SetupEval;
   readonly featureConfigured?: boolean;
@@ -61,7 +66,6 @@ export function SetupAgentPrompt({
   }, []);
   const context = {
     standalone,
-    path,
     goal,
     connection,
     evaluation,
@@ -69,12 +73,20 @@ export function SetupAgentPrompt({
     agentName,
   };
   const gateway = path === "gateway";
+  const agentLabel = SETUP_AGENTS.find((option) => option.id === agent)?.label;
   const build = (base: string, key?: string) =>
-    gateway
-      ? gatewayTracingPrompt({
+    path
+      ? agentTracingPrompt({
+          agent,
+          path,
           gatewayUrl: standalone ? undefined : base,
           lensUrl: standalone ? base : undefined,
-          agentName,
+          traceUrl: connection?.url,
+          storageReady:
+            gateway || !connection?.connected
+              ? undefined
+              : Boolean(connection.status.storage_ready),
+          tracingKey: gateway ? undefined : key,
         })
       : setupPrompt({ ...context, baseUrl: base, tracingKey: key });
   const prompt = build(
@@ -133,41 +145,77 @@ export function SetupAgentPrompt({
       {prominent && (
         <div className="mb-5 space-y-4">
           <div>
-            <div className="flex flex-wrap items-center gap-3">
-              <span className="inline-flex items-center gap-2 rounded-lg border bg-background px-3 py-2 text-sm font-medium">
-                <img
-                  src={claudeCodeLogo.src}
-                  alt=""
-                  className="size-7 object-contain"
-                />
-                Claude Code
-              </span>
-              <span className="inline-flex items-center gap-2 rounded-lg border bg-background px-3 py-2 text-sm font-medium">
-                <img
-                  src={codexLogo.src}
-                  alt=""
-                  className="size-6 object-contain dark:invert"
-                />
-                Codex
-              </span>
-              <span className="inline-flex items-center gap-2 rounded-lg border bg-background px-3 py-2 text-sm font-medium">
-                <img
-                  src={cursorLogo.src}
-                  alt=""
-                  className="size-6 object-contain dark:invert"
-                />
-                Cursor
-              </span>
-            </div>
+            {path ? (
+              <div
+                role="radiogroup"
+                aria-label="Coding agent"
+                className="flex flex-wrap items-center gap-3"
+              >
+                {SETUP_AGENTS.map((option) => (
+                  <button
+                    key={option.id}
+                    type="button"
+                    role="radio"
+                    aria-checked={agent === option.id}
+                    disabled={copying}
+                    onClick={() => onAgentChange?.(option.id)}
+                    className={`inline-flex items-center gap-2 rounded-lg border px-3 py-2 text-sm font-medium transition-colors ${
+                      agent === option.id
+                        ? "border-primary bg-primary/5 ring-1 ring-primary"
+                        : "bg-background hover:bg-muted/40"
+                    }`}
+                  >
+                    {option.id === "claude-code" ? (
+                      <img
+                        src={claudeCodeLogo.src}
+                        alt=""
+                        className="size-7 object-contain"
+                      />
+                    ) : option.id === "codex" ? (
+                      <img
+                        src={codexLogo.src}
+                        alt=""
+                        className="size-6 object-contain dark:invert"
+                      />
+                    ) : (
+                      <SquareTerminal aria-hidden className="size-6" />
+                    )}
+                    {option.label}
+                  </button>
+                ))}
+              </div>
+            ) : (
+              <div className="flex flex-wrap items-center gap-3">
+                <span className="inline-flex items-center gap-2 rounded-lg border bg-background px-3 py-2 text-sm font-medium">
+                  <img
+                    src={claudeCodeLogo.src}
+                    alt=""
+                    className="size-7 object-contain"
+                  />
+                  Claude Code
+                </span>
+                <span className="inline-flex items-center gap-2 rounded-lg border bg-background px-3 py-2 text-sm font-medium">
+                  <img
+                    src={codexLogo.src}
+                    alt=""
+                    className="size-6 object-contain dark:invert"
+                  />
+                  Codex
+                </span>
+              </div>
+            )}
             <p className="mt-2 text-sm leading-6 text-muted-foreground">
-              Open your project in your coding agent, then paste these
-              instructions.
+              {path
+                ? `Paste these instructions into ${agentLabel}.`
+                : "Open your project in your coding agent, then paste these instructions."}
             </p>
           </div>
           <p className="text-sm leading-6 text-muted-foreground">
             {gateway
-              ? "The instructions help your coding agent send telemetry to your LiteLLM gateway with the key it already uses, then run one real task."
-              : "The instructions help your coding agent configure tracing, run one real task, and verify its trace arrived."}
+              ? `The instructions have ${agentLabel} send its telemetry to your LiteLLM gateway with the key it already uses, then run one real task.`
+              : path
+                ? `The instructions have ${agentLabel} send its telemetry to Lens with a tracing key, then run one real task.`
+                : "The instructions help your coding agent configure tracing, run one real task, and verify its trace arrived."}
           </p>
         </div>
       )}
@@ -204,8 +252,8 @@ export function SetupAgentPrompt({
                 ? "Creates a tracing key and includes it in the instructions. The key will be in your coding agent’s chat history."
                 : gateway
                   ? standalone
-                    ? "Your coding agent finds the gateway address and LiteLLM key your agent already uses. No Lens tracing key is needed."
-                    : "Includes your gateway address. Uses the LiteLLM key your agent already has. No Lens tracing key is needed."
+                    ? "It finds the gateway address and LiteLLM key it already uses. No Lens tracing key is needed."
+                    : "Includes your gateway address. Uses the LiteLLM key it already has. No Lens tracing key is needed."
                   : "Includes your Lens address. Uses the tracing key in your project."
             : "Copy a prompt for your coding agent. It checks your setup and asks only for missing choices."}
         </p>

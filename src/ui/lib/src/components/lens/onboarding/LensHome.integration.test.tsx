@@ -85,7 +85,7 @@ describe("Lens Home connection", () => {
       screen.getByRole("button", { name: "Copy instructions with new key" }),
     );
     expect(await navigator.clipboard.readText()).toContain(
-      "/v1/traces/receipt",
+      "CLAUDE_CODE_ENABLE_TELEMETRY=1",
     );
     expect(await navigator.clipboard.readText()).toContain(secret);
     expect(gateway.post.mock.calls.filter(([path]) => path === "/lens/admin/tracing/keys")).toHaveLength(1);
@@ -118,8 +118,7 @@ describe("Lens Home connection", () => {
     );
     const instructions = await navigator.clipboard.readText();
     expect(instructions).toContain(secret);
-    expect(instructions).toContain("ignored local environment file");
-    expect(instructions).toContain("/v1/traces/receipt");
+    expect(instructions).toContain("Bearer <the Lens tracing key>");
     await user.click(screen.getByRole("button", { name: "Manage tracing keys" }));
     await user.click(await screen.findByRole("button", { name: "Use key in my project" }));
     expect(screen.getByRole("button", { name: "Copy instructions with key" })).toBeVisible();
@@ -139,7 +138,7 @@ describe("Lens Home connection", () => {
     await user.click(screen.getByRole("button", { name: "Copy without key" }));
     expect(await navigator.clipboard.readText()).not.toContain(secret);
     expect(await navigator.clipboard.readText()).toContain(
-      "Load the dedicated key from this project's local environment",
+      "Use my Lens tracing key from the LITELLM_TRACING_KEY environment variable",
     );
     await user.click(screen.getByRole("button", { name: "Set up manually" }));
     await user.click(
@@ -219,7 +218,7 @@ describe("Lens Home connection", () => {
         screen.getByRole("button", { name: "Copy setup instructions" }),
       );
       expect(await navigator.clipboard.readText()).toContain(
-        "Load the dedicated key from this project's local environment",
+        "Use my Lens tracing key from the LITELLM_TRACING_KEY environment variable",
       );
       expect(gateway.post).not.toHaveBeenCalled();
       await user.click(screen.getByRole("button", { name: "Manage tracing keys" }));
@@ -334,22 +333,52 @@ describe("Lens Home connection", () => {
     expect(screen.queryByText("Using Agent tracing")).not.toBeInTheDocument();
   });
 
-  it("preserves legacy setup context without treating it as a received trace", async () => {
-    const user = userEvent.setup();
+  it("does not treat a legacy setup link as a received trace", async () => {
     serve();
     await standaloneHome({
       searchParams: "?connect_agent=support-agent&connect_step=verify",
     });
-    await user.click(
+    expect(
       await screen.findByRole("button", { name: "Copy instructions with new key" }),
-    );
-    expect(await navigator.clipboard.readText()).toContain(
-      'Setup link agent name: "support-agent"',
-    );
+    ).toBeVisible();
     expect(
       screen.queryByText("Trace received", { exact: true }),
     ).not.toBeInTheDocument();
   });
+
+  it.each(["gateway", "standalone"] as const)(
+    "copies instructions for the chosen coding agent on the %s path",
+    async (path) => {
+      const user = userEvent.setup();
+      serve();
+      if (path === "standalone") await standaloneHome();
+      else renderWithLens(home());
+      const agents = screen.getByRole("radiogroup", { name: "Coding agent" });
+      expect(
+        within(agents).getAllByRole("radio").map((chip) => chip.textContent),
+      ).toEqual(["Claude Code", "Codex", "OpenCode"]);
+      expect(
+        within(agents).getByRole("radio", { name: "Claude Code" }),
+      ).toBeChecked();
+      await user.click(within(agents).getByRole("radio", { name: "Codex" }));
+      expect(within(agents).getByRole("radio", { name: "Codex" })).toBeChecked();
+      expect(
+        screen.getByText("Paste these instructions into Codex."),
+      ).toBeVisible();
+      await user.click(
+        screen.getByRole("button", {
+          name:
+            path === "gateway"
+              ? "Copy setup instructions"
+              : "Copy instructions with new key",
+        }),
+      );
+      const copied = await navigator.clipboard.readText();
+      expect(copied).toContain("~/.codex/config.toml");
+      expect(copied).not.toContain("CLAUDE_CODE_ENABLE_TELEMETRY");
+      expect(copied).not.toMatch(/README|github\.com|\/docs\//);
+    },
+  );
 
   it("does not copy instructions or create credentials while demo data is enabled", () => {
     const gateway = serve();
@@ -401,8 +430,13 @@ describe("Lens Home connection", () => {
     renderWithLens(home());
     await user.click(screen.getByRole("button", { name: "Set up manually" }));
     expect(
-      screen.getByText(/OTEL_EXPORTER_OTLP_ENDPOINT="\$ANTHROPIC_BASE_URL"/),
+      screen.getByText(/CLAUDE_CODE_ENABLE_TELEMETRY=1/),
     ).toBeVisible();
+    await user.click(screen.getByRole("radio", { name: "OpenCode" }));
+    expect(screen.getByText(/OTEL_BSP_SCHEDULE_DELAY=1000/)).toBeVisible();
+    expect(
+      screen.queryByText(/CLAUDE_CODE_ENABLE_TELEMETRY/),
+    ).not.toBeInTheDocument();
     expect(
       screen.queryByText(/LITELLM_TRACING_KEY/),
     ).not.toBeInTheDocument();
@@ -411,7 +445,7 @@ describe("Lens Home connection", () => {
       screen.getByRole("heading", { name: "Connect to Lens standalone" }),
     ).toBeVisible();
     expect(
-      screen.queryByText(/ANTHROPIC_BASE_URL/),
+      screen.queryByText(/OTEL_BSP_SCHEDULE_DELAY/),
     ).not.toBeInTheDocument();
     expect(
       await screen.findByRole("button", { name: "Create tracing key" }),
