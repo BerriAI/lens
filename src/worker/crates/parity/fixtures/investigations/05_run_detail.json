@@ -1,7 +1,7 @@
 {
   "request": {
     "method": "GET",
-    "path": "/lens/parity-lens/runs/job",
+    "path": "/lens/admin/parity-lens/runs/job",
     "headers": {
       "authorization": "Bearer {{admin_token}}",
       "content-type": "application/json"

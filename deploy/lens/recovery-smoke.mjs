@@ -85,7 +85,7 @@ try {
     const text = await response.text();
     try { return JSON.parse(text); } catch { return text; }
   }
-  const key = await request(source, "POST", "/lens/tracing/keys", { name: "Recovery qualification" });
+  const key = await request(source, "POST", "/lens/admin/tracing/keys", { name: "Recovery qualification" });
   const traceId = randomBytes(16).toString("hex");
   const now = BigInt(Date.now()) * 1000000n;
   const messages = [["gen_ai.operation.name", "chat"], ["gen_ai.request.model", "fixture"],
@@ -146,7 +146,7 @@ try {
   const traces = await request(restored, "GET", "/v1/traces");
   assert.equal(traces.data.length, 1);
   assert.equal(traces.data[0].trace_id, traceId);
-  assert.ok(JSON.stringify(await request(restored, "GET", "/lens/tracing/keys")).includes(key.record.id));
+  assert.ok(JSON.stringify(await request(restored, "GET", "/lens/admin/tracing/keys")).includes(key.record.id));
   assert.equal((await fetch(restored.origin + "/lens/datasets", { headers: { cookie } })).status, 200);
   await execute(restore, [backup], restored.environment, "failure");
   console.log(JSON.stringify({ status: "passed", image, trace_retained: true, dataset_revision: saved.revision,

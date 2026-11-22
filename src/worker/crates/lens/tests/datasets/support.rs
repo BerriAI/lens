@@ -16,6 +16,7 @@ use testcontainers_modules::{
     testcontainers::{ContainerAsync, ImageExt, runners::AsyncRunner},
 };
 
+pub const SLACK: &str = "slack-investigator-test-token-only";
 pub const GATEWAY: &str = "dataset-test-gateway-secret-at-least-32";
 
 pub const ADMIN: &str = "dataset-integration-admin-token-at-least-32";
@@ -141,7 +142,10 @@ impl Database {
         let url = format!("http://{}", listener.local_addr().unwrap());
         let application = api::initialize(
             &state,
-            Settings::new(ADMIN, Some(GATEWAY.into()), &url).unwrap(),
+            Settings::new(ADMIN, Some(GATEWAY.into()), &url)
+                .unwrap()
+                .with_slack_investigator(SLACK, "alpha")
+                .unwrap(),
             Default::default(),
             Default::default(),
             api::EvalConfig {

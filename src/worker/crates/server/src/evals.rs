@@ -7,7 +7,7 @@ use axum::{
     http::{HeaderMap, StatusCode},
     middleware::{self, Next},
     response::{IntoResponse, Response},
-    routing::{get, post, put},
+    routing::{any, get, post, put},
 };
 use chrono::Utc;
 use lens_auth::{Authentication, SessionRepository};
@@ -104,23 +104,25 @@ pub fn split_router_with_traces<R: SessionRepository + 'static>(
     routers(authentication, state, public_url, Some(traces))
 }
 
-/// Sends dataset case reads that carry the contract header to `cases`, leaving every other request on `router`
+const CONTRACT_CASES: &str = "/lens/datasets/{id}/revisions/{revision}/cases";
+
+/// Serves dataset case reads that carry the contract header from `cases`; the address answers nothing else
 pub fn with_contract_cases(router: Router, cases: Router) -> Router {
-    router.layer(middleware::from_fn(move |request: Request, next: Next| {
-        let cases = cases.clone();
-        async move {
-            if request.headers().contains_key(CONTRACT_HEADER)
-                && is_dataset_cases_path(request.uri().path())
-            {
+    router.route(
+        CONTRACT_CASES,
+        any(move |request: Request| {
+            let cases = cases.clone();
+            async move {
+                if !request.headers().contains_key(CONTRACT_HEADER) {
+                    return StatusCode::NOT_FOUND.into_response();
+                }
                 match cases.oneshot(without_extensions(request)).await {
                     Ok(response) => response,
                     Err(never) => match never {},
                 }
-            } else {
-                next.run(request).await
             }
-        }
-    }))
+        }),
+    )
 }
 
 /// The outer router has already matched this path, so its path params must not leak into the inner match
@@ -132,14 +134,6 @@ fn without_extensions(request: Request) -> Request {
     *clean.version_mut() = parts.version;
     *clean.headers_mut() = parts.headers;
     clean
-}
-
-fn is_dataset_cases_path(path: &str) -> bool {
-    matches!(
-        path.split('/').collect::<Vec<_>>().as_slice(),
-        ["", "lens", "datasets", id, "revisions", revision, "cases"]
-            if !id.is_empty() && !revision.is_empty()
-    )
 }
 
 fn routers<R: SessionRepository + 'static>(
@@ -180,10 +174,7 @@ fn routers<R: SessionRepository + 'static>(
         .public_route("/lens/evals/runs/{run}/cases", get(run_cases::<R>))
         .public_route("/lens/evals/runs/{run}/cases/{case_id}", get(run_case::<R>))
         .public_route("/lens/datasets/resolve", get(resolve::<R>));
-    let cases = Router::new().public_route(
-        "/lens/datasets/{id}/revisions/{revision}/cases",
-        get(cases::<R>),
-    );
+    let cases = Router::new().public_route(CONTRACT_CASES, get(cases::<R>));
     (authorized(api), authorized(cases))
 }
 

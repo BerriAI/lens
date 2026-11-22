@@ -73,7 +73,7 @@ class Optimizations:
         try:
             connection.request(
                 "POST",
-                f"{endpoint.path.rstrip('/')}/lens/optimizations/{path}",
+                f"{endpoint.path.rstrip('/')}/lens/{'' if path == 'assign' else 'admin/'}optimizations/{path}",
                 body.model_dump_json().encode() if body is not None else b"{}",
                 {"Authorization": f"Bearer {self.key}", "Content-Type": "application/json"},
             )

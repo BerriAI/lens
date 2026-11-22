@@ -55,8 +55,8 @@ impl AlertRules {
 
     pub fn router(&self) -> Router {
         Router::new()
-            .route("/lens/alerts/rules", get(read).put(save))
-            .route("/lens/alerts/rules/overview", get(overview))
+            .route("/lens/admin/alerts/rules", get(read).put(save))
+            .route("/lens/admin/alerts/rules/overview", get(overview))
             .layer(DefaultBodyLimit::max(32_768))
             .with_state(self.clone())
     }

@@ -385,7 +385,7 @@ async fn cookie_feedback_writes_require_the_lens_origin(
 
 #[rstest]
 #[case::feedback("/lens/feedback/?trace_id=trace", "/lens/feedback?trace_id=trace")]
-#[case::summary("/lens/feedback/summary/", "/lens/feedback/summary")]
+#[case::summary("/lens/admin/feedback/summary/", "/lens/admin/feedback/summary")]
 #[tokio::test]
 async fn feedback_trailing_slashes_keep_the_existing_redirect(
     #[future(awt)] database: Database,
@@ -440,7 +440,7 @@ async fn summaries_accept_batches_past_the_previous_limit(#[future(awt)] databas
     let server = database.serve().await;
     let response = server
         .client
-        .post(server.url.join("/lens/feedback/summary").unwrap())
+        .post(server.url.join("/lens/admin/feedback/summary").unwrap())
         .bearer_auth(ADMIN)
         .json(&json!({"traces":vec![json!({"trace_id":"missing"});501]}))
         .send()

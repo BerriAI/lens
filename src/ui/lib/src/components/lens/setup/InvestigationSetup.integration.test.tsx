@@ -45,9 +45,9 @@ interface Gateway {
 
 function gatewayResponse(path: string, gateway: Gateway): unknown {
   const { models = ["analysis"], modelDetails = [], agents = [] } = gateway;
-  if (path === "/lens/models") return { data: models.map((id) => ({ id })) };
-  if (path === "/lens/model_group/info") return { data: modelDetails };
-  if (path === "/lens/agents") return agents;
+  if (path === "/lens/admin/models") return { data: models.map((id) => ({ id })) };
+  if (path === "/lens/admin/model_group/info") return { data: modelDetails };
+  if (path === "/lens/admin/agents") return agents;
   return [];
 }
 
@@ -435,7 +435,7 @@ it.each(["loading", "error"])("saves edits with the existing model while models 
   const user = userEvent.setup();
   const save = vi.fn().mockResolvedValue(undefined);
   proxy.get.mockImplementation((path) => {
-    if (path !== "/lens/models") return Promise.resolve(gatewayResponse(path, {}));
+    if (path !== "/lens/admin/models") return Promise.resolve(gatewayResponse(path, {}));
     return state === "loading" ? new Promise(() => {}) : Promise.reject(new Error("Temporarily unavailable"));
   });
   renderWithProviders(<InvestigationSetup mode="edit" initial={settings} onClose={vi.fn()} onSave={save} />);
@@ -454,7 +454,7 @@ it.each(["new", "duplicate"] as const)("blocks a %s investigation until its mode
   const user = userEvent.setup();
   const save = vi.fn();
   proxy.get.mockImplementation((path) =>
-    path === "/lens/models"
+    path === "/lens/admin/models"
       ? Promise.reject(new Error("Temporarily unavailable"))
       : Promise.resolve(gatewayResponse(path, {})),
   );
@@ -651,7 +651,7 @@ it("fetches one preview for two keystrokes inside the debounce window", async ()
     await user.click(screen.getByText("Advanced filters"));
     const previewsFor = (teamId: string) =>
       proxy.post.mock.calls.filter(
-        ([path, options]) => path === "/lens/preview/sample" && (options?.body as { selection: Settings }).selection.team_id === teamId,
+        ([path, options]) => path === "/lens/admin/preview/sample" && (options?.body as { selection: Settings }).selection.team_id === teamId,
       );
     await user.type(screen.getByRole("textbox", { name: "Team ID (optional)" }), "ab");
     expect(previewsFor("a")).toHaveLength(0);
@@ -773,7 +773,7 @@ it("waits for model capabilities before allowing a new investigation", async () 
   const user = userEvent.setup();
   const metadata = Promise.withResolvers<{ data: AnalysisModelInfo[] }>();
   proxy.get.mockImplementation((path) =>
-    path === "/lens/model_group/info" ? metadata.promise : gatewayResponse(path, {}),
+    path === "/lens/admin/model_group/info" ? metadata.promise : gatewayResponse(path, {}),
   );
   renderWithProviders(<InvestigationSetup mode="new" onClose={vi.fn()} onSave={vi.fn()} />);
   await user.click(screen.getByRole("button", { name: "Continue" }));

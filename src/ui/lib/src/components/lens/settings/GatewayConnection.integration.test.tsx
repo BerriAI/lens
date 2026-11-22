@@ -56,8 +56,8 @@ describe("Gateway connection", () => {
     const user = userEvent.setup();
     const gateway = stubGateway();
     gateway.get.mockImplementation((path) => {
-      if (path === "/lens/gateway") return connected;
-      if (path === "/lens/model_group/info") return { data: [chatModel] };
+      if (path === "/lens/admin/gateway") return connected;
+      if (path === "/lens/admin/model_group/info") return { data: [chatModel] };
       throw new Error(`Unexpected request: ${path}`);
     });
     gateway.post.mockReturnValue({ ...connected, evaluation_models: 1 });
@@ -73,8 +73,8 @@ describe("Gateway connection", () => {
     await user.keyboard("{Escape}");
 
     gateway.get.mockImplementation((path) => {
-      if (path === "/lens/gateway") return { ...connected, evaluation_models: 1 };
-      if (path === "/lens/model_group/info") return { data: [chatModel, evaluationModel] };
+      if (path === "/lens/admin/gateway") return { ...connected, evaluation_models: 1 };
+      if (path === "/lens/admin/model_group/info") return { data: [chatModel, evaluationModel] };
       throw new Error(`Unexpected request: ${path}`);
     });
     await user.click(screen.getByRole("button", { name: "Refresh models" }));
@@ -82,7 +82,7 @@ describe("Gateway connection", () => {
     expect(await screen.findByText("2 analysis models · 1 evaluation models")).toBeVisible();
     await waitFor(() => expect(screen.getByRole("button", { name: "Refresh models" })).toBeEnabled());
     expect(gateway.post).toHaveBeenCalledWith(
-      "/lens/gateway/refresh",
+      "/lens/admin/gateway/refresh",
       expect.objectContaining({
         authorization: "Bearer test",
         body: undefined,
@@ -96,7 +96,7 @@ describe("Gateway connection", () => {
 
     expect(await screen.findByText("Saved")).toBeVisible();
     expect(gateway.put).toHaveBeenCalledWith(
-      "/lens/signals",
+      "/lens/admin/signals",
       expect.objectContaining({
         body: { ...saved, model: evaluationModel.model_group },
       }),
@@ -121,7 +121,7 @@ describe("Gateway connection", () => {
     const user = userEvent.setup();
     const gateway = stubGateway();
     gateway.get.mockImplementation((path) =>
-      path === "/lens/gateway" ? { ...connected, evaluation_models: 1 } : { data: [evaluationModel] },
+      path === "/lens/admin/gateway" ? { ...connected, evaluation_models: 1 } : { data: [evaluationModel] },
     );
     gateway.post.mockReturnValue({
       ...connected,
@@ -175,7 +175,7 @@ describe("Gateway connection", () => {
     const user = userEvent.setup();
     const gateway = stubGateway();
     gateway.get.mockImplementation((path) =>
-      path === "/lens/gateway"
+      path === "/lens/admin/gateway"
         ? { ...connected, connected: false, error: "The gateway could not be reached" }
         : { data: [evaluationModel] },
     );
@@ -189,7 +189,7 @@ describe("Gateway connection", () => {
     await user.click(screen.getByRole("button", { name: "Save signals" }));
     expect(await screen.findByText("Saved")).toBeVisible();
     expect(gateway.put).toHaveBeenCalledWith(
-      "/lens/signals",
+      "/lens/admin/signals",
       expect.objectContaining({
         body: { ...saved, model: evaluationModel.model_group },
       }),

@@ -108,7 +108,7 @@ function serve(proxy: ReturnType<typeof stubGateway>, initial: Partial<Server> =
   });
   proxy.post.mockImplementation(async (path) => {
     if (path === "/lens/profiles/discovery/preview") return server.preview;
-    if (path === "/lens/gateway/refresh") return {};
+    if (path === "/lens/admin/gateway/refresh") return {};
     return server.written;
   });
   proxy.put.mockImplementation(async (_, request) => ({
@@ -269,7 +269,7 @@ it("saves models the gateway lists after a refresh for each role without startin
   const server = serve(proxy, { settings: missing });
   const write = proxy.post.getMockImplementation();
   proxy.post.mockImplementation(async (path, request) => {
-    if (path === "/lens/gateway/refresh") server.settings = settingsView({ defaults: none });
+    if (path === "/lens/admin/gateway/refresh") server.settings = settingsView({ defaults: none });
     return write?.(path, request);
   });
   render();

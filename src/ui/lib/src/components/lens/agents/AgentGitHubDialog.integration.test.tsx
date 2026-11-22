@@ -669,7 +669,7 @@ describe("GitHub App connection", () => {
     gateway.get.mockImplementation((path) => {
       if (path === "/lens/github/status")
         return { ...disconnected, connection };
-      if (path === "/lens/datasets")
+      if (path === "/lens/admin/datasets")
         return [
           {
             id: "qa-cases",

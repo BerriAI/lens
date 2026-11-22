@@ -2,11 +2,11 @@ import createFetchClient, { type Middleware } from "openapi-fetch";
 import createQueryClient from "openapi-react-query";
 import type { paths } from "./schema";
 import { ApiError, deriveErrorMessage, retryAfterMs } from "./client";
-import { getAuthHeaderName, getAuthToken, getRequestBaseUrl, reportError } from "./runtime";
+import { getAuthHeaderName, getAuthToken, getRequestBaseUrl, reportError, resolveRequestPath } from "./runtime";
 import { resolveRequestUrl } from "./resolveApiBase";
 
 const BaseAwareRequest = function (url: string, init?: RequestInit): Request {
-  const target = resolveRequestUrl(url, {
+  const target = resolveRequestUrl(resolveRequestPath(url), {
     registeredBase: getRequestBaseUrl(),
     pageOrigin: globalThis.location?.origin,
   });

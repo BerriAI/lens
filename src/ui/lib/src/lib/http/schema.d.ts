@@ -8951,7 +8951,7 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/lens/activity/available": {
+    "/lens/admin/activity/available": {
         parameters: {
             query?: never;
             header?: never;
@@ -8968,7 +8968,7 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/lens/agents": {
+    "/lens/admin/agents": {
         parameters: {
             query?: never;
             header?: never;
@@ -8985,7 +8985,7 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/lens/datasets": {
+    "/lens/admin/datasets": {
         parameters: {
             query?: never;
             header?: never;
@@ -9003,7 +9003,7 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/lens/datasets/build": {
+    "/lens/admin/datasets/build": {
         parameters: {
             query?: never;
             header?: never;
@@ -9020,7 +9020,7 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/lens/datasets/{dataset_id}": {
+    "/lens/admin/datasets/{dataset_id}": {
         parameters: {
             query?: never;
             header?: never;
@@ -9037,7 +9037,7 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/lens/datasets/{dataset_id}/export": {
+    "/lens/admin/datasets/{dataset_id}/export": {
         parameters: {
             query?: never;
             header?: never;
@@ -9054,7 +9054,7 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/lens/datasets/{dataset_id}/revisions": {
+    "/lens/admin/datasets/{dataset_id}/revisions": {
         parameters: {
             query?: never;
             header?: never;
@@ -9071,7 +9071,7 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/lens/datasets/{dataset_id}/revisions/{revision}/cases": {
+    "/lens/admin/datasets/{dataset_id}/revisions/{revision}/cases": {
         parameters: {
             query?: never;
             header?: never;
@@ -9107,7 +9107,7 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/lens/feedback/summary": {
+    "/lens/admin/feedback/summary": {
         parameters: {
             query?: never;
             header?: never;
@@ -9141,7 +9141,7 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/lens/preview/sample": {
+    "/lens/admin/preview/sample": {
         parameters: {
             query?: never;
             header?: never;
@@ -9175,7 +9175,7 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/lens/signals": {
+    "/lens/admin/signals": {
         parameters: {
             query?: never;
             header?: never;
@@ -9193,7 +9193,7 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/lens/traces/findings": {
+    "/lens/admin/traces/findings": {
         parameters: {
             query?: never;
             header?: never;
@@ -9210,7 +9210,7 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/lens/traces/signals": {
+    "/lens/admin/traces/signals": {
         parameters: {
             query?: never;
             header?: never;
@@ -9227,7 +9227,7 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/lens/tracing/keys": {
+    "/lens/admin/tracing/keys": {
         parameters: {
             query?: never;
             header?: never;
@@ -9245,7 +9245,7 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/lens/tracing/keys/{key_id}": {
+    "/lens/admin/tracing/keys/{key_id}": {
         parameters: {
             query?: never;
             header?: never;
@@ -9262,7 +9262,7 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/lens/watch-all": {
+    "/lens/admin/watch-all": {
         parameters: {
             query?: never;
             header?: never;
@@ -9475,6 +9475,22 @@ export interface paths {
         };
         /** Read Lens */
         get: operations["read_lens_lens__lens_id__get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/lens/admin/{lens_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
         /** Update Lens */
         put: operations["update_lens_lens__lens_id__put"];
         post?: never;
@@ -9484,7 +9500,7 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/lens/{lens_id}/cancel": {
+    "/lens/admin/{lens_id}/cancel": {
         parameters: {
             query?: never;
             header?: never;
@@ -9501,7 +9517,7 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/lens/{lens_id}/executions/{execution_id}": {
+    "/lens/admin/{lens_id}/executions/{execution_id}": {
         parameters: {
             query?: never;
             header?: never;
@@ -9518,7 +9534,7 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/lens/{lens_id}/findings/{finding_id}": {
+    "/lens/admin/{lens_id}/findings/{finding_id}": {
         parameters: {
             query?: never;
             header?: never;
@@ -9535,7 +9551,7 @@ export interface paths {
         patch: operations["update_finding_lens__lens_id__findings__finding_id__patch"];
         trace?: never;
     };
-    "/lens/{lens_id}/runs": {
+    "/lens/admin/{lens_id}/runs": {
         parameters: {
             query?: never;
             header?: never;
@@ -9553,7 +9569,7 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/lens/{lens_id}/runs/{job_id}": {
+    "/lens/admin/{lens_id}/runs/{job_id}": {
         parameters: {
             query?: never;
             header?: never;
@@ -9570,7 +9586,7 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/lens/{lens_id}/runs/{job_id}/reviews": {
+    "/lens/admin/{lens_id}/runs/{job_id}/reviews": {
         parameters: {
             query?: never;
             header?: never;

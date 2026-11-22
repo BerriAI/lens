@@ -1,7 +1,7 @@
 {
   "request": {
     "method": "GET",
-    "path": "/lens/parity-lens/executions/WyJ0cmFjZXMiLCAiYWxwaGEiLCAiZjBmMGYwZjBmMGYwZjBmMGYwZjBmMGYwZjBmMGYwZjBmMCIsICIiXQ==?unused=true",
+    "path": "/lens/admin/parity-lens/executions/WyJ0cmFjZXMiLCAiYWxwaGEiLCAiZjBmMGYwZjBmMGYwZjBmMGYwZjBmMGYwZjBmMGYwZjBmMCIsICIiXQ==?unused=true",
     "headers": {
       "authorization": "Bearer {{admin_token}}",
       "content-type": "application/json"

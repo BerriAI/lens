@@ -1,7 +1,7 @@
 {
   "request": {
     "method": "POST",
-    "path": "/lens/datasets",
+    "path": "/lens/admin/datasets",
     "headers": {
       "authorization": "Bearer {{jwt.valid}}",
       "content-type": "application/json"

@@ -1,7 +1,7 @@
 {
   "request": {
     "method": "GET",
-    "path": "/lens/datasets/{{dataset_id}}?revision=7",
+    "path": "/lens/admin/datasets/{{dataset_id}}?revision=7",
     "headers": {
       "authorization": "Bearer {{admin_token}}",
       "content-type": "application/json"

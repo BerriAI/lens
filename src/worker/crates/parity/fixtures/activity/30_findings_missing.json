@@ -1,7 +1,7 @@
 {
   "request": {
     "method": "POST",
-    "path": "/lens/traces/findings",
+    "path": "/lens/admin/traces/findings",
     "headers": {
       "authorization": "Bearer {{admin_token}}",
       "content-type": "application/json"

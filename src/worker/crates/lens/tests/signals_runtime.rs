@@ -294,7 +294,7 @@ async fn oversized_gateway_trace_keeps_durable_scores_and_reports_partial_covera
     let traces =
         json!({"traces":[{"trace_id":execution.trace_id,"trace_ref":execution.trace_ref}]});
     let response = http
-        .post(format!("{read_url}/lens/traces/signals"))
+        .post(format!("{read_url}/lens/admin/traces/signals"))
         .bearer_auth(datasets::support::ADMIN)
         .json(&traces)
         .send()

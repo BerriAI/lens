@@ -32,6 +32,7 @@ pub fn router_with_auth<R: SessionRepository + 'static>(
             "/auth/session",
             get(info::<R>).post(sign_in::<R>).delete(sign_out::<R>),
         )
+        .route("/lens/auth/session", get(info::<R>))
         .route("/auth/methods", get(methods::<R>))
         .route("/auth/gateway", post(connect_gateway::<R>))
         .with_state(authentication)

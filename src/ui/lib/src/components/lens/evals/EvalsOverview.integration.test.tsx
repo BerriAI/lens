@@ -56,7 +56,7 @@ let runs: readonly EvalRun[];
 const serve = (path: string, request: GatewayRequest) => {
   if (path === "/lens/evals") return [definition];
   if (path === `/lens/evals/${definition.name}`) return definition;
-  if (path === "/lens/datasets")
+  if (path === "/lens/admin/datasets")
     return [
       {
         id: "dataset-1",

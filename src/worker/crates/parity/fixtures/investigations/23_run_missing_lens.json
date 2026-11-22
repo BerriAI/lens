@@ -1,7 +1,7 @@
 {
   "request": {
     "method": "POST",
-    "path": "/lens/missing/runs",
+    "path": "/lens/admin/missing/runs",
     "headers": {
       "authorization": "Bearer {{admin_token}}",
       "content-type": "application/json"

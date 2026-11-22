@@ -220,9 +220,9 @@ async fn recorded_python_investigations_replay_over_http_and_clickhouse(
 #[rstest]
 #[case::admin(Role::ProxyAdmin,"GET","/lens",json!(null),200)]
 #[case::viewer_read(Role::ProxyAdminViewer,"GET","/lens/parity-lens",json!(null),200)]
-#[case::viewer_write(Role::ProxyAdminViewer,"POST","/lens/parity-lens/cancel",json!(null),403)]
-#[case::internal_read(Role::InternalUser,"GET","/lens/parity-lens/runs/job",json!(null),403)]
-#[case::internal_write(Role::InternalUser,"PATCH","/lens/parity-lens/findings/finding",json!({"status":"resolved"}),403)]
+#[case::viewer_write(Role::ProxyAdminViewer,"POST","/lens/admin/parity-lens/cancel",json!(null),403)]
+#[case::internal_read(Role::InternalUser,"GET","/lens/admin/parity-lens/runs/job",json!(null),403)]
+#[case::internal_write(Role::InternalUser,"PATCH","/lens/admin/parity-lens/findings/finding",json!({"status":"resolved"}),403)]
 #[case::extra_scope(Role::ProxyAdmin,"POST","/lens",json!({"name":"x","model":"analysis","context":"expected","scope":{"team_id":"other"}}),422)]
 #[tokio::test]
 async fn authenticated_roles_and_body_scope_cannot_bypass_authorization(
@@ -239,6 +239,7 @@ async fn authenticated_roles_and_body_scope_cannot_bypass_authorization(
         .await
         .unwrap();
     let server = serve(&database, true, true).await;
+    let viewer = role == Role::ProxyAdminViewer;
     let token = identity::delegated(Identity {
         user_role: role,
         user_id: Some("caller".into()),
@@ -258,7 +259,7 @@ async fn authenticated_roles_and_body_scope_cannot_bypass_authorization(
     if status == 403 {
         assert_eq!(
             body["detail"],
-            if method == "GET" {
+            if path.starts_with("/lens/admin/") && !viewer {
                 "Lens requires proxy administrator access"
             } else {
                 "Only proxy admins can configure or run Lens"
@@ -305,7 +306,7 @@ async fn cookie_mutations_require_lens_origin(
         .unwrap();
     let request = server
         .client
-        .post(server.url.join("/lens/parity-lens/cancel").unwrap())
+        .post(server.url.join("/lens/admin/parity-lens/cancel").unwrap())
         .header("cookie", cookie);
     let request = if let Some(origin) = origin {
         request.header("origin", origin)
@@ -392,7 +393,7 @@ async fn create_run_cancel_and_restart_preserve_frozen_settings_and_public_defau
         .post(
             server
                 .url
-                .join(&format!("/lens/{}/cancel", lens.id))
+                .join(&format!("/lens/admin/{}/cancel", lens.id))
                 .unwrap(),
         )
         .bearer_auth(ADMIN)
@@ -402,7 +403,12 @@ async fn create_run_cancel_and_restart_preserve_frozen_settings_and_public_defau
     assert_eq!(response.status(), 200);
     let response = server
         .client
-        .post(server.url.join(&format!("/lens/{}/runs", lens.id)).unwrap())
+        .post(
+            server
+                .url
+                .join(&format!("/lens/admin/{}/runs", lens.id))
+                .unwrap(),
+        )
         .bearer_auth(ADMIN)
         .json(&json!({"agent_name":"support_agent","lookback_hours":3}))
         .send()
@@ -423,7 +429,7 @@ async fn create_run_cancel_and_restart_preserve_frozen_settings_and_public_defau
         .post(
             server
                 .url
-                .join(&format!("/lens/{}/cancel", lens.id))
+                .join(&format!("/lens/admin/{}/cancel", lens.id))
                 .unwrap(),
         )
         .bearer_auth(ADMIN)
@@ -504,7 +510,7 @@ async fn conflicting_mutations_reload_before_reapplying_domain_transition(
             )
         })
         .await;
-    let response=server.client.put(server.url.join("/lens/parity-lens").unwrap()).bearer_auth(ADMIN).json(&json!({"name":"New criteria","model":"analysis","context":"different expected behavior"})).send().await.unwrap();
+    let response=server.client.put(server.url.join("/lens/admin/parity-lens").unwrap()).bearer_auth(ADMIN).json(&json!({"name":"New criteria","model":"analysis","context":"different expected behavior"})).send().await.unwrap();
     assert_eq!(response.status(), 200);
     let saved: Lens = response.json().await.unwrap();
     assert_eq!(saved.spent, 7.5);
@@ -544,7 +550,7 @@ async fn watch_all_enables_paused_lenses_once_without_losing_criteria(
         .await;
     let response = server
         .client
-        .post(server.url.join("/lens/watch-all").unwrap())
+        .post(server.url.join("/lens/admin/watch-all").unwrap())
         .bearer_auth(ADMIN)
         .send()
         .await
@@ -566,7 +572,7 @@ async fn watch_all_enables_paused_lenses_once_without_losing_criteria(
     assert_eq!(updated.jobs.len(), seed.jobs.len());
     let response = server
         .client
-        .post(server.url.join("/lens/watch-all").unwrap())
+        .post(server.url.join("/lens/admin/watch-all").unwrap())
         .bearer_auth(ADMIN)
         .send()
         .await
@@ -590,7 +596,10 @@ async fn watch_all_enables_paused_lenses_once_without_losing_criteria(
 #[rstest]
 #[case::list("/lens/", "/lens")]
 #[case::read("/lens/parity-lens/", "/lens/parity-lens")]
-#[case::runs("/lens/parity-lens/runs/?offset=5", "/lens/parity-lens/runs?offset=5")]
+#[case::runs(
+    "/lens/admin/parity-lens/runs/?offset=5",
+    "/lens/admin/parity-lens/runs?offset=5"
+)]
 #[tokio::test]
 async fn trailing_slashes_preserve_method_and_query(
     #[future(awt)] database: Database,
@@ -675,7 +684,7 @@ async fn mutation_contention_has_the_existing_forty_attempt_budget(
         .await;
     let response = server
         .client
-        .post(server.url.join("/lens/parity-lens/cancel").unwrap())
+        .post(server.url.join("/lens/admin/parity-lens/cancel").unwrap())
         .bearer_auth(ADMIN)
         .send()
         .await

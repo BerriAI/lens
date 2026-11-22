@@ -86,15 +86,15 @@ const summary: DatasetSummary = {
 let proxy = stubGateway();
 
 const serveDatasets = (path: string, request: GatewayRequest) => {
-  if (path === "/lens/datasets") return [summary];
-  if (path !== `/lens/datasets/${revisionTwo.id}`)
+  if (path === "/lens/admin/datasets") return [summary];
+  if (path !== `/lens/admin/datasets/${revisionTwo.id}`)
     throw new Error(`unexpected GET ${path}`);
   return request.query.revision === "1" ? revisionOne : revisionTwo;
 };
 
 const savedBodies = () =>
   proxy.post.mock.calls
-    .filter(([path]) => path === `/lens/datasets/${revisionTwo.id}/revisions`)
+    .filter(([path]) => path === `/lens/admin/datasets/${revisionTwo.id}/revisions`)
     .map(([, request]) => request.body);
 
 beforeEach(() => {
@@ -271,7 +271,7 @@ describe("DatasetsView", () => {
 
     await vi.waitFor(() =>
       expect(proxy.get).toHaveBeenCalledWith(
-        `/lens/datasets/${revisionTwo.id}/export`,
+        `/lens/admin/datasets/${revisionTwo.id}/export`,
         expect.objectContaining({
           query: { revision: "1" },
           authorization: "Bearer sk-admin",

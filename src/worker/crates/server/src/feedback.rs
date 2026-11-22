@@ -70,7 +70,7 @@ pub fn router<R: SessionRepository + 'static, S: FeedbackStore + 'static>(
             "/lens/feedback",
             get(read::<R, S>).put(submit::<R, S>).delete(delete::<R, S>),
         )
-        .public_route("/lens/feedback/summary", post(summary::<R, S>))
+        .admin_route(&authentication, "/feedback/summary", post(summary::<R, S>))
         .layer(DefaultBodyLimit::max(crate::routing::MAX_REQUEST_BYTES))
         .layer(axum::middleware::from_fn(
             crate::routing::redirect_trailing_slash,

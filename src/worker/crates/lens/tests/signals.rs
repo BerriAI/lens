@@ -84,7 +84,7 @@ fn execution(id: &str, reference: &str) -> Execution {
 async fn overview(server: &Server) -> SignalOverview {
     server
         .client
-        .get(server.url.join("/lens/signals/overview").unwrap())
+        .get(server.url.join("/lens/admin/signals/overview").unwrap())
         .bearer_auth(ADMIN)
         .send()
         .await
@@ -224,13 +224,13 @@ async fn recorded_signals_contracts_replay_against_real_http_and_clickhouse(
 }
 
 #[rstest]
-#[case::read("GET", "/lens/signals", Role::ProxyAdminViewer, json!(null), 200)]
-#[case::viewer_write("PUT", "/lens/signals", Role::ProxyAdminViewer, json!({}), 403)]
-#[case::team_read("GET", "/lens/signals", Role::InternalUser, json!(null), 403)]
-#[case::team_traces("POST", "/lens/traces/signals", Role::InternalUser, json!({"traces":[{"trace_id":"trace"}]}), 403)]
-#[case::viewer_overview("GET", "/lens/signals/overview", Role::ProxyAdminViewer, json!(null), 200)]
-#[case::team_overview("GET", "/lens/signals/overview", Role::InternalUser, json!(null), 403)]
-#[case::administrator_write("PUT", "/lens/signals", Role::ProxyAdmin, json!({}), 200)]
+#[case::read("GET", "/lens/admin/signals", Role::ProxyAdminViewer, json!(null), 200)]
+#[case::viewer_write("PUT", "/lens/admin/signals", Role::ProxyAdminViewer, json!({}), 403)]
+#[case::team_read("GET", "/lens/admin/signals", Role::InternalUser, json!(null), 403)]
+#[case::team_traces("POST", "/lens/admin/traces/signals", Role::InternalUser, json!({"traces":[{"trace_id":"trace"}]}), 403)]
+#[case::viewer_overview("GET", "/lens/admin/signals/overview", Role::ProxyAdminViewer, json!(null), 200)]
+#[case::team_overview("GET", "/lens/admin/signals/overview", Role::InternalUser, json!(null), 403)]
+#[case::administrator_write("PUT", "/lens/admin/signals", Role::ProxyAdmin, json!({}), 200)]
 #[tokio::test]
 async fn signal_routes_preserve_read_and_write_permissions(
     #[future(awt)] database: Database,
@@ -270,7 +270,7 @@ async fn stored_classifications_keep_trace_identity_order_and_live_display_setti
     ]});
     let response = server
         .client
-        .put(server.url.join("/lens/signals").unwrap())
+        .put(server.url.join("/lens/admin/signals").unwrap())
         .bearer_auth(ADMIN)
         .json(&config)
         .send()
@@ -315,7 +315,7 @@ async fn stored_classifications_keep_trace_identity_order_and_live_display_setti
     let traces = json!({"traces":[{"trace_id":"same","trace_ref":"classified"},{"trace_id":"same","trace_ref":"pending"},{"trace_id":"same"},{"trace_id":"same","trace_ref":"classified"}]});
     let response = server
         .client
-        .post(server.url.join("/lens/traces/signals").unwrap())
+        .post(server.url.join("/lens/admin/traces/signals").unwrap())
         .bearer_auth(ADMIN)
         .json(&traces)
         .send()
@@ -348,7 +348,7 @@ async fn stored_classifications_keep_trace_identity_order_and_live_display_setti
     let server = serve(&database).await;
     let rows: Value = server
         .client
-        .post(server.url.join("/lens/traces/signals").unwrap())
+        .post(server.url.join("/lens/admin/traces/signals").unwrap())
         .bearer_auth(ADMIN)
         .json(&traces)
         .send()
@@ -371,7 +371,7 @@ async fn stored_classifications_keep_trace_identity_order_and_live_display_setti
         .unwrap();
     let rows: Value = server
         .client
-        .post(server.url.join("/lens/traces/signals").unwrap())
+        .post(server.url.join("/lens/admin/traces/signals").unwrap())
         .bearer_auth(ADMIN)
         .json(&traces)
         .send()
@@ -395,7 +395,7 @@ async fn a_model_that_cannot_judge_cannot_be_saved_with_empty_signals(
     let server = serve(&database).await;
     let response = server
         .client
-        .put(server.url.join("/lens/signals").unwrap())
+        .put(server.url.join("/lens/admin/signals").unwrap())
         .bearer_auth(ADMIN)
         .json(&json!({"model":model,"signals":[]}))
         .send()
@@ -417,7 +417,7 @@ async fn a_chat_model_can_be_saved_as_the_signal_judge(#[future(awt)] database: 
     let server = serve(&database).await;
     let response = server
         .client
-        .put(server.url.join("/lens/signals").unwrap())
+        .put(server.url.join("/lens/admin/signals").unwrap())
         .bearer_auth(ADMIN)
         .json(&json!({"model":"chat-judge","signals":[]}))
         .send()
@@ -448,7 +448,7 @@ async fn invalid_stored_scores_do_not_become_unclassified_successes(
     let server = serve(&database).await;
     let response = server
         .client
-        .post(server.url.join("/lens/traces/signals").unwrap())
+        .post(server.url.join("/lens/admin/traces/signals").unwrap())
         .bearer_auth(ADMIN)
         .json(&json!({"traces":[{"trace_id":"broken"}]}))
         .send()
@@ -476,7 +476,7 @@ async fn large_signal_configuration_survives_a_restart(
     let server = serve(&database).await;
     let response = server
         .client
-        .put(server.url.join("/lens/signals").unwrap())
+        .put(server.url.join("/lens/admin/signals").unwrap())
         .bearer_auth(ADMIN)
         .json(&large_config)
         .send()
@@ -488,7 +488,7 @@ async fn large_signal_configuration_survives_a_restart(
     let restarted = serve(&database).await;
     let response = restarted
         .client
-        .get(restarted.url.join("/lens/signals").unwrap())
+        .get(restarted.url.join("/lens/admin/signals").unwrap())
         .bearer_auth(ADMIN)
         .send()
         .await

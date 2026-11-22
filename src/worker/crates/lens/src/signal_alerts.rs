@@ -58,8 +58,8 @@ impl SignalAlerts {
 
     pub fn router(self: &Arc<Self>) -> Router {
         Router::new()
-            .route("/lens/signals/alerts", get(read).put(save))
-            .route("/lens/signals/alerts/test", post(test))
+            .route("/lens/admin/signals/alerts", get(read).put(save))
+            .route("/lens/admin/signals/alerts/test", post(test))
             .layer(DefaultBodyLimit::max(16 * 1024))
             .with_state(self.clone())
     }

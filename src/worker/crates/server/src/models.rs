@@ -70,13 +70,15 @@ pub fn with_catalog<R: SessionRepository + 'static, M: ModelCatalog>(
 ) -> Router {
     Router::new()
         .public_route("/models", get(models::<R, M>))
-        .public_route("/lens/models", get(models::<R, M>))
+        .admin_route(&authentication, "/models", get(models::<R, M>))
         .public_route("/v1/models", get(models::<R, M>))
+        .admin_route(&authentication, "/v1/models", get(models::<R, M>))
         .public_route("/model_group/info", get(groups::<R, M>))
-        .public_route("/lens/model_group/info", get(groups::<R, M>))
-        .public_route("/lens/gateway", get(gateway::<R, M>))
-        .public_route(
-            "/lens/gateway/refresh",
+        .admin_route(&authentication, "/model_group/info", get(groups::<R, M>))
+        .admin_route(&authentication, "/gateway", get(gateway::<R, M>))
+        .admin_route(
+            &authentication,
+            "/gateway/refresh",
             axum::routing::post(refresh::<R, M>),
         )
         .layer(axum::middleware::from_fn(

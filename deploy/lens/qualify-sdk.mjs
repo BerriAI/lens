@@ -9,7 +9,7 @@ const digest = createHash("sha256").update(await fs.readFile(wheel)).digest("hex
 await withFixture("sdk", process.argv[2], async (fixture) => {
   await fixture.startServer();
   const { request } = fixture;
-  const key = await request("POST", "/lens/tracing/keys", { name: "Packaged SDK qualification" });
+  const key = await request("POST", "/lens/admin/tracing/keys", { name: "Packaged SDK qualification" });
   assert.equal(key.status, 200);
   const token = privateValue(key.data.key);
   const traces = [];

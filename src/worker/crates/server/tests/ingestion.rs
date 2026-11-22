@@ -58,7 +58,7 @@ async fn created_keys_publish_once_hide_plaintext_and_survive_restart_until_revo
     let (server, publisher) = serve(&database, active).await;
     let created = server
         .client
-        .post(server.url.join("/lens/tracing/keys").unwrap())
+        .post(server.url.join("/lens/admin/tracing/keys").unwrap())
         .bearer_auth(ADMIN)
         .json(&json!({"team_id":"team-a"}))
         .send()
@@ -78,7 +78,7 @@ async fn created_keys_publish_once_hide_plaintext_and_survive_restart_until_revo
     let (server, publisher) = serve(&database, true).await;
     let listed = server
         .client
-        .get(server.url.join("/lens/tracing/keys").unwrap())
+        .get(server.url.join("/lens/admin/tracing/keys").unwrap())
         .bearer_auth(ADMIN)
         .send()
         .await
@@ -95,7 +95,7 @@ async fn created_keys_publish_once_hide_plaintext_and_survive_restart_until_revo
         .delete(
             server
                 .url
-                .join(&format!("/lens/tracing/keys/{}", created.record.id))
+                .join(&format!("/lens/admin/tracing/keys/{}", created.record.id))
                 .unwrap(),
         )
         .bearer_auth(ADMIN)
@@ -109,7 +109,7 @@ async fn created_keys_publish_once_hide_plaintext_and_survive_restart_until_revo
     let (server, _) = serve(&database, true).await;
     let listed = server
         .client
-        .get(server.url.join("/lens/tracing/keys").unwrap())
+        .get(server.url.join("/lens/admin/tracing/keys").unwrap())
         .bearer_auth(ADMIN)
         .send()
         .await
@@ -137,9 +137,9 @@ async fn key_permissions_follow_authenticated_role(
         ..Identity::default()
     });
     let path = if method == "DELETE" {
-        "/lens/tracing/keys/missing"
+        "/lens/admin/tracing/keys/missing"
     } else {
-        "/lens/tracing/keys"
+        "/lens/admin/tracing/keys"
     };
     let response = server
         .client
@@ -151,6 +151,20 @@ async fn key_permissions_follow_authenticated_role(
         .unwrap();
     assert_eq!(response.status(), status);
     assert!(publisher.snapshots.lock().unwrap().is_empty());
+}
+
+#[rstest]
+#[tokio::test]
+async fn admin_pages_answer_only_under_the_admin_prefix(#[future(awt)] database: Database) {
+    let (server, _) = serve(&database, true).await;
+    let old = server
+        .client
+        .get(server.url.join("/lens/tracing/keys").unwrap())
+        .bearer_auth(ADMIN)
+        .send()
+        .await
+        .unwrap();
+    assert_eq!(old.status(), 404);
 }
 
 #[rstest]
@@ -168,7 +182,7 @@ async fn invalid_key_input_does_not_persist_or_publish(
     let (server, publisher) = serve(&database, true).await;
     let response = server
         .client
-        .post(server.url.join("/lens/tracing/keys").unwrap())
+        .post(server.url.join("/lens/admin/tracing/keys").unwrap())
         .bearer_auth(ADMIN)
         .json(&body)
         .send()
@@ -196,7 +210,7 @@ async fn expired_key_request_is_rejected_before_storage(#[future(awt)] database:
     let (server, publisher) = serve(&database, true).await;
     let response = server
         .client
-        .post(server.url.join("/lens/tracing/keys").unwrap())
+        .post(server.url.join("/lens/admin/tracing/keys").unwrap())
         .bearer_auth(ADMIN)
         .json(&json!({"expires_at":0}))
         .send()
@@ -238,7 +252,7 @@ async fn cookie_key_writes_require_the_lens_origin(
         .unwrap();
     let request = server
         .client
-        .post(server.url.join("/lens/tracing/keys").unwrap())
+        .post(server.url.join("/lens/admin/tracing/keys").unwrap())
         .header("cookie", cookie)
         .json(&json!({}));
     let request = if let Some(origin) = origin {
