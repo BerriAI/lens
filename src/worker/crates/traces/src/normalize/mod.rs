@@ -259,6 +259,27 @@ pub(crate) fn normalize(context: &SpanContext<'_>) -> Result<Normalization, Erro
     Ok(Instrumentation::detect(context).interpret(context, extraction, metadata::extract(context)))
 }
 
+/// The Input and Output ingest stores for a span, computed from the attributes it was stored with plus the
+/// content attributes it was exported without, so stored content reads exactly like inline content.
+pub fn hydrated_input_output(
+    scope: &str,
+    name: &str,
+    parent_span_id: &str,
+    attributes: &BTreeMap<String, String>,
+    resource_attributes: &BTreeMap<String, String>,
+) -> Result<(String, String), Error> {
+    let span = normalize(&SpanContext {
+        scope,
+        name,
+        parent_span_id,
+        attributes,
+        events: &[],
+        resource_attributes,
+    })?
+    .span;
+    Ok((span.input, span.output))
+}
+
 /// An attribute's text together with the key it came from, so consumption follows extraction.
 pub(crate) struct AttributeText<'a> {
     pub source: &'static str,
@@ -332,11 +353,71 @@ fn usage_tokens(attributes: &BTreeMap<String, String>) -> Result<(u32, u32), Err
 
 #[cfg(test)]
 mod tests {
+    #[rstest]
+    #[case::model_call(
+        "litellm",
+        "chat gpt-4o-mini",
+        &[("gen_ai.operation.name", "chat"), ("gen_ai.request.model", "gpt-4o-mini")],
+        &[
+            ("gen_ai.input.messages", r#"[{"role": "user", "content": "list the files \u754c"}]"#),
+            ("gen_ai.output.messages", r#"[{"role": "assistant", "content": "one file"}]"#),
+        ],
+    )]
+    #[case::tool_step(
+        "litellm.lens.tool_steps",
+        "execute_tool Bash",
+        &[("gen_ai.operation.name", "execute_tool"), ("gen_ai.tool.name", "Bash"), ("gen_ai.tool.call.id", "call-ls")],
+        &[("gen_ai.tool.call.arguments", r#"{"c": "ls"}"#), ("gen_ai.tool.call.result", "a.txt \u{754c}")],
+    )]
+    fn stored_content_reads_like_the_inline_span_it_replaced(
+        #[case] scope: &str,
+        #[case] name: &str,
+        #[case] metadata: &[(&str, &str)],
+        #[case] content: &[(&str, &str)],
+    ) {
+        let owned = |pairs: &[(&str, &str)]| -> BTreeMap<String, String> {
+            pairs.iter().map(|(key, value)| ((*key).to_owned(), (*value).to_owned())).collect()
+        };
+        let resource = owned(&[("service.name", "litellm")]);
+        let inline_attributes: BTreeMap<String, String> = owned(metadata).into_iter().chain(owned(content)).collect();
+        let inline = normalize(&SpanContext {
+            scope,
+            name,
+            parent_span_id: "parent",
+            attributes: &inline_attributes,
+            events: &[],
+            resource_attributes: &resource,
+        })
+        .unwrap()
+        .span;
+        assert!(!inline.input.is_empty() || !inline.output.is_empty());
+        let exported = owned(metadata);
+        let consumed = normalize(&SpanContext {
+            scope,
+            name,
+            parent_span_id: "parent",
+            attributes: &exported,
+            events: &[],
+            resource_attributes: &resource,
+        })
+        .unwrap()
+        .consumed_attributes;
+        let stored: BTreeMap<String, String> = exported
+            .into_iter()
+            .filter(|(key, _)| !consumed.contains(&key.as_str()))
+            .chain(owned(content))
+            .collect();
+        assert_eq!(
+            hydrated_input_output(scope, name, "parent", &stored, &resource).unwrap(),
+            (inline.input, inline.output)
+        );
+    }
+
     use std::collections::BTreeMap;
 
     use rstest::rstest;
 
-    use super::{ObservationType, SpanContext, normalize};
+    use super::{ObservationType, SpanContext, hydrated_input_output, normalize};
 
     #[rstest]
     #[case::langsmith("langsmith", [("langsmith.span.kind", "llm"), ("openinference.span.kind", "TOOL")], ObservationType::Llm)]

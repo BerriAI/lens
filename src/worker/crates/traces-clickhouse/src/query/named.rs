@@ -302,6 +302,29 @@ impl Query for SpanDetail {
     const SQL: &'static str = include_str!("../../query/span_detail.sql");
 }
 
+/// The stored owner and normalization inputs of a span that carries a content reference, read under the same
+/// access scope as its span detail.
+pub struct SpanContentOwner;
+
+#[derive(Clone, Debug, Deserialize)]
+pub struct SpanContentOwnerRow {
+    pub team_id: String,
+    pub api_key: String,
+    pub scope: String,
+    pub name: String,
+    pub parent_span_id: String,
+    pub resource_attributes: std::collections::BTreeMap<String, String>,
+    pub status_code: String,
+    pub status_message: String,
+}
+
+impl Query for SpanContentOwner {
+    type Params = SpanDetailParams;
+    type Row = SpanContentOwnerRow;
+
+    const SQL: &'static str = include_str!("../../query/span_content_owner.sql");
+}
+
 pub struct SpanError;
 
 impl Query for SpanError {

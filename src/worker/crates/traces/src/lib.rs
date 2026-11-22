@@ -29,7 +29,7 @@ pub mod wire;
 pub use error::{Error, InvalidCallKey, InvalidQuery, InvalidScope};
 pub use normalize::{
     AgentMetadata, AgentType, CallEvidence, CallEvidenceKind, CallKey, Integration, NormalizedSpan,
-    ObservationType,
+    ObservationType, hydrated_input_output,
 };
 pub use otlp::{
     CodexContentState, CodexEventKind, CodexMessageRole, CodexProjection, DecodeLimits,

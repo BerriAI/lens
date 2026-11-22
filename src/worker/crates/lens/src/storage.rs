@@ -7,6 +7,9 @@ use serde::Deserialize;
 use serde_json::Value;
 use std::{collections::BTreeMap, sync::Arc};
 
+mod content;
+pub use content::ContentGateway;
+use litellm_traces_clickhouse::query::named::SpanContentOwner;
 mod tracing;
 pub use tracing::TraceApi;
 mod feedback;
@@ -21,6 +24,7 @@ pub struct Storage {
     reader: Arc<TraceReader>,
     query_readers: QueryReaders,
     query_secret: String,
+    content: Option<ContentGateway>,
 }
 
 #[derive(Deserialize)]
@@ -110,7 +114,50 @@ impl Storage {
             config,
             client,
             query_secret,
+            content: None,
         }
+    }
+
+    pub fn with_content(self, content: Option<ContentGateway>) -> Self {
+        Self { content, ..self }
+    }
+
+    /// A span detail whose content LiteLLM stored, read back for this same scoped span; others pass unchanged.
+    pub(crate) async fn hydrate_span(
+        &self,
+        detail: Option<litellm_traces::SpanDetail>,
+        params: &litellm_traces::query::named::SpanDetailParams,
+    ) -> Option<litellm_traces::SpanDetail> {
+        let detail = detail?;
+        let Some(raw) = detail
+            .attributes
+            .get(litellm_traces_clickhouse::content_reference::REFERENCE_ATTRIBUTE)
+            .cloned()
+        else {
+            return Some(detail);
+        };
+        let reader = self.config.storage().reader();
+        let rows = litellm_storage_clickhouse::fetch::<SpanContentOwner>(
+            &self.client,
+            reader,
+            params,
+        )
+        .await
+        .unwrap_or_default();
+        let Some(row) = rows.into_iter().next() else {
+            return Some(content::unavailable_detail(detail, "retrieval_failed"));
+        };
+        let hydrated = match &self.content {
+            Some(gateway) => gateway
+                .hydrate(
+                    &content::owner(&row, &params.trace_id, &params.span_id),
+                    &raw,
+                )
+                .await
+                .unwrap_or_else(|| content::Hydrated::Unavailable("unverified".into())),
+            None => content::Hydrated::Unavailable("retrieval_not_configured".into()),
+        };
+        Some(content::hydrated_detail(detail, &row, hydrated))
     }
 
     pub async fn ensure_schema(&self) -> Result<(), Error> {
@@ -184,11 +231,19 @@ impl Storage {
                 trace_id,
                 trace_ref,
                 span_id,
-            } => encode(
-                self.reader
+            } => {
+                let detail = self
+                    .reader
                     .get_span(&store, &scope, &trace_id, &span_id, &trace_ref)
-                    .await?,
-            ),
+                    .await?;
+                let params = litellm_traces::query::named::SpanDetailParams {
+                    access: scope,
+                    trace_id,
+                    trace_ref,
+                    span_id,
+                };
+                encode(self.hydrate_span(detail, &params).await)
+            }
             Read::SpanError {
                 scope,
                 trace_id,

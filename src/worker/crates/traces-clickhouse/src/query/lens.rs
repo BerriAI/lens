@@ -303,6 +303,41 @@ impl Query for LensSampleEligibility {
     );
 }
 
+/// The spans of one investigation page whose content LiteLLM stored, with what reading it back needs.
+pub struct LensContentReferences;
+
+#[derive(Debug, serde::Serialize)]
+pub struct LensContentReferencesParams {
+    #[serde(flatten)]
+    pub access: LensAccessParams,
+    pub id: String,
+    pub record_team: String,
+    pub start_time: String,
+    pub trace_ref: String,
+    pub span_ids: Vec<String>,
+}
+
+#[derive(Debug, serde::Deserialize)]
+pub struct LensContentReferenceRow {
+    pub span_id: String,
+    pub team_id: String,
+    pub api_key: String,
+    pub scope: String,
+    pub name: String,
+    pub parent_span_id: String,
+    pub resource_attributes: std::collections::BTreeMap<String, String>,
+    pub status_code: String,
+    pub status_message: String,
+    pub attributes: std::collections::BTreeMap<String, String>,
+}
+
+impl Query for LensContentReferences {
+    type Params = LensContentReferencesParams;
+    type Row = LensContentReferenceRow;
+
+    const SQL: &'static str = include_str!("../../query/lens_content_references.sql");
+}
+
 pub struct LensContent;
 
 #[macro_rules_attribute::apply(crate::wire_type)]

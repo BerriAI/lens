@@ -168,21 +168,39 @@ impl SourceReader {
         cursor: &str,
         offset: Option<u32>,
     ) -> Result<ExecutionContent, Error> {
-        let rows = self
-            .read::<LensContent>(&LensContentParams {
-                access: access(scope),
-                source: source(execution.source),
-                id: execution.trace_id.clone(),
-                trace_ref: execution.trace_ref.clone(),
-                record_team: execution.team_id.clone(),
-                start_time: execution.start_time.clone(),
-                cursor: cursor.into(),
-                offset: match offset {
-                    Some(offset) => offset.checked_add(1).ok_or(Error::InvalidRequest)?,
-                    None => 0,
-                },
+        let parameters = LensContentParams {
+            access: access(scope),
+            source: source(execution.source),
+            id: execution.trace_id.clone(),
+            trace_ref: execution.trace_ref.clone(),
+            record_team: execution.team_id.clone(),
+            start_time: execution.start_time.clone(),
+            cursor: cursor.into(),
+            offset: match offset {
+                Some(offset) => offset.checked_add(1).ok_or(Error::InvalidRequest)?,
+                None => 0,
+            },
+        };
+        let rows = self.read::<LensContent>(&parameters).await?;
+        if !matches!(execution.source, ExecutionSource::Traces) {
+            return Ok(content_page(execution, rows));
+        }
+        let span_ids = rows.iter().map(|row| row.span_id.clone()).collect();
+        let parts = self.0.storage.hydrated_parts(&parameters, span_ids).await;
+        let rows = rows
+            .into_iter()
+            .map(|row| {
+                let part = parts.iter().find(|(span_id, _, _)| *span_id == row.span_id);
+                match part {
+                    Some((_, content, truncated)) => LensContentRow {
+                        content: content.clone(),
+                        truncated: *truncated,
+                        ..row
+                    },
+                    None => row,
+                }
             })
-            .await?;
+            .collect();
         Ok(content_page(execution, rows))
     }
 
@@ -192,19 +210,24 @@ impl SourceReader {
         execution: &Execution,
         evidence: &Evidence,
     ) -> Result<bool, Error> {
-        let rows = self
-            .read::<LensEvidence>(&LensEvidenceParams {
-                access: access(scope),
-                source: source(execution.source),
-                id: execution.trace_id.clone(),
-                trace_ref: execution.trace_ref.clone(),
-                record_team: execution.team_id.clone(),
-                start_time: execution.start_time.clone(),
-                span: evidence.span_id.clone(),
-                quote: evidence.quote.to_string(),
-            })
-            .await?;
-        Ok(rows.first().is_some_and(|row| row.count != 0))
+        let parameters = LensEvidenceParams {
+            access: access(scope),
+            source: source(execution.source),
+            id: execution.trace_id.clone(),
+            trace_ref: execution.trace_ref.clone(),
+            record_team: execution.team_id.clone(),
+            start_time: execution.start_time.clone(),
+            span: evidence.span_id.clone(),
+            quote: evidence.quote.to_string(),
+        };
+        let rows = self.read::<LensEvidence>(&parameters).await?;
+        if rows.first().is_some_and(|row| row.count != 0) {
+            return Ok(true);
+        }
+        if !matches!(execution.source, ExecutionSource::Traces) {
+            return Ok(false);
+        }
+        Ok(self.0.storage.hydrated_quote(&parameters).await)
     }
 
     pub async fn finding_evidence(

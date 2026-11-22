@@ -99,7 +99,9 @@ async fn compact_state() -> Result<(), litellm_lens::Error> {
 async fn run() -> Result<(), litellm_lens::Error> {
     let config = Config::from_env()?;
     let client = http_client()?;
-    let storage = Storage::new(config.storage, client.clone(), config.query_secret.clone());
+    let content = litellm_lens::ContentGateway::from_config(&config)?;
+    let storage = Storage::new(config.storage, client.clone(), config.query_secret.clone())
+        .with_content(content);
     let state = Arc::new(match config.gateway_service_token {
         Some(token) => State::connected(storage, token),
         None => State::standalone(storage),

@@ -193,7 +193,8 @@ impl TraceReader for TraceApi {
         request: TraceSpanRequest,
     ) -> Result<Option<SpanDetail>, TraceReadError> {
         let _permit = self.permit().await?;
-        self.0
+        let detail = self
+            .0
             .storage
             .reader
             .get_span(
@@ -204,7 +205,14 @@ impl TraceReader for TraceApi {
                 &request.trace_ref,
             )
             .await
-            .map_err(read_error)
+            .map_err(read_error)?;
+        let params = litellm_traces::query::named::SpanDetailParams {
+            access: scope,
+            trace_id,
+            trace_ref: request.trace_ref,
+            span_id,
+        };
+        Ok(self.0.storage.hydrate_span(detail, &params).await)
     }
 
     async fn conversation(
