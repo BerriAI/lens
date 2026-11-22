@@ -349,3 +349,18 @@ async fn unavailable_schedule_storage_reports_failure(
         Err(RepositoryError::Unavailable(_))
     ));
 }
+
+#[rstest]
+#[tokio::test]
+async fn due_poll_reads_candidate_heads_without_scanning_the_head_table(
+    #[future(awt)] database: Database,
+    lens: Lens,
+    now: DateTime<Utc>,
+) {
+    let repository = database.repository();
+    repository.create(&lens).await.unwrap();
+    database.seed("unrelated", json!({})).await;
+    let candidates = repository.due(&all(), &now, 20, None).await.unwrap();
+    assert_eq!(candidates.len(), 1);
+    assert_eq!(database.head_table_scans().await, 0);
+}

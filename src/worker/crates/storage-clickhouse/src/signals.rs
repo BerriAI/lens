@@ -170,7 +170,12 @@ impl SignalRepository for Signals {
              WHERE startsWith(b.key, {prefix:String}) \
              AND b.created_at >= parseDateTime64BestEffort({since:String}, 6, 'UTC') \
              AND (b.key, b.revision, toString(b.digest)) IN ( \
-                 SELECT key, revision, digest FROM lens_state_heads WHERE startsWith(key, {prefix:String}) \
+                 SELECT key, revision, digest FROM lens_state_heads WHERE key IN ( \
+                     SELECT key FROM lens_state_blobs \
+                     WHERE startsWith(key, {prefix:String}) \
+                     AND created_at >= parseDateTime64BestEffort({since:String}, 6, 'UTC') \
+                     AND JSONExtractString(data, 'config_key') = {config_key:String} \
+                 ) \
              ) \
              AND finished >= parseDateTime64BestEffort({since:String}, 6, 'UTC') \
              AND JSONExtractString(b.data, 'config_key') = {config_key:String} \

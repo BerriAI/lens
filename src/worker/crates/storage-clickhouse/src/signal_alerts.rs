@@ -68,7 +68,12 @@ pub async fn due(
     let body = store
         .command(
             "SELECT b.key AS key FROM lens_state_blobs AS b \
-             INNER JOIN lens_state_heads AS h USING (key, revision, digest) \
+             INNER JOIN (SELECT key, revision, digest FROM lens_state_heads WHERE key IN ( \
+             SELECT b.key FROM lens_state_blobs AS b WHERE startsWith(b.key, {prefix:String}) \
+             AND JSONExtractString(b.data, 'status') IN ('pending', 'sending') \
+             AND parseDateTime64BestEffortOrNull(JSONExtractString(b.data, 'retry_at'), 6, 'UTC') \
+                 <= parseDateTime64BestEffort({now:String}, 6, 'UTC') \
+             )) AS h USING (key, revision, digest) \
              WHERE startsWith(b.key, {prefix:String}) \
              AND JSONExtractString(b.data, 'status') IN ('pending', 'sending') \
              AND parseDateTime64BestEffortOrNull(JSONExtractString(b.data, 'retry_at'), 6, 'UTC') \

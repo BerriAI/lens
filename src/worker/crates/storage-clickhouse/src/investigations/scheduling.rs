@@ -9,7 +9,11 @@ use crate::state::{Change, Head};
 const DUE: &str = "SELECT s.key AS key, s.revision AS revision, s.digest AS digest,
     formatDateTime(s.due_at, '%Y-%m-%dT%H:%i:%S.%fZ', 'UTC') AS due_at
     FROM (SELECT * FROM lens_schedule FINAL) AS s
-    INNER JOIN lens_state_heads AS h USING (key, revision, digest)
+    INNER JOIN (SELECT key, revision, digest FROM lens_state_heads WHERE key IN (
+        SELECT s.key FROM lens_schedule AS s WHERE s.due_at IS NOT NULL AND s.due_at <= parseDateTime64BestEffort({now:String}, 6, 'UTC')
+        AND ({all_teams:Bool}=1 OR (s.all_teams=0 AND s.team_id={team_id:String}
+            AND ({team_id:String} != '' OR s.api_key_hash={api_key_hash:String})))
+    )) AS h USING (key, revision, digest)
     WHERE s.due_at IS NOT NULL AND s.due_at <= parseDateTime64BestEffort({now:String}, 6, 'UTC')
     AND ({all_teams:Bool}=1 OR (s.all_teams=0 AND s.team_id={team_id:String}
         AND ({team_id:String} != '' OR s.api_key_hash={api_key_hash:String})))

@@ -7,7 +7,9 @@ use crate::state::Head;
 
 const PARENTS: &str = "SELECT s.key AS key, s.revision AS revision, s.digest AS digest, s.version AS version
     FROM (SELECT * FROM lens_schedule FINAL) AS s
-    INNER JOIN lens_state_heads AS h USING (key, revision, digest)
+    INNER JOIN (SELECT key, revision, digest FROM lens_state_heads WHERE key IN (SELECT parent_key FROM lens_jobs
+        WHERE hasAny(trace_ids, JSONExtract({trace_ids:String}, 'Array(String)')))
+    ) AS h USING (key, revision, digest)
     WHERE s.key IN (SELECT parent_key FROM lens_jobs
         WHERE hasAny(trace_ids, JSONExtract({trace_ids:String}, 'Array(String)'))) FORMAT JSONEachRow";
 
@@ -22,7 +24,10 @@ const COUNTS: &str = "WITH
         FROM (SELECT * FROM lens_jobs FINAL
             WHERE status='completed' AND hasAny(trace_ids, JSONExtract({trace_ids:String}, 'Array(String)'))) AS j
         INNER JOIN parents AS p ON j.parent_key=p.parent_key
-        LEFT JOIN lens_state_heads AS h ON j.key=h.key AND j.revision=h.revision AND j.digest=h.digest
+        LEFT JOIN (SELECT key, revision, digest FROM lens_state_heads WHERE key IN (
+            SELECT key FROM lens_jobs
+            WHERE status='completed' AND hasAny(trace_ids, JSONExtract({trace_ids:String}, 'Array(String)'))
+        )) AS h ON j.key=h.key AND j.revision=h.revision AND j.digest=h.digest
         WHERE (j.key=p.parent_key AND j.revision=p.revision AND j.digest=p.digest)
             OR (j.key != p.parent_key AND j.archived_version <= p.version
                 AND h.key=j.key AND h.revision=j.revision AND h.digest=j.digest)
