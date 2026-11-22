@@ -34,10 +34,10 @@ Turn on the Claude Code telemetry that Lens requires on this machine. Read https
 
 ## Connect Codex
 
-Codex sends no telemetry by default. Follow [Codex CLI telemetry](codex-cli.md) for the required settings, or give your coding agent this prompt:
+Codex sends nothing to Lens by default. Follow [Codex](codex-cli.md) to install the Lens plugin for Codex, or give your coding agent this prompt:
 
 ```text
-Turn on the Codex telemetry that Lens requires on this machine. Read https://github.com/BerriAI/lens/blob/main/docs/codex-cli.md first. Decide which setup applies: if Codex already sends model calls through a LiteLLM gateway connected to Lens, use that gateway address and the same LiteLLM key; otherwise use my Lens address and a Lens tracing key, and ask me for either only if it cannot be found safely. Never print a key. Add the [otel] table from that page to ~/.codex/config.toml with log_user_prompt = true and both exporters, preserving existing settings and leaving any exporter I already configured unchanged. Tell me that these settings store my typed prompts and the arguments and output of the commands Codex runs, and that Codex does not export model call content. Then run one real Codex task that runs a shell command and confirm in Lens > Traces a turn with the prompt and a tool step with its output.
+Connect Codex on this machine to Lens with the LiteLLM Lens plugin for Codex. Read https://github.com/BerriAI/lens/blob/main/docs/codex-cli.md first. Decide which setup applies: if Codex already sends model calls through a LiteLLM gateway connected to Lens, use that gateway address and the same LiteLLM key; otherwise use my Lens address and a Lens tracing key, and ask me for either only if it cannot be found safely. Never print a key and never put its value in a command: pass the name of the environment variable that holds it with --key-env. Run the three install commands from that page with --agent-name codex-cli, and do not add an [otel] table to ~/.codex/config.toml. If the plugin cannot run here (no Python 3.11 or newer, not macOS or Linux, or an address that is neither https nor localhost), stop and tell me, and offer the OpenTelemetry fallback from the same page. Tell me that the plugin stores my typed prompts, Codex's replies and the input and output of the commands Codex runs. Then run one real Codex task that runs a shell command and confirm in Lens > Traces one trace from the agent codex-cli with the prompt, a tool step and a model call step. Do not treat a readiness check as proof.
 ```
 
 ## Connect OpenCode
