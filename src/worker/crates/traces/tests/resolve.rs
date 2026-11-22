@@ -1563,6 +1563,43 @@ fn sibling_transports_belong_to_the_only_model_call_under_their_parent(
 }
 
 #[rstest]
+#[case::model_request_only(false, Some(0.5))]
+#[case::tool_request_without_spend(true, Some(0.5))]
+fn request_made_by_a_tool_under_a_model_call_does_not_price_the_call(
+    #[case] tool_request: bool,
+    #[case] expected: Option<f64>,
+) {
+    let transport = |span_id: &str, parent: &str| {
+        let mut transport = row(span_id, parent, "POST", "framework", "");
+        transport.trace_id = "trace".into();
+        transport.call_keys = vec![litellm_traces::CallKey::Transport];
+        transport.call_evidence = Some(litellm_traces::CallEvidenceKind::Complete);
+        owned(transport, "team", "", "key")
+    };
+    let mut call = llm("chat", "agent", "agent", "");
+    call.call_evidence = None;
+    let rows: Vec<_> = [
+        owned(
+            row("agent", "", "agent", "agent", "agent"),
+            "team",
+            "",
+            "key",
+        ),
+        owned(call, "team", "", "key"),
+        transport("model-http", "chat"),
+        owned(row("tool", "chat", "fetch", "tool", ""), "team", "", "key"),
+    ]
+    .into_iter()
+    .chain(tool_request.then(|| transport("tool-http", "tool")))
+    .collect();
+    let mut logged = owned_spend("request", "", "team", "", "key", 0.5);
+    logged.trace_id = "trace".into();
+    logged.span_id = "model-http".into();
+    let trace = resolve_trace("trace", "ref", &rows, &[logged]).unwrap();
+    assert_eq!(trace.summary.spend, expected);
+}
+
+#[rstest]
 #[case::without_tool_http_sibling(None, false, litellm_traces::CallKey::Transport, Some(0.5))]
 #[case::after_call(Some((200, 10)), false, litellm_traces::CallKey::Transport, Some(0.5))]
 #[case::inside_call_without_spend(Some((10, 10)), false, litellm_traces::CallKey::Transport, Some(0.5))]

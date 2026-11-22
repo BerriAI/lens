@@ -231,6 +231,7 @@ impl<'a> Resolution<'a> {
             .descendants(call)
             .into_iter()
             .filter(is_transport)
+            .filter(|transport| !self.inside_tool(*transport, call))
             .collect();
         let Some(parent) = self.graph.parent(call).filter(|_| nested.is_empty()) else {
             return nested;
@@ -261,6 +262,15 @@ impl<'a> Resolution<'a> {
                 transport_start_ns >= call_start_ns && transport_end_ns <= call_end_ns
             })
             .collect()
+    }
+
+    /// A request made beneath a tool step the call started belongs to the tool, not to the call.
+    fn inside_tool(&self, transport: usize, call: usize) -> bool {
+        self.graph
+            .ancestors(transport)
+            .into_iter()
+            .take_while(|ancestor| self.graph.id(*ancestor) != self.graph.id(call))
+            .any(|ancestor| self.kind(ancestor) == ObservationType::Tool)
     }
 
     pub(super) fn unique_tools(&self) -> Vec<usize> {
