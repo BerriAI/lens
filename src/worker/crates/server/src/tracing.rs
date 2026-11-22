@@ -137,29 +137,39 @@ pub fn router<R: SessionRepository + 'static, B: TraceReader + 'static>(
     reader: B,
     config: TraceConfig,
 ) -> Router {
-    Router::new()
-        .public_route("/v1/traces", get(list::<R, B>))
-        .public_route("/v1/logs", get(logs::<R, B>))
-        .public_route("/v1/logs/{record_id}", get(log::<R, B>))
+    let pages = |prefix: &str| {
+        Router::new()
+            .public_route(&format!("{prefix}/v1/traces"), get(list::<R, B>))
+            .public_route(&format!("{prefix}/v1/logs"), get(logs::<R, B>))
+            .public_route(&format!("{prefix}/v1/logs/{{record_id}}"), get(log::<R, B>))
+            .public_route(&format!("{prefix}/v1/traces/agents"), get(agents::<R, B>))
+            .public_route(&format!("{prefix}/v1/traces/query"), post(query::<R, B>))
+            .public_route(&format!("{prefix}/v1/traces/query/help"), get(help::<R, B>))
+            .public_route(
+                &format!("{prefix}/v1/traces/{{trace_id}}"),
+                get(trace::<R, B>),
+            )
+            .public_route(
+                &format!("{prefix}/v1/traces/{{trace_id}}/conversation"),
+                get(conversation::<R, B>),
+            )
+            .public_route(
+                &format!("{prefix}/v1/traces/{{trace_id}}/spans/{{span_id}}"),
+                get(span::<R, B>),
+            )
+            .public_route(
+                &format!("{prefix}/v1/traces/{{trace_id}}/spans/{{span_id}}/error"),
+                get(span_error::<R, B>),
+            )
+    };
+    pages("")
+        .merge(pages(crate::routing::PAGE_PREFIX))
         .public_route("/lens/logs", get(logs::<R, B>))
         .public_route("/lens/logs/{record_id}", get(log::<R, B>))
-        .public_route("/v1/traces/agents", get(agents::<R, B>))
-        .public_route("/v1/traces/query", post(query::<R, B>))
         .public_route("/lens/mcp", post(mcp::handle::<R, B>))
-        .public_route("/v1/traces/query/help", get(help::<R, B>))
-        .public_route("/v1/traces/{trace_id}", get(trace::<R, B>))
-        .public_route(
-            "/v1/traces/{trace_id}/conversation",
-            get(conversation::<R, B>),
-        )
         .public_route(
             "/lens/traces/{trace_id}/conversation",
             get(conversation::<R, B>),
-        )
-        .public_route("/v1/traces/{trace_id}/spans/{span_id}", get(span::<R, B>))
-        .public_route(
-            "/v1/traces/{trace_id}/spans/{span_id}/error",
-            get(span_error::<R, B>),
         )
         .layer(DefaultBodyLimit::max(crate::routing::MAX_REQUEST_BYTES))
         .layer(axum::middleware::from_fn(

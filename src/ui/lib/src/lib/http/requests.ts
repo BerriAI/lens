@@ -1,5 +1,5 @@
 import { createApiClient } from "./client";
-import { getAuthHeaderName, getRequestBaseUrl, reportError } from "./runtime";
+import { getAuthHeaderName, getRequestBaseUrl, reportError, resolveRequestPath } from "./runtime";
 import type {
   Trace,
   TracePage,
@@ -17,6 +17,7 @@ import type {
 export const getProxyBaseUrl = getRequestBaseUrl;
 export const apiClient = createApiClient({
   getBaseUrl: getRequestBaseUrl,
+  resolvePath: resolveRequestPath,
   getAuthHeaderName,
   onError: reportError,
 });

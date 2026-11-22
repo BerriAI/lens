@@ -310,6 +310,20 @@ async fn slack_credential_cannot_expand_trace_scope(
 )]
 #[case::sql("POST", "/v1/traces/query", 200)]
 #[case::help("GET", "/v1/traces/query/help", 200)]
+#[case::page_list("GET", "/lens/v1/traces", 200)]
+#[case::page_logs("GET", "/lens/v1/logs", 200)]
+#[case::page_agents("GET", "/lens/v1/traces/agents", 200)]
+#[case::page_trace("GET", "/lens/v1/traces/trace-id", 404)]
+#[case::page_conversation("GET", "/lens/v1/traces/trace-id/conversation", 404)]
+#[case::page_span("GET", "/lens/v1/traces/trace-id/spans/span-id", 404)]
+#[case::page_error("GET", "/lens/v1/traces/trace-id/spans/span-id/error", 404)]
+#[case::page_log_detail(
+    "GET",
+    "/lens/v1/logs/aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+    404
+)]
+#[case::page_sql("POST", "/lens/v1/traces/query", 200)]
+#[case::page_help("GET", "/lens/v1/traces/query/help", 200)]
 #[tokio::test]
 async fn public_reads_use_signed_identity_scope_and_ignore_browser_scope(
     #[future(awt)] database: Database,

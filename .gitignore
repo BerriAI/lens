@@ -16,7 +16,6 @@ coverage-rust.xml
 **/.next/
 **/dist/
 **/out/
-**/out-embedded/
 *.tsbuildinfo
 *.egg-info/
 *.so

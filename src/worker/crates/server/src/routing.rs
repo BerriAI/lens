@@ -7,6 +7,7 @@ use axum::{
     routing::{MethodRouter, any},
 };
 
+pub const PAGE_PREFIX: &str = "/lens";
 pub const MAX_REQUEST_BYTES: usize = 2 * 1024 * 1024;
 
 pub(crate) trait PublicRoutes<S> {

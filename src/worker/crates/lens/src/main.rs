@@ -195,16 +195,6 @@ async fn run() -> Result<(), litellm_lens::Error> {
     } else {
         routes
     };
-    let routes = if let Some(directory) = config.embedded_ui_directory {
-        if !std::fs::metadata(directory.join("index.html"))?.is_file() {
-            return Err(litellm_lens::Error::Configuration(
-                "LENS_EMBEDDED_UI_DIRECTORY must contain the built embedded UI index.html",
-            ));
-        }
-        routes.merge(lens_server::ui::embedded_router(directory))
-    } else {
-        routes
-    };
     let routes = routes.layer(axum::middleware::from_fn(
         lens_server::routing::redirect_trailing_slash,
     ));

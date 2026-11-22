@@ -11,22 +11,16 @@ use axum::{
 };
 use tower_http::{services::ServeDir, set_header::SetResponseHeaderLayer};
 
-pub const EMBEDDED_MOUNT_HEADER: &str = "x-lens-ui-mount";
-pub const EMBEDDED_MOUNT_PLACEHOLDER: &str = "/__lens_ui_mount__";
-const EMBEDDED_PATH: &str = "/embedded";
-const MAX_EMBEDDED_ASSET_BYTES: usize = 32 * 1024 * 1024;
+pub const MOUNT_HEADER: &str = "x-lens-ui-mount";
+pub const MOUNT_PLACEHOLDER: &str = "/__lens_ui_mount__";
+const OWN_PATH: &str = "/ui";
+const MAX_ASSET_BYTES: usize = 32 * 1024 * 1024;
 
 pub fn router(directory: PathBuf) -> Router {
     Router::new()
         .route("/", get(entry))
         .route("/ui", get(entry))
         .nest_service("/ui/", ServeDir::new(directory))
-        .layer(nosniff())
-}
-
-pub fn embedded_router(directory: PathBuf) -> Router {
-    Router::new()
-        .nest_service("/embedded/", ServeDir::new(directory))
         .layer(from_fn(mount))
         .layer(nosniff())
 }
@@ -48,7 +42,7 @@ async fn entry(uri: Uri) -> Redirect {
 
 fn mount_path(value: Option<&HeaderValue>) -> Option<String> {
     let Some(value) = value else {
-        return Some(EMBEDDED_PATH.into());
+        return Some(OWN_PATH.into());
     };
     let path = value.to_str().ok()?;
     let segments = path.strip_prefix('/')?.split('/');
@@ -64,9 +58,14 @@ fn mount_path(value: Option<&HeaderValue>) -> Option<String> {
 }
 
 async fn mount(mut request: Request, next: Next) -> Response {
-    let Some(path) = mount_path(request.headers().get(EMBEDDED_MOUNT_HEADER)) else {
+    if !request.uri().path().starts_with("/ui/") {
+        return next.run(request).await;
+    }
+    let Some(path) = mount_path(request.headers().get(MOUNT_HEADER)) else {
         return StatusCode::BAD_REQUEST.into_response();
     };
+    let hosted = request.headers().get(MOUNT_HEADER).cloned();
+    let versioned = request.uri().path().starts_with("/ui/_next/static/");
     for name in [
         header::RANGE,
         header::IF_RANGE,
@@ -76,13 +75,16 @@ async fn mount(mut request: Request, next: Next) -> Response {
         request.headers_mut().remove(name);
     }
     let (mut parts, body) = next.run(request).await.into_parts();
-    let Ok(bytes) = to_bytes(body, MAX_EMBEDDED_ASSET_BYTES).await else {
+    let Ok(bytes) = to_bytes(body, MAX_ASSET_BYTES).await else {
         return StatusCode::INTERNAL_SERVER_ERROR.into_response();
     };
+    if let Some(hosted) = hosted {
+        parts.headers.insert(MOUNT_HEADER, hosted);
+    }
     let Ok(text) = std::str::from_utf8(&bytes) else {
         return Response::from_parts(parts, Body::from(bytes));
     };
-    let mounted = text.replace(EMBEDDED_MOUNT_PLACEHOLDER, &path);
+    let mounted = text.replace(MOUNT_PLACEHOLDER, &path);
     for name in [
         header::CONTENT_LENGTH,
         header::LAST_MODIFIED,
@@ -90,8 +92,13 @@ async fn mount(mut request: Request, next: Next) -> Response {
     ] {
         parts.headers.remove(name);
     }
-    parts
-        .headers
-        .insert(header::CACHE_CONTROL, HeaderValue::from_static("no-cache"));
+    parts.headers.insert(
+        header::CACHE_CONTROL,
+        HeaderValue::from_static(if versioned && parts.status.is_success() {
+            "public, max-age=31536000, immutable"
+        } else {
+            "no-cache"
+        }),
+    );
     Response::from_parts(parts, Body::from(mounted))
 }

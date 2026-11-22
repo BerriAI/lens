@@ -45,3 +45,19 @@ export const resolveRequestUrl = (path: string, { registeredBase, pageOrigin }: 
   const base = (registeredBase || pageOrigin || "").replace(/\/+$/, "");
   return `${base}${path}`;
 };
+
+const HOSTED_UI = /\/ui(\/.*)?$/;
+
+/**
+ * Where a page's API lives when a LiteLLM gateway serves this UI under its own
+ * `<root>/lens/ui/`, or null when Lens serves it at `/ui/` itself. The gateway
+ * forwards everything under `<root>/lens/` to the Lens that built this UI.
+ */
+export const hostedApiRoot = (pagePath: string): string | null => {
+  const root = pagePath.replace(HOSTED_UI, "");
+  return root === "" || !HOSTED_UI.test(pagePath) ? null : root;
+};
+
+/** Page APIs sit under `/lens/` on Lens; the ones that predate that prefix have a `/lens/` twin. */
+export const hostedApiPath = (apiRoot: string, path: string): string =>
+  path === "/lens" || /^\/lens[/?]/.test(path) ? `${apiRoot}${path.slice("/lens".length)}` : `${apiRoot}${path}`;

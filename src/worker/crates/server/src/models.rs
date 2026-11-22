@@ -72,6 +72,7 @@ pub fn with_catalog<R: SessionRepository + 'static, M: ModelCatalog>(
         .public_route("/models", get(models::<R, M>))
         .public_route("/lens/models", get(models::<R, M>))
         .public_route("/v1/models", get(models::<R, M>))
+        .public_route("/lens/v1/models", get(models::<R, M>))
         .public_route("/model_group/info", get(groups::<R, M>))
         .public_route("/lens/model_group/info", get(groups::<R, M>))
         .public_route("/lens/gateway", get(gateway::<R, M>))

@@ -6,6 +6,8 @@ import { parseAsBoolean, useQueryState } from "nuqs";
 import { z } from "zod";
 import {
   configureLensHttp,
+  hostedApiPath,
+  hostedApiRoot,
   LensHostProvider,
   LensWorkspace,
   type LensHost,
@@ -15,9 +17,19 @@ import litellmMonogram from "../../lib/public/assets/logos/litellm_monogram.svg"
 import { ApiError, createApiClient } from "@litellm/lens-ui/http";
 import { toast } from "sonner";
 
-const baseUrl = () => process.env.NEXT_PUBLIC_LENS_API_URL ?? "";
+const gatewayApiRoot = () =>
+  typeof window === "undefined"
+    ? null
+    : hostedApiRoot(window.location.pathname);
+const baseUrl = () =>
+  gatewayApiRoot() === null ? (process.env.NEXT_PUBLIC_LENS_API_URL ?? "") : "";
+const resolvePath = (path: string) => {
+  const root = gatewayApiRoot();
+  return root === null ? path : hostedApiPath(root, path);
+};
 const api = createApiClient({
   getBaseUrl: baseUrl,
+  resolvePath,
   getAuthHeaderName: () => "Authorization",
 });
 const sessionSchema = z.object({
@@ -36,7 +48,11 @@ const gatewayConnectedSchema = z.object({
   gateway_environment: z.array(z.string()),
 });
 
-configureLensHttp({ getBaseUrl: baseUrl, getAuthToken: () => null });
+configureLensHttp({
+  getBaseUrl: baseUrl,
+  getAuthToken: () => null,
+  resolvePath,
+});
 
 export function Workspace() {
   const [demo] = useQueryState("demo", parseAsBoolean.withDefault(false));
@@ -44,7 +60,10 @@ export function Workspace() {
   const session = useQuery({
     queryKey: sessionKey,
     queryFn: async () => {
-      const token = takeSignInToken(window.location, window.history);
+      const token =
+        gatewayApiRoot() === null
+          ? takeSignInToken(window.location, window.history)
+          : null;
       const signedIn = token
         ? await api
             .post("/auth/session", { body: { token } })
@@ -99,12 +118,38 @@ export function Workspace() {
       <Surface
         userRole={session.data.user_role}
         readOnly={session.data.user_role === "proxy_admin_viewer"}
-        user={{
-          name: session.data.user_name ?? session.data.user_id,
-          role: session.data.user_role,
-          signOut: () => void signOut(),
-        }}
+        user={
+          gatewayApiRoot() === null
+            ? {
+                name: session.data.user_name ?? session.data.user_id,
+                role: session.data.user_role,
+                signOut: () => void signOut(),
+              }
+            : undefined
+        }
       />
+    );
+  if (gatewayApiRoot() !== null)
+    return (
+      <main className="lens-workspace mx-auto my-16 w-[calc(100%-2rem)] max-w-md overflow-hidden rounded-xl border bg-card">
+        <header className="lens-page-header">
+          <h1 className="lens-page-title">Lens is not available</h1>
+        </header>
+        <div className="lens-page-body flex flex-col gap-4">
+          <p className="text-sm text-muted-foreground">
+            {session.error instanceof ApiError &&
+            [401, 403].includes(session.error.status)
+              ? "Sign in to LiteLLM again, then reload this page."
+              : "LiteLLM could not reach Lens. Check that Lens is running, then retry."}
+          </p>
+          <button
+            className="rounded-md border px-3 py-2 text-sm"
+            onClick={() => void session.refetch()}
+          >
+            Retry
+          </button>
+        </div>
+      </main>
     );
   if (session.error instanceof ApiError && session.error.status === 401)
     return <SignIn linkRejected={linkRejected} />;

@@ -107,28 +107,29 @@ async fn javascript_asset_has_an_executable_mime_type(ui: (Router, TempDir)) {
 }
 
 #[fixture]
-fn embedded() -> (Router, TempDir) {
+fn built() -> (Router, TempDir) {
     let directory = tempfile::tempdir().unwrap();
-    let public = directory.path().join("embedded");
+    let public = directory.path().join("ui");
     std::fs::create_dir_all(public.join("_next/static")).unwrap();
     std::fs::write(
         public.join("index.html"),
         "<script src=\"/__lens_ui_mount__/_next/static/app.js\"></script>",
     )
     .unwrap();
+    std::fs::write(
+        public.join("_next/static/app.js"),
+        "fetch(\"/__lens_ui_mount__/_next/static/chunk.js\")",
+    )
+    .unwrap();
     std::fs::write(public.join("_next/static/font.woff2"), [0xff, 0xfe, 0x00]).unwrap();
     std::fs::write(directory.path().join("secret.txt"), "outside-static-root").unwrap();
-    (lens_server::ui::embedded_router(public), directory)
+    (lens_server::ui::router(public), directory)
 }
 
-async fn embedded_response(
-    router: Router,
-    path: &str,
-    mount: Option<&str>,
-) -> axum::response::Response {
+async fn mounted(router: Router, path: &str, mount: Option<&str>) -> axum::response::Response {
     let request = Request::builder().uri(path);
     let request = match mount {
-        Some(mount) => request.header(lens_server::ui::EMBEDDED_MOUNT_HEADER, mount),
+        Some(mount) => request.header(lens_server::ui::MOUNT_HEADER, mount),
         None => request,
     };
     router
@@ -140,30 +141,50 @@ async fn embedded_response(
 #[rstest]
 #[case::gateway_root(Some("/lens/ui"), "/lens/ui")]
 #[case::gateway_under_a_root_path(Some("/team-a/lens/ui"), "/team-a/lens/ui")]
-#[case::opened_on_lens_itself(None, "/embedded")]
+#[case::opened_on_lens_itself(None, "/ui")]
 #[tokio::test]
-async fn embedded_ui_loads_its_assets_from_where_the_host_mounted_it(
-    embedded: (Router, TempDir),
+async fn one_build_loads_its_assets_from_where_it_is_mounted(
+    built: (Router, TempDir),
     #[case] mount: Option<&str>,
     #[case] expected: &str,
 ) {
-    let response = embedded_response(embedded.0, "/embedded/", mount).await;
-    assert_eq!(response.status(), StatusCode::OK);
+    let page = mounted(built.0.clone(), "/ui/", mount).await;
+    assert_eq!(page.status(), StatusCode::OK);
+    assert_eq!(page.headers()[header::CACHE_CONTROL], "no-cache");
     assert_eq!(
-        to_bytes(response.into_body(), 1024).await.unwrap(),
+        to_bytes(page.into_body(), 1024).await.unwrap(),
         format!("<script src=\"{expected}/_next/static/app.js\"></script>")
+    );
+    let script = mounted(built.0, "/ui/_next/static/app.js", mount).await;
+    assert_eq!(
+        to_bytes(script.into_body(), 1024).await.unwrap(),
+        format!("fetch(\"{expected}/_next/static/chunk.js\")")
+    );
+}
+
+#[rstest]
+#[case::gateway(Some("/lens/ui"), Some("/lens/ui"))]
+#[case::opened_on_lens_itself(None, None)]
+#[tokio::test]
+async fn a_host_can_tell_that_this_lens_mounted_the_ui_for_it(
+    built: (Router, TempDir),
+    #[case] mount: Option<&str>,
+    #[case] echoed: Option<&str>,
+) {
+    let response = mounted(built.0, "/ui/", mount).await;
+    assert_eq!(
+        response
+            .headers()
+            .get(lens_server::ui::MOUNT_HEADER)
+            .map(|value| value.to_str().unwrap()),
+        echoed
     );
 }
 
 #[rstest]
 #[tokio::test]
-async fn embedded_ui_serves_binary_assets_unchanged(embedded: (Router, TempDir)) {
-    let response = embedded_response(
-        embedded.0,
-        "/embedded/_next/static/font.woff2",
-        Some("/lens/ui"),
-    )
-    .await;
+async fn binary_assets_are_served_unchanged(built: (Router, TempDir)) {
+    let response = mounted(built.0, "/ui/_next/static/font.woff2", Some("/lens/ui")).await;
     assert_eq!(response.status(), StatusCode::OK);
     assert_eq!(
         to_bytes(response.into_body(), 1024).await.unwrap().as_ref(),
@@ -178,23 +199,20 @@ async fn embedded_ui_serves_binary_assets_unchanged(embedded: (Router, TempDir))
 #[case::relative("lens/ui")]
 #[case::trailing_slash("/lens/ui/")]
 #[tokio::test]
-async fn embedded_ui_refuses_a_mount_that_is_not_a_plain_path(
-    embedded: (Router, TempDir),
-    #[case] mount: &str,
-) {
-    let response = embedded_response(embedded.0, "/embedded/", Some(mount)).await;
+async fn refuses_a_mount_that_is_not_a_plain_path(built: (Router, TempDir), #[case] mount: &str) {
+    let response = mounted(built.0, "/ui/", Some(mount)).await;
     assert_eq!(response.status(), StatusCode::BAD_REQUEST);
 }
 
 #[rstest]
-#[case::parent("/embedded/../secret.txt")]
-#[case::encoded_parent("/embedded/%2e%2e/secret.txt")]
-#[case::missing_asset("/embedded/missing.js")]
+#[case::parent("/ui/../secret.txt")]
+#[case::encoded_parent("/ui/%2e%2e/secret.txt")]
+#[case::missing_asset("/ui/missing.js")]
 #[tokio::test]
-async fn embedded_ui_never_serves_files_outside_its_directory(
-    embedded: (Router, TempDir),
+async fn a_mounted_ui_never_serves_files_outside_its_directory(
+    built: (Router, TempDir),
     #[case] path: &str,
 ) {
-    let response = embedded_response(embedded.0, path, Some("/lens/ui")).await;
+    let response = mounted(built.0, path, Some("/lens/ui")).await;
     assert_eq!(response.status(), StatusCode::NOT_FOUND);
 }
