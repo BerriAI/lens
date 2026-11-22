@@ -170,6 +170,9 @@ async fn run() -> Result<(), litellm_lens::Error> {
         .clone()
         .ok_or(litellm_lens::Error::Unavailable)?;
     tasks.spawn(signals.serve());
+    if let Some(rules) = application.alert_rules.clone() {
+        tasks.spawn(rules.serve());
+    }
     if let Some(alerts) = application.signal_alerts.clone() {
         tasks.spawn(alerts.serve());
     }

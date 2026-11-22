@@ -118,8 +118,24 @@ function AgentCell({ run }: { run: TraceSummary }) {
   );
 }
 
+function PreviewText({ preview, empty }: { preview: string; empty: string }) {
+  const text = singleLine(previewText(preview));
+  return text ? (
+    <span className="truncate text-foreground">{text}</span>
+  ) : (
+    <span className="truncate text-muted-foreground">{empty}</span>
+  );
+}
+
+function OutputCell({ run }: { run: TraceSummary }) {
+  return (
+    <div className="flex min-w-0 items-center">
+      <PreviewText preview={run.output_preview ?? ""} empty="—" />
+    </div>
+  );
+}
+
 function InputCell({ run }: { run: TraceSummary }) {
-  const input = singleLine(previewText(run.input_preview));
   return (
     <div className="flex min-w-0 items-center gap-2">
       {(run.error_count > 0 || run.status === "error") && (
@@ -129,11 +145,7 @@ function InputCell({ run }: { run: TraceSummary }) {
             : "Run error"}
         </span>
       )}
-      {input ? (
-        <span className="truncate text-foreground">{input}</span>
-      ) : (
-        <span className="truncate text-muted-foreground">No input recorded</span>
-      )}
+      <PreviewText preview={run.input_preview} empty="No input recorded" />
       {run.resolution_limited && (
         <span
           className="shrink-0 text-xs text-muted-foreground"
@@ -311,7 +323,8 @@ const RUN_COLUMNS: ColumnDef<TraceSummary>[] = [
       ),
     },
   },
-  { id: "input", header: "Input", cell: ({ row }) => <InputCell run={row.original} /> },
+  { id: "input", header: "First Input", cell: ({ row }) => <InputCell run={row.original} /> },
+  { id: "output", header: "Last Output", cell: ({ row }) => <OutputCell run={row.original} /> },
   {
     id: "traceId",
     size: 140,

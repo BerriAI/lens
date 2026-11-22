@@ -2638,6 +2638,58 @@ async fn agent_final_answer_preserves_visibility_and_trace_ownership(
 }
 
 #[rstest]
+#[case::answered_turn("first", "first answer")]
+#[case::unanswered_turn("second", "")]
+#[tokio::test]
+async fn agent_final_answer_stays_within_its_own_turn_when_a_trace_holds_several(
+    #[future(awt)] database: TestResult<ClickHouseDatabase>,
+    #[case] turn: &str,
+    #[case] expected: &str,
+) -> TestResult {
+    use litellm_traces_clickhouse::query::named::{ReadAccessParams, SpanDetail, SpanDetailParams};
+
+    let database = database?;
+    let writer = Connection::writer(&database.url)?;
+    ensure_schema(&database.client, &writer, "trace_test", 7).await?;
+    let timestamp = time::OffsetDateTime::now_utc().unix_timestamp_nanos() as i64;
+    let rows = [
+        ("first", "", "agent", ""),
+        ("reply", "first", "chain", "first answer"),
+        ("second", "", "agent", ""),
+    ]
+    .into_iter()
+    .enumerate()
+    .map(|(index, (span, parent, kind, output))| {
+        serde_json::from_value(serde_json::json!({
+            "Timestamp": timestamp + index as i64, "TraceId": "session", "SpanId": span,
+            "ParentSpanId": parent, "TeamId": "alpha", "ApiKeyHash": "one", "UserId": "owner",
+            "ObservationType": kind, "Input": "prompt", "Output": output,
+        }))
+    })
+    .collect::<Result<Vec<_>, _>>()?;
+    insert_rows(&database, "otel_traces", rows).await?;
+    let reader = Connection::reader(&database.url, "trace_test")?;
+    let details = litellm_storage_clickhouse::fetch::<SpanDetail>(
+        &database.client,
+        &reader,
+        &SpanDetailParams {
+            access: ReadAccessParams {
+                all_teams: true,
+                user_id: String::new(),
+                team_ids: Vec::new(),
+            },
+            trace_id: "session".into(),
+            trace_ref: String::new(),
+            span_id: turn.into(),
+        },
+    )
+    .await?;
+    assert_eq!(details.len(), 1);
+    assert_eq!(details[0].output, expected);
+    Ok(())
+}
+
+#[rstest]
 #[tokio::test]
 async fn nullable_spend_upgrade_preserves_existing_costs_and_unknown_new_costs(
     #[future(awt)] database: TestResult<ClickHouseDatabase>,

@@ -16,6 +16,7 @@ use super::{
     query_access::READER_LIMITS,
 };
 
+pub mod alert_rules;
 pub mod conversation;
 pub mod evals;
 mod guide;

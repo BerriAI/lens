@@ -16,6 +16,83 @@ const overview = (matches: SignalOverview["matches"]): SignalOverview => ({
 });
 
 describe("alert activity", () => {
+  it("keeps separate rules of the same kind distinct in filters and counts", () => {
+    const rule = {
+      kind: "run_duration" as const,
+      trace_id: "same-run",
+      trace_ref: "scope",
+      span_id: "latest",
+      detected_at: new Date(since + 1_000).toISOString(),
+      duration_ms: 1_300_000,
+    };
+    const activity = alertActivity(overview([]), {
+      since: new Date(since).toISOString(),
+      limit: 500,
+      truncated: false,
+      matches: [
+        { ...rule, rule_id: "short", threshold_minutes: 5 },
+        { ...rule, rule_id: "long", threshold_minutes: 20 },
+      ],
+    });
+    expect(activity.signals.map(({ id, name, count }) => ({ id, name, count }))).toEqual([
+      { id: "rule:short", name: "Run exceeds 5 min", count: 1 },
+      { id: "rule:long", name: "Run exceeds 20 min", count: 1 },
+    ]);
+    expect(activity.traces).toBe(1);
+  });
+  it("plots new rule alerts when the signal overview was fetched earlier", () => {
+    const activity = alertActivity(overview([]), {
+      since: new Date(since + 60_000).toISOString(),
+      limit: 500,
+      truncated: false,
+      matches: [
+        {
+          rule_id: "errors",
+          kind: "model_error",
+          trace_id: "new-run",
+          span_id: "failed-call",
+          detected_at: new Date(since + 24 * HOUR_MS + 30_000).toISOString(),
+        },
+      ],
+    });
+    expect(activity.buckets.at(-1)?.count).toBe(1);
+    expect(activity.unplotted).toBe(0);
+  });
+  it("combines rules and model signals chronologically without merging tenant identities", () => {
+    const activity = alertActivity(
+      overview([
+        {
+          trace_id: "same",
+          trace_ref: "a",
+          status: "classified",
+          classified_at: new Date(since + 1000).toISOString(),
+          flags: [timeout],
+        },
+      ]),
+      {
+        since: new Date(since).toISOString(),
+        limit: 500,
+        truncated: false,
+        matches: [
+          {
+            rule_id: "duration",
+            kind: "run_duration",
+            trace_id: "same",
+            trace_ref: "b",
+            span_id: "latest",
+            detected_at: new Date(since + 2000).toISOString(),
+            duration_ms: 420_000,
+            threshold_minutes: 5,
+          },
+        ],
+      },
+    );
+    expect(activity.hits.map(({ flag }) => flag.name)).toEqual(["Run exceeds 5 min", "Timeout"]);
+    expect(activity.hits[0].rule?.duration_ms).toBe(420_000);
+    expect(activity.hits[0].flag.evidence?.span_id).toBe("latest");
+    expect(activity.traces).toBe(2);
+    expect(activity.buckets[0].count).toBe(2);
+  });
   it("counts alerts separately from traces and assigns hourly boundaries without double counting", () => {
     const activity = alertActivity(
       overview([

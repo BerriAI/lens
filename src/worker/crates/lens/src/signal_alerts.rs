@@ -188,9 +188,14 @@ async fn save(
     {
         return Err(Error::Invalid("Choose from your saved signals"));
     }
-    if request.enabled && (signals.model.is_empty() || request.signal_ids.is_empty()) {
+    let rules = litellm_storage_clickhouse::alert_rules::settings(&app.store).await?;
+    let rules_enabled = rules.active().next().is_some();
+    if request.enabled
+        && !rules_enabled
+        && (signals.model.is_empty() || request.signal_ids.is_empty())
+    {
         return Err(Error::Invalid(
-            "Save a signal model and select at least one signal",
+            "Enable an alert rule or configure a model and select at least one signal",
         ));
     }
     let replace = request
@@ -243,7 +248,7 @@ async fn test(
         serde_json::from_slice(&body).map_err(|_| Error::Invalid("Invalid test request"))?;
     let settings = storage::settings(&app.store).await?;
     let url = app.webhook(request.webhook_url.as_deref(), &settings)?;
-    let result = send(&app.client, &url, json!({"text":"Lens signal alert test. Slack is connected. Save your alert settings in Lens to receive matches.","mrkdwn":false,"unfurl_links":false,"unfurl_media":false})).await;
+    let result = send(&app.client, &url, json!({"text":"Lens alert test. Slack is connected. Save your notification settings in Lens to receive alerts.","mrkdwn":false,"unfurl_links":false,"unfurl_media":false})).await;
     match result {
         Outcome::Delivered => Ok(Json(json!({"delivered":true}))),
         _ => Err(Error::Delivery),

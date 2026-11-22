@@ -8,12 +8,6 @@
             "value": {
               "stringValue": "claude-code"
             }
-          },
-          {
-            "key": "lens.session.capture",
-            "value": {
-              "stringValue": "true"
-            }
           }
         ]
       },
@@ -180,12 +174,6 @@
             "value": {
               "stringValue": "claude-code"
             }
-          },
-          {
-            "key": "lens.session.capture",
-            "value": {
-              "stringValue": "true"
-            }
           }
         ]
       },
@@ -280,12 +268,6 @@
             "value": {
               "stringValue": "claude-code"
             }
-          },
-          {
-            "key": "lens.session.capture",
-            "value": {
-              "stringValue": "true"
-            }
           }
         ]
       },
@@ -379,12 +361,6 @@
             "key": "service.name",
             "value": {
               "stringValue": "claude-code"
-            }
-          },
-          {
-            "key": "lens.session.capture",
-            "value": {
-              "stringValue": "true"
             }
           }
         ]
@@ -552,12 +528,6 @@
             "value": {
               "stringValue": "claude-code"
             }
-          },
-          {
-            "key": "lens.session.capture",
-            "value": {
-              "stringValue": "true"
-            }
           }
         ]
       },
@@ -651,12 +621,6 @@
             "key": "service.name",
             "value": {
               "stringValue": "claude-code"
-            }
-          },
-          {
-            "key": "lens.session.capture",
-            "value": {
-              "stringValue": "true"
             }
           }
         ]

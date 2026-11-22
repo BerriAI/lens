@@ -96,7 +96,10 @@ impl SourceReader {
         })
     }
 
-    async fn read<Q: Query>(&self, parameters: &Q::Params) -> Result<Vec<Q::Row>, Error> {
+    pub(crate) async fn read<Q: Query>(
+        &self,
+        parameters: &Q::Params,
+    ) -> Result<Vec<Q::Row>, Error> {
         self.0.require_storage()?;
         let _permit = wait_for_read_slot(self.0.read_slots.clone().acquire_owned()).await?;
         Ok(fetch::<Q>(

@@ -35,6 +35,24 @@ Set up Lens for this project using https://github.com/BerriAI/lens/blob/main/doc
 
 <br><br>
 
+<h3>Lens CLI</h3>
+
+**Evaluate models, harnesses, and custom agents on your own tasks**
+
+<img src="assets/lens-cli-results.webp" alt="Lens CLI ranks twelve model and harness configurations by pass rate and estimated cost" width="100%">
+
+Saved sample run: 24 synthetic tasks across 12 configurations, with token-based cost estimates
+
+<br>
+
+<img src="assets/lens-cli-cost-quality.webp" alt="Lens CLI cost-versus-quality chart compares pass rates and estimated total costs for the same twelve configurations" width="100%">
+
+Compare pass rate and estimated cost before choosing a model and harness
+
+[Try the CLI preview](https://docs.litellm.ai/docs/proxy/lens/cli)
+
+<br><br>
+
 <img src="assets/lens-traces.png" alt="Lens traces" width="100%">
 
 <br><br>

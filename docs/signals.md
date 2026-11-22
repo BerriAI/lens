@@ -1,8 +1,8 @@
-# Configure signals
+# Configure alerts and signals
 
-Signals are questions you want Lens to check on captured traces. Alerts shows the matches and lets you choose which of them send a Slack notification. Lens sends eligible trace content to your configured judge and also displays matching Signals in **Traces**
+Alerts combines deterministic rules and model signals in one feed. Rules check run duration and model error status without inference. Model signals answer questions about captured traces using your configured judge and also appear in **Traces**. Both can send notifications through the same Slack connection
 
-Open **Alerts** to see evaluations completed in the last 24 hours. Select a Signal to filter the results, or open a trace to inspect its evidence. The dashboard counts the latest 500 results for the current questions and judge, using the current threshold. Failed or partial evaluations do not establish that a trace is clear. Admin viewers can read activity, and proxy administrators can change Signals and Slack delivery
+Open **Alerts** to see matches from the last 24 hours. Select an alert type to filter the results, or open a trace to inspect its evidence. Model signal counts cover the latest 500 results for the current questions and judge, using the current threshold. Failed or partial evaluations do not establish that a trace is clear. Admin viewers can read activity, and proxy administrators can change rules, model signals and Slack delivery
 
 Signals and Slack work in standalone Lens. An optional Gateway can provide traces and judge models. A Signal about a provider error or fallback can only match if the relevant attempt is present in the captured trace. An uncaptured or still-running request is not ruled out by an empty dashboard
 
@@ -11,6 +11,18 @@ Signals read every page and preserve each step's full captured content. The eval
 Signals use a Decisions API evaluation model by default. A chat model configured for analysis can judge traces instead, which helps when traces are longer than your evaluation model accepts. See [Use a chat model as the judge](#use-a-chat-model-as-the-judge)
 
 For optional help from your coding agent, copy the [provider setup prompt](setup-with-agent.md#enable-investigations-signals-or-eval-judging) and specify signals
+
+## Add a rule
+
+In **Alerts > Configure alerts**, enable **Run exceeds** and enter a whole number of minutes, or enable **A model call fails**. Choose **Save rules**. Rules use recorded timing and error status, require no evaluation model, and make no inference requests
+
+Rules apply to runs started after the rule was enabled, across all agents and teams. Duration means the elapsed time between the first span and the latest received span's end, not the sum of individual call durations. Lens raises an alert only when that duration is greater than the threshold. Model errors require an error status on a model span; tool errors do not trigger that rule
+
+Lens checks received telemetry periodically. Streaming spans can reveal a long run before it finishes. If the integration sends spans only on completion, the alert arrives after that telemetry is received. A silent run with no new spans cannot establish that the duration threshold was exceeded
+
+Each rule raises one alert per run. The dashboard combines rule alerts with model signals. Open an alert to see its measured duration or error, then choose **Open trace** to inspect the relevant span. Disabling a rule stops new matches and keeps its alert history. Changing a duration threshold applies the new threshold to new runs
+
+Enabled rules also use your existing **Slack notifications** connection. You can configure Slack with rules alone; no model is required. Rule counts include the latest 500 rule alerts detected in the last 24 hours, separately from the latest 500 model evaluation results
 
 ## Connect a LiteLLM gateway
 
@@ -23,7 +35,7 @@ LENS_GATEWAY_API_KEY=<gateway-virtual-key>
 
 Lens fetches the models accessible to this key from the gateway's `/model_group/info` endpoint. Open **Settings**, check the gateway connection, and refresh its models whenever the gateway configuration changes. The key stays on the server
 
-In **Alerts > Configure signals**, choose a discovered model under **Evaluation model** and save your questions. Models reported with `mode: decisions` or the legacy `mode: evaluation` appear in this selector; Lens sends their requests through the gateway's `/v1/decisions` endpoint using the exact model alias. Ordinary chat models are available for analysis when the gateway supplies valid pricing and output-token limits
+In **Alerts > Configure alerts > Model signals**, choose a discovered model under **Evaluation model** and save your questions. Models reported with `mode: decisions` or the legacy `mode: evaluation` appear in this selector; Lens sends their requests through the gateway's `/v1/decisions` endpoint using the exact model alias. Ordinary chat models are available for analysis when the gateway supplies valid pricing and output-token limits
 
 Discovered analysis models start each call with an output allowance of 16,384 tokens (or their smaller supported limit) and raise it only after a cut-off response, while retaining their full context capacity for input checks and budget accounting
 
@@ -52,7 +64,7 @@ Replace `<your-provider-key>` with the key from your provider account. Keep the 
 docker compose -f deploy/lens/compose.yaml up -d --wait
 ```
 
-Open **Alerts > Configure signals**, choose `signals`, select the questions to evaluate and save. Run your agent and open its trace to check the resulting flags. Provider calls can incur charges and include captured trace content
+Open **Alerts > Configure alerts > Model signals**, choose `signals`, select the questions to evaluate and save. Run your agent and open its trace to check the resulting flags. Provider calls can incur charges and include captured trace content
 
 The threshold controls which scores appear as flags. New configurations start at 95%. This starting point was tested on synthetic traces with a chat judge; check known matching and non-matching traces with your own judge before enabling Slack delivery
 
@@ -68,7 +80,7 @@ Signals inspect bounded excerpts, so a highlighted passage is a location to inve
 
 Decisions models are fast and cheap, but their input window is small for long, tool-heavy runs. When a trace does not fit, Lens first drops evidence selection and then shortens steps, so the part that shows the failure can be cut. A long-context chat model reads the whole trace instead
 
-Any model available for analysis can be the judge. Configure it as described in [Configure analysis models](analysis.md), then choose it in **Alerts > Configure signals**. Chat models are listed after the System 1 models and are marked **Chat judge**. Nothing else changes: each signal keeps its question, its score from 0 to 1, the threshold and the flagged excerpt
+Any model available for analysis can be the judge. Configure it as described in [Configure analysis models](analysis.md), then choose it in **Alerts > Configure alerts > Model signals**. Chat models are listed after the System 1 models and are marked **Chat judge**. Nothing else changes: each signal keeps its question, its score from 0 to 1, the threshold and the flagged excerpt
 
 Lens sends the judge the same labeled trace content and questions in one request and asks for every score and supporting excerpt at once. It accepts only scores between 0 and 1 and excerpts that were part of the request. A trace that is still too long for the chat model is reduced the same way as for a Decisions model, and the result is marked partial. A reply Lens cannot use, such as one cut off at the output limit, fails that trace until the trace or the signal configuration changes, so a long trace is not sent again every half hour
 
@@ -88,19 +100,19 @@ export LENS_EVALUATION_MODELS='[{"name":"signals","model":"your-evaluation-model
 
 Replace the model and API base with those from your service, and supply `EVALUATION_API_KEY` through your secret configuration. Do not configure an ordinary chat-completions endpoint as a Decisions endpoint. To judge with a chat model, add it as an analysis model instead
 
-## Send signal alerts to Slack
+## Send alerts to Slack
 
-In **Alerts > Configure signals**, save your model and Signal questions, close the panel, then choose **Slack notifications**. An administrator can connect one Slack channel and select which saved Signals should send alerts
+Enable and save a rule, or save your model and questions under **Model signals**, then choose **Slack notifications**. An administrator can connect one Slack channel. All enabled rules are included; choose which model signals to include
 
 Create an incoming webhook in your [Slack app settings](https://docs.slack.dev/messaging/sending-messages-using-incoming-webhooks/): enable **Incoming Webhooks**, choose **Add New Webhook to Workspace**, and select the channel. Paste the resulting URL into **Slack webhook URL** in Lens. The URL contains a secret; keep it out of source control and shared messages
 
-Select the signals, choose **Send test alert**, and check the Slack channel. A successful test does not enable alerts. Choose **Save alert settings** with **Enable alerts** checked to start receiving matches
+Select the signals, choose **Send test alert**, and check the Slack channel. A successful test does not enable alerts. Choose **Save alert settings** with **Enable Slack notifications** checked to start receiving matches
 
 Alert links open the standalone Lens UI at `/ui/` on `LENS_PUBLIC_URL` by default. To open Lens inside the Gateway instead, set `LENS_SIGNAL_ALERTS_UI_URL` on the Lens service to the full page URL, for example `https://gateway.example.com/ui/lens/`, and restart Lens. This changes alert links only; recipients still need permission to view the trace
 
-Alerts use your saved signal threshold across all agents and teams. Each message includes the signal name, score, and a link to the trace, without captured prompts or responses. Inspect the trace to confirm a detection. A prompt injection signal reports a model judgment after classification; it does not block the original request
+Model alerts use your saved signal threshold across all agents and teams. Each message includes the alert, its measured result or model score, and a link to the trace, without captured prompts or responses. Inspect the trace to confirm a detection. A prompt injection signal reports a model judgment after classification; it does not block the original request
 
-Only traces started after alerts are enabled are eligible. Lens records each signal and trace once, so later trace updates do not normally repeat an alert. Changing the webhook or re-enabling alerts starts a new activation window and skips queued alerts from the previous window. Uncheck **Enable alerts** and save to pause delivery while keeping the connection
+Only traces started after alerts are enabled are eligible. Lens records each signal and trace once, so later trace updates do not normally repeat an alert. Changing the webhook or re-enabling alerts starts a new activation window and skips queued alerts from the previous window. Uncheck **Enable Slack notifications** and save to pause delivery while keeping the connection
 
 Lens retries rate limits and server failures up to six attempts. Timeouts and interrupted delivery are marked unconfirmed instead of being blindly resent, so check the channel when that status appears. A message accepted before a server failure can still be repeated on retry. An in-flight message may finish after alerts are paused. The latest delivery status appears under alert settings
 

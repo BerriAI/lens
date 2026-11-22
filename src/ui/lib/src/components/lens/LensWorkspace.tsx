@@ -342,6 +342,10 @@ function LensContent({ userRole, readOnly }: Omit<WorkspaceProps, "accessToken">
                         <AlertsView
                           accessToken={accessToken}
                           canConfigure={canConfigure && isAdmin}
+                          onOpenTrace={(ref, spanId) => {
+                            navigate("traces");
+                            openTrace(ref, spanId);
+                          }}
                           onOpenSignal={(ref, signal) => {
                             navigate("traces");
                             openSignal(ref, signal);

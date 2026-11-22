@@ -403,12 +403,9 @@ fn decoded_span(
         .get("lens.session.attribute")
         .filter(|value| !value.is_empty())
         .map_or("session.id", String::as_str);
-    let trace_id = if resource_attributes
-        .get("lens.session.capture")
-        .is_some_and(|value| value == "true")
-        && let Some(session) = span_attributes
-            .get(session_attribute)
-            .filter(|value| !value.is_empty())
+    let trace_id = if let Some(session) = span_attributes
+        .get(session_attribute)
+        .filter(|value| !value.is_empty())
     {
         let trace_id = hex_bytes(&session_trace_id(session));
         let actor = span_attributes.get("agent_id").unwrap_or(session).clone();

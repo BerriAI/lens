@@ -71,6 +71,20 @@ pub enum TraceReadError {
 }
 
 #[derive(Debug, thiserror::Error)]
+pub(crate) enum McpToolError {
+    #[error("Unknown tool {0}")]
+    UnknownTool(String),
+    #[error("Invalid arguments: {0}")]
+    Arguments(#[from] serde_json::Error),
+    #[error("{argument} must be between 1 and {max}")]
+    OutOfRange { argument: &'static str, max: usize },
+    #[error(transparent)]
+    Read(#[from] TraceReadError),
+    #[error("{resource} not found")]
+    Missing { resource: &'static str },
+}
+
+#[derive(Debug, thiserror::Error)]
 pub(crate) enum TraceHttpError {
     #[error(transparent)]
     Authentication(#[from] lens_auth::Error),

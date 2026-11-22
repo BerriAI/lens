@@ -3,7 +3,7 @@
  * computes lives here so it can be unit-tested directly.
  */
 import { type ErrorSource, type SpanTreeState, type TreeRow } from "./tree";
-import { type SessionTurn, sessionTree } from "./turns";
+import { type SessionTurn, sessionTurns } from "./turns";
 import type { Span, TraceMessage, TraceSummary, TraceToolCall } from "./types";
 
 /* ------------------------------------------------------------------ */
@@ -19,9 +19,11 @@ export const fmtMs = (ms: number): string => {
   return `${Math.max(ms, 0).toFixed(ms < 10 ? 1 : 0)}ms`;
 };
 
-export const fmtTok = (n: number): string => (n >= 1000 ? `${(n / 1000).toFixed(1)}k` : String(n));
+export const fmtTok = (n: number): string =>
+  n >= 1000 ? `${(n / 1000).toFixed(1)}k` : String(n);
 
-export const shortId = (id: string, length = 16): string => (id.length > length ? `${id.slice(0, length)}…` : id);
+export const shortId = (id: string, length = 16): string =>
+  id.length > length ? `${id.slice(0, length)}…` : id;
 
 /* ------------------------------------------------------------------ */
 /*  Visible tree (framework spans hidden + children re-parented)       */
@@ -49,28 +51,11 @@ export const isFrameworkSpan = (span: Span): boolean => {
   return span.parent_span_id !== null && isPlumbing;
 };
 
-/**
- * An agent that traces itself records each model call, and the gateway it calls through records the same
- * call under it with the cost. Show one step: the agent's, carrying the gateway's cost.
- */
-export function foldGatewayCalls(spans: readonly Span[]): Span[] {
-  const byId = indexSpans(spans);
-  const repeats = spans.filter((span) => span.type === "llm" && byId.get(span.parent_span_id ?? "")?.type === "llm");
-  if (repeats.length === 0) return [...spans];
-  const costOf = new Map(repeats.map((span) => [span.parent_span_id, span]));
-  const repeated = new Set(repeats.map((span) => span.span_id));
-  return spans.map((span) => {
-    if (repeated.has(span.span_id)) return { ...span, type: "framework" };
-    const gateway = costOf.get(span.span_id);
-    return gateway && span.spend_match == null
-      ? { ...span, spend: gateway.spend, spend_match: gateway.spend_match }
-      : span;
-  });
-}
+const byStart = (a: Span, b: Span): number =>
+  a.start_offset_ms - b.start_offset_ms;
 
-const byStart = (a: Span, b: Span): number => a.start_offset_ms - b.start_offset_ms;
-
-export const indexSpans = (spans: readonly Span[]): Map<string, Span> => new Map(spans.map((s) => [s.span_id, s]));
+export const indexSpans = (spans: readonly Span[]): Map<string, Span> =>
+  new Map(spans.map((s) => [s.span_id, s]));
 
 const pushChild = (children: ChildrenMap, key: string, span: Span): void => {
   const list = children.get(key);
@@ -83,13 +68,20 @@ const pushChild = (children: ChildrenMap, key: string, span: Span): void => {
  * dropped and their children attach to the nearest visible ancestor. Spans whose
  * parent is missing from the trace attach to the root level.
  */
-export function buildVisibleTree(spans: readonly Span[], showFramework: boolean): VisibleTree {
+export function buildVisibleTree(
+  spans: readonly Span[],
+  showFramework: boolean,
+): VisibleTree {
   const byId = indexSpans(spans);
   const hidden = (span: Span) => !showFramework && isFrameworkSpan(span);
   const visibleParentKey = (span: Span): string => {
-    let parent = span.parent_span_id ? byId.get(span.parent_span_id) : undefined;
+    let parent = span.parent_span_id
+      ? byId.get(span.parent_span_id)
+      : undefined;
     while (parent && hidden(parent)) {
-      parent = parent.parent_span_id ? byId.get(parent.parent_span_id) : undefined;
+      parent = parent.parent_span_id
+        ? byId.get(parent.parent_span_id)
+        : undefined;
     }
     return parent ? parent.span_id : ROOT_KEY;
   };
@@ -133,23 +125,29 @@ export function errorSource(span: Span): ErrorSource | null {
 
 type GroupOrSpan = Span | { group: Span[] };
 
-const groupKey = (span: Pick<Span, "name" | "type" | "agent">): string => `${span.agent}|${span.name}|${span.type}`;
+const groupKey = (span: Pick<Span, "name" | "type" | "agent">): string =>
+  `${span.agent}|${span.name}|${span.type}`;
 
 function groupChildren(children: readonly Span[]): GroupOrSpan[] {
   const runs: Span[][] = [];
   for (const child of children) {
     const previous = runs.at(-1);
-    if (previous && groupKey(previous[0]) === groupKey(child)) previous.push(child);
+    if (previous && groupKey(previous[0]) === groupKey(child))
+      previous.push(child);
     else runs.push([child]);
   }
   return runs.flatMap((group): GroupOrSpan[] => {
     const failed = group.filter((span) => span.status === "error").length;
-    return group.length >= GROUP_THRESHOLD_OK || failed >= GROUP_THRESHOLD_ERROR ? [{ group }] : group;
+    return group.length >= GROUP_THRESHOLD_OK || failed >= GROUP_THRESHOLD_ERROR
+      ? [{ group }]
+      : group;
   });
 }
 
-export const groupRowId = (parentKey: string, span: Pick<Span, "span_id">): string =>
-  `grp::${parentKey}::${span.span_id}`;
+export const groupRowId = (
+  parentKey: string,
+  span: Pick<Span, "span_id">,
+): string => `grp::${parentKey}::${span.span_id}`;
 
 interface RowContext {
   children: ChildrenMap;
@@ -162,33 +160,46 @@ interface RunTree {
   turns: readonly SessionTurn[];
 }
 
-/** The visible tree, with a coding session's top-level calls filed under the turn they belong to. */
+/** The visible tree, with what Claude Code recorded under each typed message filed under that turn. */
 function buildRunTree(spans: readonly Span[], showFramework: boolean): RunTree {
-  const session = sessionTree(spans);
-  const { children } = buildVisibleTree(session?.spans ?? spans, showFramework);
-  if (!session) return { children, turns: [] };
-  const top = new Set((children.get(ROOT_KEY) ?? []).map((span) => span.span_id));
-  session.turns.forEach((turn) =>
-    children.set(
-      turn.id,
-      turn.spans.filter((span) => top.has(span.span_id)),
-    ),
+  const { children } = buildVisibleTree(spans, showFramework);
+  const turns = sessionTurns(spans);
+  const roots = new Set(turns.map((turn) => turn.root.span_id));
+  for (const turn of turns) {
+    children.set(turn.id, children.get(turn.root.span_id) ?? []);
+    children.delete(turn.root.span_id);
+  }
+  children.set(
+    ROOT_KEY,
+    (children.get(ROOT_KEY) ?? []).filter((span) => !roots.has(span.span_id)),
   );
-  children.delete(ROOT_KEY);
-  return { children, turns: session.turns };
+  return { children, turns };
 }
 
-export const turnRowIds = (spans: readonly Span[]): string[] => sessionTree(spans)?.turns.map((turn) => turn.id) ?? [];
+export const turnRowIds = (spans: readonly Span[]): string[] =>
+  sessionTurns(spans).map((turn) => turn.id);
 
 function pushSpan(ctx: RowContext, span: Span, depth: number): void {
   const hasChildren = (ctx.children.get(span.span_id)?.length ?? 0) > 0;
   const collapsed = ctx.state.collapsedSpanIds.has(span.span_id);
-  const row: TreeRow = { kind: "span", id: span.span_id, span, depth, hasChildren, collapsed };
+  const row: TreeRow = {
+    kind: "span",
+    id: span.span_id,
+    span,
+    depth,
+    hasChildren,
+    collapsed,
+  };
   ctx.rows.push(row);
   if (hasChildren && !collapsed) pushLevel(ctx, span.span_id, depth + 1);
 }
 
-function pushGroup(ctx: RowContext, parentKey: string, members: Span[], depth: number): void {
+function pushGroup(
+  ctx: RowContext,
+  parentKey: string,
+  members: Span[],
+  depth: number,
+): void {
   const first = members[0];
   const id = groupRowId(parentKey, first);
   const failedCount = members.filter((s) => s.status === "error").length;
@@ -208,8 +219,13 @@ function pushGroup(ctx: RowContext, parentKey: string, members: Span[], depth: n
   };
   ctx.rows.push(groupRow);
   if (!expanded) return;
-  const reveal = Math.min(ctx.state.groupRevealCounts[id] ?? GROUP_PAGE_SIZE, members.length);
-  members.slice(0, reveal).forEach((member) => pushSpan(ctx, member, depth + 1));
+  const reveal = Math.min(
+    ctx.state.groupRevealCounts[id] ?? GROUP_PAGE_SIZE,
+    members.length,
+  );
+  members
+    .slice(0, reveal)
+    .forEach((member) => pushSpan(ctx, member, depth + 1));
   if (reveal < members.length) {
     const moreRow: TreeRow = {
       kind: "load-more",
@@ -233,15 +249,26 @@ function pushLevel(ctx: RowContext, parentKey: string, depth: number): void {
  * Rows for the run view: the span tree, framework spans optionally hidden with their children lifted
  * and same-named siblings folded into paged groups.
  */
-export function buildTreeRows(spans: readonly Span[], state: SpanTreeState): TreeRow[] {
+export function buildTreeRows(
+  spans: readonly Span[],
+  state: SpanTreeState,
+): TreeRow[] {
   const { children, turns } = buildRunTree(spans, !state.hideFramework);
   const ctx: RowContext = { children, state, rows: [] };
-  pushLevel(ctx, ROOT_KEY, 0);
   for (const turn of turns) {
     const collapsed = state.collapsedSpanIds.has(turn.id);
-    ctx.rows.push({ kind: "turn", id: turn.id, depth: 0, index: turn.index, message: turn.message, members: turn.spans, collapsed });
+    ctx.rows.push({
+      kind: "turn",
+      id: turn.id,
+      depth: 0,
+      index: turn.index,
+      root: turn.root,
+      members: turn.spans,
+      collapsed,
+    });
     if (!collapsed) pushLevel(ctx, turn.id, 1);
   }
+  pushLevel(ctx, ROOT_KEY, 0);
   return ctx.rows;
 }
 
@@ -258,19 +285,29 @@ export function findTraceSteps(
       const matchesStatus = !errorsOnly || span.status === "error";
       const matchesQuery =
         !search ||
-        [span.name, span.agent, span.model, span.input_preview, span.span_id].some((value) =>
-          value?.toLowerCase().includes(search),
-        );
+        [
+          span.name,
+          span.agent,
+          span.model,
+          span.input_preview,
+          span.span_id,
+        ].some((value) => value?.toLowerCase().includes(search));
       return visible && matchesStatus && matchesQuery;
     })
     .sort(byStart);
 }
 
 /** Tree state with every visible ancestor of `spanId` expanded and any group holding it paged far enough. */
-export function revealSpanInState(spans: readonly Span[], state: SpanTreeState, spanId: string): SpanTreeState {
+export function revealSpanInState(
+  spans: readonly Span[],
+  state: SpanTreeState,
+  spanId: string,
+): SpanTreeState {
   const { children } = buildRunTree(spans, !state.hideFramework);
   const parentOf = new Map<string, string>();
-  children.forEach((list, key) => list.forEach((s) => parentOf.set(s.span_id, key)));
+  children.forEach((list, key) =>
+    list.forEach((s) => parentOf.set(s.span_id, key)),
+  );
   if (!parentOf.has(spanId)) return state;
   const collapsed = new Set(state.collapsedSpanIds);
   const expanded = new Set(state.expandedGroupIds);
@@ -285,19 +322,35 @@ export function revealSpanInState(spans: readonly Span[], state: SpanTreeState, 
       if (index < 0) continue;
       const id = groupRowId(parentKey, item.group[0]);
       expanded.add(id);
-      reveal[id] = Math.max(reveal[id] ?? GROUP_PAGE_SIZE, Math.ceil((index + 1) / GROUP_PAGE_SIZE) * GROUP_PAGE_SIZE);
+      reveal[id] = Math.max(
+        reveal[id] ?? GROUP_PAGE_SIZE,
+        Math.ceil((index + 1) / GROUP_PAGE_SIZE) * GROUP_PAGE_SIZE,
+      );
     }
     current = parentKey;
   }
-  return { ...state, collapsedSpanIds: collapsed, expandedGroupIds: expanded, groupRevealCounts: reveal };
+  return {
+    ...state,
+    collapsedSpanIds: collapsed,
+    expandedGroupIds: expanded,
+    groupRevealCounts: reveal,
+  };
 }
 
 /** `spanId` if it shows in the tree, else its nearest ancestor that does (framework spans can be hidden). */
-export function nearestVisibleSpanId(spans: readonly Span[], spanId: string, hideFramework: boolean): string {
+export function nearestVisibleSpanId(
+  spans: readonly Span[],
+  spanId: string,
+  hideFramework: boolean,
+): string {
   if (!hideFramework) return spanId;
   const byId = new Map(spans.map((s) => [s.span_id, s]));
   let current = byId.get(spanId);
-  while (current && isFrameworkSpan(current) && current.parent_span_id !== null) {
+  while (
+    current &&
+    isFrameworkSpan(current) &&
+    current.parent_span_id !== null
+  ) {
     current = byId.get(current.parent_span_id);
   }
   return current?.span_id ?? spanId;
@@ -319,22 +372,38 @@ export const parseJson = (value: string): unknown => {
 const blockText = (block: unknown): string | null => {
   if (typeof block !== "object" || block === null) return null;
   const text: unknown =
-    Reflect.get(block, "text") ?? (Reflect.get(block, "type") === "text" ? Reflect.get(block, "content") : undefined);
+    Reflect.get(block, "text") ??
+    (Reflect.get(block, "type") === "text"
+      ? Reflect.get(block, "content")
+      : undefined);
   return typeof text === "string" ? text : null;
 };
 
-const NON_TEXT_BLOCKS: ReadonlySet<unknown> = new Set(["reasoning", "function_call", "tool_use", "tool_call"]);
+const NON_TEXT_BLOCKS: ReadonlySet<unknown> = new Set([
+  "reasoning",
+  "function_call",
+  "tool_use",
+  "tool_call",
+]);
 
 const blockType = (block: unknown): unknown =>
-  typeof block === "object" && block !== null ? Reflect.get(block, "type") : undefined;
+  typeof block === "object" && block !== null
+    ? Reflect.get(block, "type")
+    : undefined;
 
-const isKnownBlock = (block: unknown): boolean => blockText(block) !== null || NON_TEXT_BLOCKS.has(blockType(block));
+const isKnownBlock = (block: unknown): boolean =>
+  blockText(block) !== null || NON_TEXT_BLOCKS.has(blockType(block));
 
 /** Block-list content (reasoning / function_call / text blocks) as its text; unknown content unchanged. */
 export function messageText(content: string): string {
   if (!content.startsWith("[")) return content;
   const blocks = parseJson(content);
-  if (!Array.isArray(blocks) || blocks.length === 0 || !blocks.every(isKnownBlock)) return content;
+  if (
+    !Array.isArray(blocks) ||
+    blocks.length === 0 ||
+    !blocks.every(isKnownBlock)
+  )
+    return content;
   return blocks
     .map(blockText)
     .filter((text): text is string => text !== null)
@@ -356,7 +425,10 @@ const langchainToolCalls = (data: object): TraceToolCall[] | undefined => {
   if (!Array.isArray(calls) || calls.length === 0) return undefined;
   return calls
     .filter((call): call is object => typeof call === "object" && call !== null)
-    .map((call) => ({ name: String(Reflect.get(call, "name") ?? "tool"), args: Reflect.get(call, "args") ?? {} }));
+    .map((call) => ({
+      name: String(Reflect.get(call, "name") ?? "tool"),
+      args: Reflect.get(call, "args") ?? {},
+    }));
 };
 
 /** LangChain's `dumpd` message: `{"type": "human", "data": {"content": ...}}`. */
@@ -370,7 +442,9 @@ const parseLangchainMessage = (value: object): TraceMessage | null => {
   const toolCalls = langchainToolCalls(data);
   return {
     role,
-    content: messageText(typeof content === "string" ? content : JSON.stringify(content)),
+    content: messageText(
+      typeof content === "string" ? content : JSON.stringify(content),
+    ),
     ...(typeof name === "string" && name ? { name } : {}),
     ...(toolCalls ? { tool_calls: toolCalls } : {}),
   };
@@ -385,14 +459,19 @@ const parseToolCall = (call: unknown): TraceToolCall => {
   if (typeof name !== "string" || !name) return unknownCall;
   if ("args" in source) return { name, args: source.args };
   const args: unknown = Reflect.get(source, "arguments");
-  return { name, args: typeof args === "string" ? parseJson(args) ?? args : args };
+  return {
+    name,
+    args: typeof args === "string" ? (parseJson(args) ?? args) : args,
+  };
 };
 
 const parseMessage = (value: unknown): TraceMessage | null => {
   if (typeof value !== "object" || value === null) return null;
-  if (!("role" in value) && "data" in value) return parseLangchainMessage(value);
+  if (!("role" in value) && "data" in value)
+    return parseLangchainMessage(value);
   const role: unknown = Reflect.get(value, "role");
-  const content: unknown = Reflect.get(value, "content") ?? Reflect.get(value, "parts");
+  const content: unknown =
+    Reflect.get(value, "content") ?? Reflect.get(value, "parts");
   const rawCalls: unknown = Reflect.get(value, "tool_calls");
   const callEntries = Array.isArray(rawCalls) ? rawCalls : [rawCalls];
   const hasCalls = rawCalls != null && callEntries.length > 0;
@@ -400,7 +479,8 @@ const parseMessage = (value: unknown): TraceMessage | null => {
   const hasContent = isMessageContent(content) || emptyToolMessage;
   if (typeof role !== "string" || !hasContent) return null;
   const calls = callEntries.map(parseToolCall);
-  const text = typeof content === "string" ? content : JSON.stringify(content ?? "");
+  const text =
+    typeof content === "string" ? content : JSON.stringify(content ?? "");
   return {
     ...value,
     role,
@@ -412,34 +492,46 @@ const parseMessage = (value: unknown): TraceMessage | null => {
 export function parseAssistantSummary(value: string): TraceMessage[] | null {
   const parsed = parseJson(value);
   if (!Array.isArray(parsed) || !parsed.length) return null;
-  const isSummary = (item: unknown): item is { content: string | null; tool_names: string[] } => {
+  const isSummary = (
+    item: unknown,
+  ): item is { content: string | null; tool_names: string[] } => {
     if (!item || typeof item !== "object") return false;
     const content: unknown = Reflect.get(item, "content");
     const tools: unknown = Reflect.get(item, "tool_names");
-    const knownFields = Object.keys(item).every((key) => key === "content" || key === "tool_names");
+    const knownFields = Object.keys(item).every(
+      (key) => key === "content" || key === "tool_names",
+    );
     const validContent = content === null || typeof content === "string";
-    const validTools = Array.isArray(tools) && tools.every((name: unknown) => typeof name === "string");
+    const validTools =
+      Array.isArray(tools) &&
+      tools.every((name: unknown) => typeof name === "string");
     return knownFields && validContent && validTools;
   };
   if (!parsed.every(isSummary)) return null;
   return parsed.map((item) => ({
     role: "assistant",
     content: item.content ?? "",
-    tool_calls: item.tool_names.map((name: string) => ({ name, args: undefined })),
+    tool_calls: item.tool_names.map((name: string) => ({
+      name,
+      args: undefined,
+    })),
   }));
 }
 
 /** An llm span's input (array of messages) or output (one message); null when it isn't one. */
 export function parseMessages(value: string): TraceMessage[] | null {
   const parsed = parseJson(value);
-  const messages = (Array.isArray(parsed) ? parsed : [parsed]).map(parseMessage);
+  const messages = (Array.isArray(parsed) ? parsed : [parsed]).map(
+    parseMessage,
+  );
   return messages.every((message) => message !== null) ? messages : null;
 }
 
 /** Pretty JSON when the payload is JSON, else the raw string. */
 export const prettyPayload = (value: string): string => {
   const parsed = parseJson(value);
-  if (parsed === null || typeof parsed === "string") return typeof parsed === "string" ? parsed : value;
+  if (parsed === null || typeof parsed === "string")
+    return typeof parsed === "string" ? parsed : value;
   return JSON.stringify(parsed, null, 2);
 };
 
@@ -464,7 +556,10 @@ export function previewText(preview: string): string {
   if (!preview || /^\s*\[\s*\]\s*$/.test(preview)) return "";
   const messages = parseMessages(preview);
   if (messages) {
-    const last = [...messages].reverse().find((m) => m.role === "user" || m.role === "tool") ?? messages.at(-1);
+    const last =
+      [...messages]
+        .reverse()
+        .find((m) => m.role === "user" || m.role === "tool") ?? messages.at(-1);
     return last?.content || "";
   }
   if (!/^\s*[[{]/.test(preview)) return preview;
@@ -473,8 +568,9 @@ export function previewText(preview: string): string {
 }
 
 /** Trace display name; root spans without a name fall back to the service. */
-export const traceDisplayName = (summary: Pick<TraceSummary, "name" | "service">): string =>
-  summary.name || summary.service || "(unnamed trace)";
+export const traceDisplayName = (
+  summary: Pick<TraceSummary, "name" | "service">,
+): string => summary.name || summary.service || "(unnamed trace)";
 
 /* ------------------------------------------------------------------ */
 /*  Tree connector guides                                              */
@@ -497,7 +593,10 @@ export function treeGuides(depths: readonly number[]): TreeGuide[] {
     .reverse()
     .map(({ depth, i }) => {
       const guide: TreeGuide = {
-        rails: Array.from({ length: Math.max(0, depth - 1) }, (_, k) => levels[k + 1] === true),
+        rails: Array.from(
+          { length: Math.max(0, depth - 1) },
+          (_, k) => levels[k + 1] === true,
+        ),
         last: levels[depth] !== true,
         stem: (depths[i + 1] ?? -1) > depth,
       };

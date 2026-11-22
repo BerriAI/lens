@@ -29,7 +29,6 @@ import {
 } from "../../list/traceReadFailure";
 import { type RunSelection, traceKey } from "../../routing";
 import type { Trace } from "../../types";
-import { foldGatewayCalls } from "../../utils";
 import { PagingBanner } from "./PagingBanner";
 import { RunBody } from "./RunBody";
 import { RunHeader } from "./RunHeader";
@@ -242,7 +241,7 @@ function LoadedRun({
     const pages = traceQuery.data.pages;
     return {
       ...pages[0],
-      spans: foldGatewayCalls(pages.flatMap((page) => page.spans)),
+      spans: pages.flatMap((page) => page.spans),
       next_cursor: pages[pages.length - 1].next_cursor,
     };
   }, [traceQuery.data]);

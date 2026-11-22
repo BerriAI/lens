@@ -357,6 +357,7 @@ fn span(index: usize) -> TraceSpansRow {
         duration_ns: 10_000_000,
         service: "test".into(),
         input_preview: format!("span input {index}"),
+        reply_preview: String::new(),
         model: String::new(),
         input_tokens: 0,
         output_tokens: 0,

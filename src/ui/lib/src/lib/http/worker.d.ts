@@ -2,6 +2,23 @@
 
 /**
  * This interface was referenced by `LensWorker`'s JSON-Schema
+ * via the `definition` "AlertRuleCondition".
+ */
+export type AlertRuleCondition =
+  | {
+      kind: "run_duration";
+      minutes: number;
+    }
+  | {
+      kind: "model_error";
+    };
+/**
+ * This interface was referenced by `LensWorker`'s JSON-Schema
+ * via the `definition` "AlertRuleKind".
+ */
+export type AlertRuleKind = "run_duration" | "model_error";
+/**
+ * This interface was referenced by `LensWorker`'s JSON-Schema
  * via the `definition` "Capability".
  */
 export type Capability = "function_calling" | "vision" | "reasoning" | "structured_output";
@@ -122,6 +139,49 @@ export interface ToolCount {
 export interface AgentTestCase {
   expected: string;
   input: string;
+}
+/**
+ * This interface was referenced by `LensWorker`'s JSON-Schema
+ * via the `definition` "AlertRule".
+ */
+export interface AlertRule {
+  condition: AlertRuleCondition;
+  enabled: boolean;
+  id: string;
+}
+/**
+ * This interface was referenced by `LensWorker`'s JSON-Schema
+ * via the `definition` "AlertRuleConfig".
+ */
+export interface AlertRuleConfig {
+  revision: number;
+  rules: AlertRule[];
+}
+/**
+ * This interface was referenced by `LensWorker`'s JSON-Schema
+ * via the `definition` "AlertRuleMatch".
+ */
+export interface AlertRuleMatch {
+  detected_at: string;
+  duration_ms: number;
+  kind: AlertRuleKind;
+  rule_id: string;
+  span_id: string;
+  threshold_minutes?: number | null;
+  trace_id: string;
+  trace_ref: string;
+  [k: string]: unknown;
+}
+/**
+ * This interface was referenced by `LensWorker`'s JSON-Schema
+ * via the `definition` "AlertRuleOverview".
+ */
+export interface AlertRuleOverview {
+  limit: number;
+  matches: AlertRuleMatch[];
+  since: string;
+  truncated: boolean;
+  [k: string]: unknown;
 }
 /**
  * This interface was referenced by `LensWorker`'s JSON-Schema

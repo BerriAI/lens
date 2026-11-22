@@ -206,6 +206,38 @@ describe("AgentTracesTable input cell", () => {
   });
 });
 
+describe("AgentTracesTable output cell", () => {
+  const template = (traceList as TracePage).data[0] as TraceSummary;
+  const renderRun = (run: TraceSummary) => {
+    renderWithProviders(
+      inList(
+        <AgentTracesTable
+          traces={[run]}
+          findings={new Map()}
+          isLoading={false}
+          error={null}
+          hasMore={false}
+          onLoadMore={vi.fn()}
+          onSetUpTracing={vi.fn()}
+        />,
+      ),
+    );
+    const index = screen.getAllByRole("columnheader").findIndex((cell) => cell.textContent === "Last Output");
+    return within(screen.getByTestId("agent-trace-row")).getAllByRole("cell")[index];
+  };
+
+  it("shows the last reply on one line next to the first input", () => {
+    const cell = renderRun({ ...template, input_preview: "Rename the helper", output_preview: "Done.\n\nRenamed it" });
+    expect(cell).toHaveTextContent("Done. Renamed it");
+    expect(cell).not.toHaveTextContent("Rename the helper");
+  });
+
+  it("leaves the cell blank for a run without a recorded reply", () => {
+    const { output_preview: _, ...run } = { ...template, input_preview: "Rename the helper", output_preview: "" };
+    expect(renderRun(run)).toHaveTextContent(/^—$/);
+  });
+});
+
 describe("AgentTracesTable trace ID column", () => {
   const template = (traceList as TracePage).data[0] as TraceSummary;
   const run = { ...template, trace_id: "0b8359ab2c99662c0f1e2d3c4b5a6978", input_preview: "How do I configure caching?" };
@@ -241,8 +273,8 @@ describe("AgentTracesTable trace ID column", () => {
   it("shows the whole trace ID under its own header and keeps it out of the input cell", () => {
     renderRun();
     expect(cellUnder("Trace ID")).toHaveTextContent(run.trace_id);
-    expect(cellUnder("Input")).toHaveTextContent(run.input_preview);
-    expect(cellUnder("Input")).not.toHaveTextContent(run.trace_id);
+    expect(cellUnder("First Input")).toHaveTextContent(run.input_preview);
+    expect(cellUnder("First Input")).not.toHaveTextContent(run.trace_id);
   });
 
   it("copies the full trace ID without opening the run", async () => {
@@ -252,7 +284,7 @@ describe("AgentTracesTable trace ID column", () => {
     expect(await navigator.clipboard.readText()).toBe(run.trace_id);
     expect(onSelectedChange).not.toHaveBeenCalled();
 
-    await user.click(cellUnder("Input"));
+    await user.click(cellUnder("First Input"));
     expect(onSelectedChange).toHaveBeenCalledTimes(1);
   });
 
@@ -402,11 +434,11 @@ describe("AgentTracesTable column resizing", () => {
     expect(widthOf("Trace ID")).toBe("225px");
   });
 
-  it("sizes the fluid Input column from the width it is rendered at", () => {
+  it("sizes the fluid First Input column from the width it is rendered at", () => {
     renderRuns();
-    expect(widthOf("Input")).toBe("");
-    drag("Input", 412, -100);
-    expect(widthOf("Input")).toBe("312px");
+    expect(widthOf("First Input")).toBe("");
+    drag("First Input", 412, -100);
+    expect(widthOf("First Input")).toBe("312px");
   });
 
   it("stops shrinking at a minimum width instead of collapsing the column", () => {
