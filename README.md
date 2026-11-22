@@ -70,7 +70,7 @@ Compare pass rate and estimated cost before choosing a model and harness
 <br>
 
 **Run Lens on its own or open it inside LiteLLM.** Your traces stay in your own ClickHouse.<br>
-Point Claude Code or [Codex](docs/codex-cli.md) at them and let your agents improve your agents.
+Point Claude Code, [Codex](docs/codex-cli.md) or [OpenCode](docs/opencode.md) at them and let your agents improve your agents.
 
 <br>
 

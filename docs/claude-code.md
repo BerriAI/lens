@@ -25,7 +25,7 @@ export OTEL_LOG_ASSISTANT_RESPONSES=1
 export OTEL_LOG_TOOL_DETAILS=1
 export OTEL_LOG_TOOL_CONTENT=1
 export OTEL_LOG_RAW_API_BODIES=1
-export CLAUDE_CODE_OTEL_CONTENT_MAX_LENGTH=1048576
+export CLAUDE_CODE_OTEL_CONTENT_MAX_LENGTH=16777216
 
 claude -p "Reply with exactly: Lens telemetry check."
 ```
@@ -46,7 +46,7 @@ This is what each telemetry variable does and what Lens shows when it is missing
 | `OTEL_LOG_ASSISTANT_RESPONSES=1` | Includes the text Claude Code replied with | The turn has no reply |
 | `OTEL_LOG_TOOL_DETAILS=1` and `OTEL_LOG_TOOL_CONTENT=1` | Include each tool call's arguments and output | Tool steps show a name and a duration only |
 | `OTEL_LOG_RAW_API_BODIES=1` | Includes the request and response of every model call | A model call step reads "No content recorded for this span" |
-| `CLAUDE_CODE_OTEL_CONTENT_MAX_LENGTH=1048576` | Raises Claude Code's 60 KB limit on exported content to 1 MiB | Requests longer than 60 KB arrive cut off, and their model call step has no input |
+| `CLAUDE_CODE_OTEL_CONTENT_MAX_LENGTH=16777216` | Raises Claude Code's 60 KB limit on exported content to 16 MiB | Requests longer than 60 KB arrive cut off, and their model call step has no input |
 
 ## Model call content
 
@@ -74,7 +74,7 @@ To keep the settings across terminals, put the same telemetry variables in the `
     "OTEL_LOG_TOOL_DETAILS": "1",
     "OTEL_LOG_TOOL_CONTENT": "1",
     "OTEL_LOG_RAW_API_BODIES": "1",
-    "CLAUDE_CODE_OTEL_CONTENT_MAX_LENGTH": "1048576"
+    "CLAUDE_CODE_OTEL_CONTENT_MAX_LENGTH": "16777216"
   }
 }
 ```
