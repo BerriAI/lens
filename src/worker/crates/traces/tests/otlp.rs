@@ -2563,19 +2563,16 @@ fn session_capture_joins_native_logs_and_traces_across_turns_without_changing_sp
     use prost::Message;
     let mut logs = log_request("repl_main_thread");
     let resource = Resource {
-        attributes: [
-            ("lens.session.capture", "true"),
-            ("gen_ai.agent.name", "custom-claude"),
-        ]
-        .into_iter()
-        .map(|(key, value)| KeyValue {
-            key: key.to_owned(),
-            value: Some(AnyValue {
-                value: Some(Value::StringValue(value.to_owned())),
-            }),
-            ..Default::default()
-        })
-        .collect(),
+        attributes: [("gen_ai.agent.name", "custom-claude")]
+            .into_iter()
+            .map(|(key, value)| KeyValue {
+                key: key.to_owned(),
+                value: Some(AnyValue {
+                    value: Some(Value::StringValue(value.to_owned())),
+                }),
+                ..Default::default()
+            })
+            .collect(),
         ..Default::default()
     };
     logs.resource_logs[0].resource = Some(resource.clone());
@@ -2625,7 +2622,7 @@ fn session_capture_joins_native_logs_and_traces_across_turns_without_changing_sp
 #[rstest]
 #[case::claude_code("com.anthropic.claude_code.tracing", &[], "session.id", true)]
 #[case::other_agent("opencode", &[], "session.id", true)]
-#[case::sender_that_once_opted_out("opencode", &[("lens.session.capture", "false")], "session.id", true)]
+#[case::sender_with_a_stale_capture_setting("opencode", &[("lens.session.capture", "false")], "session.id", true)]
 #[case::gateway_call_naming_its_session(
     "litellm",
     &[("lens.session.attribute", "gen_ai.conversation.id")],
@@ -2744,16 +2741,6 @@ fn contextless_native_logs_preserve_the_entire_batch(
         .attributes
         .retain(|attribute| attribute.key != "session.id");
     request.resource_logs[0].scope_logs[0].log_records = vec![valid, uncorrelated, standalone];
-    request.resource_logs[0].resource = Some(opentelemetry_proto::tonic::resource::v1::Resource {
-        attributes: vec![KeyValue {
-            key: "lens.session.capture".into(),
-            value: Some(AnyValue {
-                value: Some(Value::StringValue("true".into())),
-            }),
-            ..Default::default()
-        }],
-        ..Default::default()
-    });
     let bytes = if json {
         serde_json::to_vec(&request).unwrap()
     } else {
