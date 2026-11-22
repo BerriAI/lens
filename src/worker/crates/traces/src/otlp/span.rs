@@ -14,7 +14,10 @@ use super::{
 };
 use crate::{
     Error, Shared,
-    normalize::{SpanContext, normalize},
+    normalize::{
+        OPENCODE_PROMPTS, OPENCODE_SCOPE, OPENCODE_TITLE_CALL, OPENCODE_TURN, OPENCODE_TURN_NAME,
+        SpanContext, normalize,
+    },
 };
 
 pub(super) fn flatten(
@@ -78,6 +81,9 @@ fn append_scope(
         "codex_cli_rs" | "codex-app-server" | "codex_exec"
     ) {
         preprocess_codex_spans(&mut scope_spans.spans);
+    }
+    if scope_name.as_str() == OPENCODE_SCOPE {
+        preprocess_opencode_spans(&mut scope_spans.spans);
     }
     for span in scope_spans.spans {
         if spans.len() >= budget.limits.spans {
@@ -345,6 +351,97 @@ pub(super) fn codex_turn_root_span_id(trace_id: &[u8]) -> Vec<u8> {
     hash.finalize()[..8].to_vec()
 }
 
+#[derive(serde::Deserialize)]
+struct OpencodeMessage {
+    role: String,
+    #[serde(default)]
+    content: serde_json::Value,
+}
+
+#[derive(serde::Deserialize)]
+struct OpencodePrompt {
+    messages: Vec<OpencodeMessage>,
+}
+
+fn opencode_messages(span: &Span) -> Option<Vec<OpencodeMessage>> {
+    if let Some(messages) = raw_attr(span, OPENCODE_PROMPTS[1]) {
+        return serde_json::from_str(messages).ok();
+    }
+    serde_json::from_str::<OpencodePrompt>(raw_attr(span, OPENCODE_PROMPTS[0])?)
+        .ok()
+        .map(|prompt| prompt.messages)
+}
+
+fn opencode_message_text(content: &serde_json::Value) -> String {
+    match content {
+        serde_json::Value::String(text) => text.clone(),
+        serde_json::Value::Array(parts) => parts
+            .iter()
+            .filter_map(|part| part.get("text")?.as_str())
+            .collect::<Vec<_>>()
+            .join("\n"),
+        _ => String::new(),
+    }
+}
+
+fn string_attr(key: &str, value: String) -> KeyValue {
+    KeyValue {
+        key: key.into(),
+        value: Some(AnyValue {
+            value: Some(Value::StringValue(value)),
+        }),
+        ..Default::default()
+    }
+}
+
+/// OpenCode records a session's prompts under spans that name no session, so they never reach the
+/// session's trace. The model calls of one prompt share the user message they answer, which stands
+/// in for the missing prompt span: each call is parented to a turn id derived from that message,
+/// and the call that opens the turn also emits the turn's root span.
+fn preprocess_opencode_spans(spans: &mut Vec<Span>) {
+    let turns: Vec<Span> = spans
+        .iter_mut()
+        .filter(|span| raw_attr(span, "ai.operationId") == Some("ai.streamText"))
+        .filter_map(|span| {
+            let session = raw_attr(span, "session.id")
+                .filter(|session| !session.is_empty())?
+                .to_owned();
+            if OPENCODE_PROMPTS.iter().any(|key| {
+                raw_attr(span, key).is_some_and(|prompt| prompt.contains(OPENCODE_TITLE_CALL))
+            }) {
+                return None;
+            }
+            let messages = opencode_messages(span)?;
+            let (index, asked) = messages
+                .iter()
+                .enumerate()
+                .rev()
+                .find(|(_, message)| message.role == "user")?;
+            let text = opencode_message_text(&asked.content);
+            let mut hash = Sha256::new();
+            hash.update(b"litellm.opencode.turn.v1\0");
+            hash.update(session.as_bytes());
+            hash.update(format!("\0{index}\0"));
+            hash.update(text.as_bytes());
+            let turn_id = hash.finalize()[..8].to_vec();
+            span.parent_span_id = turn_id.clone();
+            (index + 1 == messages.len()).then(|| Span {
+                trace_id: span.trace_id.clone(),
+                span_id: turn_id,
+                name: OPENCODE_TURN_NAME.into(),
+                start_time_unix_nano: span.start_time_unix_nano,
+                end_time_unix_nano: span.end_time_unix_nano,
+                attributes: vec![
+                    string_attr("session.id", session),
+                    string_attr(OPENCODE_TURN, text),
+                ],
+                ..Default::default()
+            })
+        })
+        .collect();
+    spans.extend(turns);
+}
+
 fn valid_id(value: &[u8], length: usize) -> bool {
     value.len() == length && value.iter().any(|byte| *byte != 0)
 }
@@ -403,9 +500,12 @@ fn decoded_span(
         .get("lens.session.attribute")
         .filter(|value| !value.is_empty())
         .map_or("session.id", String::as_str);
+    let joins_session = scope_name.as_str() != OPENCODE_SCOPE
+        || span_attributes.contains_key("ai.operationId")
+        || span_attributes.contains_key(OPENCODE_TURN);
     let trace_id = if let Some(session) = span_attributes
         .get(session_attribute)
-        .filter(|value| !value.is_empty())
+        .filter(|value| joins_session && !value.is_empty())
     {
         let trace_id = hex_bytes(&session_trace_id(session));
         let actor = span_attributes.get("agent_id").unwrap_or(session).clone();

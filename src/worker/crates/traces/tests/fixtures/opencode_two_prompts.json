@@ -1,0 +1,3447 @@
+{
+ "resourceSpans": [
+  {
+   "resource": {
+    "attributes": [
+     {
+      "key": "deployment.environment.name",
+      "value": {
+       "stringValue": "latest"
+      }
+     },
+     {
+      "key": "opencode.client",
+      "value": {
+       "stringValue": "cli"
+      }
+     },
+     {
+      "key": "opencode.run",
+      "value": {
+       "stringValue": "34beaed4"
+      }
+     },
+     {
+      "key": "service.instance.id",
+      "value": {
+       "stringValue": "34beaed4"
+      }
+     },
+     {
+      "key": "service.name",
+      "value": {
+       "stringValue": "opencode"
+      }
+     },
+     {
+      "key": "telemetry.sdk.name",
+      "value": {
+       "stringValue": "@effect/opentelemetry"
+      }
+     },
+     {
+      "key": "telemetry.sdk.language",
+      "value": {
+       "stringValue": "nodejs"
+      }
+     },
+     {
+      "key": "service.version",
+      "value": {
+       "stringValue": "1.19.6"
+      }
+     }
+    ],
+    "droppedAttributesCount": 0
+   },
+   "scopeSpans": [
+    {
+     "scope": {
+      "name": "opencode",
+      "version": "1.19.6"
+     },
+     "spans": [
+      {
+       "traceId": "7e16bb8b327fb4202177ff55343ef71a",
+       "spanId": "dcfe09a9e7c01969",
+       "parentSpanId": "6f4a9dc730e90a1c",
+       "name": "ai.streamText",
+       "kind": 1,
+       "startTimeUnixNano": "1795327322321000000",
+       "endTimeUnixNano": "1795327332291955005",
+       "attributes": [
+        {
+         "key": "operation.name",
+         "value": {
+          "stringValue": "ai.streamText session.llm"
+         }
+        },
+        {
+         "key": "resource.name",
+         "value": {
+          "stringValue": "session.llm"
+         }
+        },
+        {
+         "key": "ai.operationId",
+         "value": {
+          "stringValue": "ai.streamText"
+         }
+        },
+        {
+         "key": "ai.telemetry.functionId",
+         "value": {
+          "stringValue": "session.llm"
+         }
+        },
+        {
+         "key": "ai.model.provider",
+         "value": {
+          "stringValue": "litellm.chat"
+         }
+        },
+        {
+         "key": "ai.model.id",
+         "value": {
+          "stringValue": "openai/gpt-5-mini"
+         }
+        },
+        {
+         "key": "ai.telemetry.metadata.sessionId",
+         "value": {
+          "stringValue": "ses_fixture"
+         }
+        },
+        {
+         "key": "ai.prompt",
+         "value": {
+          "stringValue": "{\"messages\":[{\"role\":\"system\",\"content\":\"You are a title generator. You output ONLY a thread title. N\"},{\"role\":\"user\",\"content\":\"Generate a title for this conversation:\\n\"},{\"role\":\"user\",\"content\":[{\"type\":\"text\",\"text\":\"\\\"Create a file named weather.txt in the current directory containing exactly: Paris 14C. Then read it back and tell me its contents.\\\"\"}]}]}"
+         }
+        },
+        {
+         "key": "session.id",
+         "value": {
+          "stringValue": "ses_fixture"
+         }
+        },
+        {
+         "key": "ai.response.finishReason",
+         "value": {
+          "stringValue": "stop"
+         }
+        },
+        {
+         "key": "ai.response.text",
+         "value": {
+          "stringValue": "Create weather.txt containing Paris 14C and read"
+         }
+        },
+        {
+         "key": "ai.usage.inputTokens",
+         "value": {
+          "intValue": 553
+         }
+        },
+        {
+         "key": "ai.usage.inputTokenDetails.noCacheTokens",
+         "value": {
+          "intValue": 553
+         }
+        },
+        {
+         "key": "ai.usage.inputTokenDetails.cacheReadTokens",
+         "value": {
+          "intValue": 0
+         }
+        },
+        {
+         "key": "ai.usage.outputTokens",
+         "value": {
+          "intValue": 979
+         }
+        },
+        {
+         "key": "ai.usage.outputTokenDetails.textTokens",
+         "value": {
+          "intValue": 19
+         }
+        },
+        {
+         "key": "ai.usage.outputTokenDetails.reasoningTokens",
+         "value": {
+          "intValue": 960
+         }
+        },
+        {
+         "key": "ai.usage.totalTokens",
+         "value": {
+          "intValue": 1532
+         }
+        },
+        {
+         "key": "ai.usage.reasoningTokens",
+         "value": {
+          "intValue": 960
+         }
+        },
+        {
+         "key": "ai.usage.cachedInputTokens",
+         "value": {
+          "intValue": 0
+         }
+        }
+       ],
+       "status": {
+        "code": 0
+       },
+       "flags": 257
+      },
+      {
+       "traceId": "7e16bb8b327fb4202177ff55343ef71a",
+       "spanId": "d8d3a17cbeefc17c",
+       "parentSpanId": "dcfe09a9e7c01969",
+       "name": "ai.streamText.doStream",
+       "kind": 1,
+       "startTimeUnixNano": "1795327322324000000",
+       "endTimeUnixNano": "1795327332291001395",
+       "attributes": [
+        {
+         "key": "operation.name",
+         "value": {
+          "stringValue": "ai.streamText.doStream session.llm"
+         }
+        },
+        {
+         "key": "resource.name",
+         "value": {
+          "stringValue": "session.llm"
+         }
+        },
+        {
+         "key": "ai.operationId",
+         "value": {
+          "stringValue": "ai.streamText.doStream"
+         }
+        },
+        {
+         "key": "ai.telemetry.functionId",
+         "value": {
+          "stringValue": "session.llm"
+         }
+        },
+        {
+         "key": "ai.model.provider",
+         "value": {
+          "stringValue": "litellm.chat"
+         }
+        },
+        {
+         "key": "ai.model.id",
+         "value": {
+          "stringValue": "openai/gpt-5-mini"
+         }
+        },
+        {
+         "key": "ai.telemetry.metadata.sessionId",
+         "value": {
+          "stringValue": "ses_fixture"
+         }
+        },
+        {
+         "key": "ai.prompt.messages",
+         "value": {
+          "stringValue": "[{\"role\":\"system\",\"content\":\"You are a title generator. You output ONLY a thread title. N\"},{\"role\":\"user\",\"content\":[{\"type\":\"text\",\"text\":\"Generate a title for this conversation:\\n\"}]},{\"role\":\"user\",\"content\":[{\"type\":\"text\",\"text\":\"\\\"Create a file named weather.txt in the current directory containing exactly: Paris 14C. Then read it back and tell me its contents.\\\"\"}]}]"
+         }
+        },
+        {
+         "key": "gen_ai.system",
+         "value": {
+          "stringValue": "litellm.chat"
+         }
+        },
+        {
+         "key": "gen_ai.request.model",
+         "value": {
+          "stringValue": "openai/gpt-5-mini"
+         }
+        },
+        {
+         "key": "gen_ai.request.max_tokens",
+         "value": {
+          "intValue": 32000
+         }
+        },
+        {
+         "key": "session.id",
+         "value": {
+          "stringValue": "ses_fixture"
+         }
+        },
+        {
+         "key": "ai.response.finishReason",
+         "value": {
+          "stringValue": "stop"
+         }
+        },
+        {
+         "key": "ai.response.id",
+         "value": {
+          "stringValue": "chatcmpl-EmuwEcHWSd8ewnukMOm6cwmurZA78"
+         }
+        },
+        {
+         "key": "ai.response.model",
+         "value": {
+          "stringValue": "openai/gpt-5-mini"
+         }
+        },
+        {
+         "key": "ai.response.timestamp",
+         "value": {
+          "stringValue": "2026-11-22T06:02:12.000Z"
+         }
+        },
+        {
+         "key": "ai.usage.inputTokens",
+         "value": {
+          "intValue": 553
+         }
+        },
+        {
+         "key": "ai.usage.inputTokenDetails.noCacheTokens",
+         "value": {
+          "intValue": 553
+         }
+        },
+        {
+         "key": "ai.usage.inputTokenDetails.cacheReadTokens",
+         "value": {
+          "intValue": 0
+         }
+        },
+        {
+         "key": "ai.usage.outputTokens",
+         "value": {
+          "intValue": 979
+         }
+        },
+        {
+         "key": "ai.usage.outputTokenDetails.textTokens",
+         "value": {
+          "intValue": 19
+         }
+        },
+        {
+         "key": "ai.usage.outputTokenDetails.reasoningTokens",
+         "value": {
+          "intValue": 960
+         }
+        },
+        {
+         "key": "ai.usage.totalTokens",
+         "value": {
+          "intValue": 1532
+         }
+        },
+        {
+         "key": "ai.usage.reasoningTokens",
+         "value": {
+          "intValue": 960
+         }
+        },
+        {
+         "key": "ai.usage.cachedInputTokens",
+         "value": {
+          "intValue": 0
+         }
+        },
+        {
+         "key": "gen_ai.response.finish_reasons",
+         "value": {
+          "arrayValue": {
+           "values": [
+            {
+             "stringValue": "stop"
+            }
+           ]
+          }
+         }
+        },
+        {
+         "key": "gen_ai.response.id",
+         "value": {
+          "stringValue": "chatcmpl-EmuwEcHWSd8ewnukMOm6cwmurZA78"
+         }
+        },
+        {
+         "key": "gen_ai.response.model",
+         "value": {
+          "stringValue": "openai/gpt-5-mini"
+         }
+        },
+        {
+         "key": "gen_ai.usage.input_tokens",
+         "value": {
+          "intValue": 553
+         }
+        },
+        {
+         "key": "gen_ai.usage.output_tokens",
+         "value": {
+          "intValue": 979
+         }
+        },
+        {
+         "key": "ai.response.text",
+         "value": {
+          "stringValue": "Create weather.txt containing Paris 14C and read"
+         }
+        }
+       ],
+       "status": {
+        "code": 0
+       },
+       "flags": 257
+      },
+      {
+       "traceId": "7e16bb8b327fb4202177ff55343ef71a",
+       "spanId": "6205be385d4dca65",
+       "parentSpanId": "c821f1d27f3bb977",
+       "name": "ai.streamText",
+       "kind": 1,
+       "startTimeUnixNano": "1795327322664000000",
+       "endTimeUnixNano": "1795327330024524894",
+       "attributes": [
+        {
+         "key": "operation.name",
+         "value": {
+          "stringValue": "ai.streamText session.llm"
+         }
+        },
+        {
+         "key": "resource.name",
+         "value": {
+          "stringValue": "session.llm"
+         }
+        },
+        {
+         "key": "ai.operationId",
+         "value": {
+          "stringValue": "ai.streamText"
+         }
+        },
+        {
+         "key": "ai.telemetry.functionId",
+         "value": {
+          "stringValue": "session.llm"
+         }
+        },
+        {
+         "key": "ai.model.provider",
+         "value": {
+          "stringValue": "litellm.chat"
+         }
+        },
+        {
+         "key": "ai.model.id",
+         "value": {
+          "stringValue": "openai/gpt-5-mini"
+         }
+        },
+        {
+         "key": "ai.telemetry.metadata.sessionId",
+         "value": {
+          "stringValue": "ses_fixture"
+         }
+        },
+        {
+         "key": "ai.prompt",
+         "value": {
+          "stringValue": "{\"messages\":[{\"role\":\"system\",\"content\":\"You are OpenCode, You and the user share the same workspace \"},{\"role\":\"user\",\"content\":[{\"type\":\"text\",\"text\":\"\\\"Create a file named weather.txt in the current directory containing exactly: Paris 14C. Then read it back and tell me its contents.\\\"\"}]}]}"
+         }
+        },
+        {
+         "key": "session.id",
+         "value": {
+          "stringValue": "ses_fixture"
+         }
+        },
+        {
+         "key": "ai.response.finishReason",
+         "value": {
+          "stringValue": "tool-calls"
+         }
+        },
+        {
+         "key": "ai.response.text",
+         "value": {
+          "stringValue": "I'll create a new file named weather.txt with the requested contents, then read it back to confirm. Proceeding to add the file."
+         }
+        },
+        {
+         "key": "ai.response.toolCalls",
+         "value": {
+          "stringValue": "[{\"type\":\"tool-call\",\"toolCallId\":\"call_Kx40AeLZQE9iPy9ocOZziVv6\",\"toolName\":\"apply_patch\",\"input\":{\"patchText\":\"*** Begin Patch\\n*** Add File: weather.txt\\n+Paris 14C\\n*** End Patch\"}}]"
+         }
+        },
+        {
+         "key": "ai.usage.inputTokens",
+         "value": {
+          "intValue": 6082
+         }
+        },
+        {
+         "key": "ai.usage.inputTokenDetails.noCacheTokens",
+         "value": {
+          "intValue": 450
+         }
+        },
+        {
+         "key": "ai.usage.inputTokenDetails.cacheReadTokens",
+         "value": {
+          "intValue": 5632
+         }
+        },
+        {
+         "key": "ai.usage.outputTokens",
+         "value": {
+          "intValue": 525
+         }
+        },
+        {
+         "key": "ai.usage.outputTokenDetails.textTokens",
+         "value": {
+          "intValue": 77
+         }
+        },
+        {
+         "key": "ai.usage.outputTokenDetails.reasoningTokens",
+         "value": {
+          "intValue": 448
+         }
+        },
+        {
+         "key": "ai.usage.totalTokens",
+         "value": {
+          "intValue": 6607
+         }
+        },
+        {
+         "key": "ai.usage.reasoningTokens",
+         "value": {
+          "intValue": 448
+         }
+        },
+        {
+         "key": "ai.usage.cachedInputTokens",
+         "value": {
+          "intValue": 5632
+         }
+        }
+       ],
+       "status": {
+        "code": 0
+       },
+       "flags": 257
+      },
+      {
+       "traceId": "7e16bb8b327fb4202177ff55343ef71a",
+       "spanId": "540d8fe16b1a919b",
+       "parentSpanId": "6205be385d4dca65",
+       "name": "ai.streamText.doStream",
+       "kind": 1,
+       "startTimeUnixNano": "1795327322665000000",
+       "endTimeUnixNano": "1795327330023967793",
+       "attributes": [
+        {
+         "key": "operation.name",
+         "value": {
+          "stringValue": "ai.streamText.doStream session.llm"
+         }
+        },
+        {
+         "key": "resource.name",
+         "value": {
+          "stringValue": "session.llm"
+         }
+        },
+        {
+         "key": "ai.operationId",
+         "value": {
+          "stringValue": "ai.streamText.doStream"
+         }
+        },
+        {
+         "key": "ai.telemetry.functionId",
+         "value": {
+          "stringValue": "session.llm"
+         }
+        },
+        {
+         "key": "ai.model.provider",
+         "value": {
+          "stringValue": "litellm.chat"
+         }
+        },
+        {
+         "key": "ai.model.id",
+         "value": {
+          "stringValue": "openai/gpt-5-mini"
+         }
+        },
+        {
+         "key": "ai.telemetry.metadata.sessionId",
+         "value": {
+          "stringValue": "ses_fixture"
+         }
+        },
+        {
+         "key": "ai.prompt.messages",
+         "value": {
+          "stringValue": "[{\"role\":\"system\",\"content\":\"You are OpenCode, You and the user share the same workspace \"},{\"role\":\"user\",\"content\":[{\"type\":\"text\",\"text\":\"\\\"Create a file named weather.txt in the current directory containing exactly: Paris 14C. Then read it back and tell me its contents.\\\"\"}]}]"
+         }
+        },
+        {
+         "key": "ai.prompt.toolChoice",
+         "value": {
+          "stringValue": "{\"type\":\"auto\"}"
+         }
+        },
+        {
+         "key": "gen_ai.system",
+         "value": {
+          "stringValue": "litellm.chat"
+         }
+        },
+        {
+         "key": "gen_ai.request.model",
+         "value": {
+          "stringValue": "openai/gpt-5-mini"
+         }
+        },
+        {
+         "key": "gen_ai.request.max_tokens",
+         "value": {
+          "intValue": 32000
+         }
+        },
+        {
+         "key": "session.id",
+         "value": {
+          "stringValue": "ses_fixture"
+         }
+        },
+        {
+         "key": "ai.response.finishReason",
+         "value": {
+          "stringValue": "tool-calls"
+         }
+        },
+        {
+         "key": "ai.response.toolCalls",
+         "value": {
+          "stringValue": "[{\"type\":\"tool-call\",\"toolCallId\":\"call_Kx40AeLZQE9iPy9ocOZziVv6\",\"toolName\":\"apply_patch\",\"input\":{\"patchText\":\"*** Begin Patch\\n*** Add File: weather.txt\\n+Paris 14C\\n*** End Patch\"}}]"
+         }
+        },
+        {
+         "key": "ai.response.id",
+         "value": {
+          "stringValue": "chatcmpl-EmuwFYMkIOJXE19co7YPIDtrxrApK"
+         }
+        },
+        {
+         "key": "ai.response.model",
+         "value": {
+          "stringValue": "openai/gpt-5-mini"
+         }
+        },
+        {
+         "key": "ai.response.timestamp",
+         "value": {
+          "stringValue": "2026-11-22T06:02:09.000Z"
+         }
+        },
+        {
+         "key": "ai.usage.inputTokens",
+         "value": {
+          "intValue": 6082
+         }
+        },
+        {
+         "key": "ai.usage.inputTokenDetails.noCacheTokens",
+         "value": {
+          "intValue": 450
+         }
+        },
+        {
+         "key": "ai.usage.inputTokenDetails.cacheReadTokens",
+         "value": {
+          "intValue": 5632
+         }
+        },
+        {
+         "key": "ai.usage.outputTokens",
+         "value": {
+          "intValue": 525
+         }
+        },
+        {
+         "key": "ai.usage.outputTokenDetails.textTokens",
+         "value": {
+          "intValue": 77
+         }
+        },
+        {
+         "key": "ai.usage.outputTokenDetails.reasoningTokens",
+         "value": {
+          "intValue": 448
+         }
+        },
+        {
+         "key": "ai.usage.totalTokens",
+         "value": {
+          "intValue": 6607
+         }
+        },
+        {
+         "key": "ai.usage.reasoningTokens",
+         "value": {
+          "intValue": 448
+         }
+        },
+        {
+         "key": "ai.usage.cachedInputTokens",
+         "value": {
+          "intValue": 5632
+         }
+        },
+        {
+         "key": "gen_ai.response.finish_reasons",
+         "value": {
+          "arrayValue": {
+           "values": [
+            {
+             "stringValue": "tool-calls"
+            }
+           ]
+          }
+         }
+        },
+        {
+         "key": "gen_ai.response.id",
+         "value": {
+          "stringValue": "chatcmpl-EmuwFYMkIOJXE19co7YPIDtrxrApK"
+         }
+        },
+        {
+         "key": "gen_ai.response.model",
+         "value": {
+          "stringValue": "openai/gpt-5-mini"
+         }
+        },
+        {
+         "key": "gen_ai.usage.input_tokens",
+         "value": {
+          "intValue": 6082
+         }
+        },
+        {
+         "key": "gen_ai.usage.output_tokens",
+         "value": {
+          "intValue": 525
+         }
+        },
+        {
+         "key": "ai.response.text",
+         "value": {
+          "stringValue": "I'll create a new file named weather.txt with the requested contents, then read it back to confirm. Proceeding to add the file."
+         }
+        }
+       ],
+       "status": {
+        "code": 0
+       },
+       "flags": 257
+      },
+      {
+       "traceId": "7e16bb8b327fb4202177ff55343ef71a",
+       "spanId": "399a0345b7c0b0f9",
+       "parentSpanId": "540d8fe16b1a919b",
+       "name": "ai.toolCall",
+       "kind": 1,
+       "startTimeUnixNano": "1795327330000000000",
+       "endTimeUnixNano": "1795327330011570689",
+       "attributes": [
+        {
+         "key": "operation.name",
+         "value": {
+          "stringValue": "ai.toolCall session.llm"
+         }
+        },
+        {
+         "key": "resource.name",
+         "value": {
+          "stringValue": "session.llm"
+         }
+        },
+        {
+         "key": "ai.operationId",
+         "value": {
+          "stringValue": "ai.toolCall"
+         }
+        },
+        {
+         "key": "ai.telemetry.functionId",
+         "value": {
+          "stringValue": "session.llm"
+         }
+        },
+        {
+         "key": "ai.toolCall.name",
+         "value": {
+          "stringValue": "apply_patch"
+         }
+        },
+        {
+         "key": "ai.toolCall.id",
+         "value": {
+          "stringValue": "call_Kx40AeLZQE9iPy9ocOZziVv6"
+         }
+        },
+        {
+         "key": "ai.toolCall.args",
+         "value": {
+          "stringValue": "{\"patchText\":\"*** Begin Patch\\n*** Add File: weather.txt\\n+Paris 14C\\n*** End Patch\"}"
+         }
+        },
+        {
+         "key": "session.id",
+         "value": {
+          "stringValue": "ses_fixture"
+         }
+        },
+        {
+         "key": "ai.toolCall.result",
+         "value": {
+          "stringValue": "{\"title\":\"Success. Updated the following files:\\nA home/ubuntu/lens-qa/oc-fix/w1/weather.txt\",\"metadata\":{\"diff\":\"Index: /home/ubuntu/lens-qa/oc-fix/w1/weather.txt\\n===================================================================\\n--- /home/ubuntu/lens-qa/oc-fix/w1/weather.txt\\n+++ /home/ubuntu/lens-qa/oc-fix/w1/weather.txt\\n@@ -0,0 +1,1 @@\\n+Paris 14C\\n\\n\",\"files\":[{\"filePath\":\"/home/ubuntu/lens-qa/oc-fix/w1/weather.txt\",\"relativePath\":\"home/ubuntu/lens-qa/oc-fix/w1/weather.txt\",\"type\":\"add\",\"patch\":\"Index: /home/ubuntu/lens-qa/oc-fix/w1/weather.txt\\n===================================================================\\n--- /home/ubuntu/lens-qa/oc-fix/w1/weather.txt\\n+++ /home/ubuntu/lens-qa/oc-fix/w1/weather.txt\\n@@ -0,0 +1,1 @@\\n+Paris 14C\\n\",\"additions\":1,\"deletions\":0}],\"diagnostics\":{},\"truncated\":false},\"output\":\"Success. Updated the following files:\\nA home/ubuntu/lens-qa/oc-fix/w1/weather.txt\"}"
+         }
+        }
+       ],
+       "status": {
+        "code": 0
+       },
+       "flags": 257
+      },
+      {
+       "traceId": "7e16bb8b327fb4202177ff55343ef71a",
+       "spanId": "25482a2c2638fb36",
+       "parentSpanId": "36fd18f83d53aa51",
+       "name": "Tool.execute",
+       "kind": 1,
+       "startTimeUnixNano": "1795327330001567982",
+       "endTimeUnixNano": "1795327330012037745",
+       "attributes": [
+        {
+         "key": "tool.name",
+         "value": {
+          "stringValue": "apply_patch"
+         }
+        },
+        {
+         "key": "session.id",
+         "value": {
+          "stringValue": "ses_fixture"
+         }
+        },
+        {
+         "key": "message.id",
+         "value": {
+          "stringValue": "msg_201d8e8b6001q4msIrtrcPmnSP"
+         }
+        },
+        {
+         "key": "tool.call_id",
+         "value": {
+          "stringValue": "call_Kx40AeLZQE9iPy9ocOZziVv6"
+         }
+        }
+       ],
+       "status": {
+        "code": 1
+       },
+       "flags": 257
+      },
+      {
+       "traceId": "7e16bb8b327fb4202177ff55343ef71a",
+       "spanId": "64dff025e5e1bec6",
+       "parentSpanId": "f6019566a4c9a72a",
+       "name": "ai.streamText",
+       "kind": 1,
+       "startTimeUnixNano": "1795327330042000000",
+       "endTimeUnixNano": "1795327331061285363",
+       "attributes": [
+        {
+         "key": "operation.name",
+         "value": {
+          "stringValue": "ai.streamText session.llm"
+         }
+        },
+        {
+         "key": "resource.name",
+         "value": {
+          "stringValue": "session.llm"
+         }
+        },
+        {
+         "key": "ai.operationId",
+         "value": {
+          "stringValue": "ai.streamText"
+         }
+        },
+        {
+         "key": "ai.telemetry.functionId",
+         "value": {
+          "stringValue": "session.llm"
+         }
+        },
+        {
+         "key": "ai.model.provider",
+         "value": {
+          "stringValue": "litellm.chat"
+         }
+        },
+        {
+         "key": "ai.model.id",
+         "value": {
+          "stringValue": "openai/gpt-5-mini"
+         }
+        },
+        {
+         "key": "ai.telemetry.metadata.sessionId",
+         "value": {
+          "stringValue": "ses_fixture"
+         }
+        },
+        {
+         "key": "ai.prompt",
+         "value": {
+          "stringValue": "{\"messages\":[{\"role\":\"system\",\"content\":\"You are OpenCode, You and the user share the same workspace \"},{\"role\":\"user\",\"content\":[{\"type\":\"text\",\"text\":\"\\\"Create a file named weather.txt in the current directory containing exactly: Paris 14C. Then read it back and tell me its contents.\\\"\"}]},{\"role\":\"assistant\",\"content\":[{\"type\":\"text\",\"text\":\"I'll create a new file named weather.txt with the requested contents, then read it back to confirm. Proceeding to add the file.\"},{\"type\":\"tool-call\",\"toolCallId\":\"call_Kx40AeLZQE9iPy9ocOZziVv6\",\"toolName\":\"apply_patch\",\"input\":{\"patchText\":\"*** Begin Patch\\n*** Add File: weather.txt\\n+Paris 14C\\n*** End Patch\"}}]},{\"role\":\"tool\",\"content\":[{\"type\":\"tool-result\",\"toolCallId\":\"call_Kx40AeLZQE9iPy9ocOZziVv6\",\"toolName\":\"apply_patch\",\"output\":{\"type\":\"text\",\"value\":\"Success. Updated the following files:\\nA home/ubuntu/lens-qa/oc-fix/w1/weather.txt\"}}]}]}"
+         }
+        },
+        {
+         "key": "session.id",
+         "value": {
+          "stringValue": "ses_fixture"
+         }
+        },
+        {
+         "key": "ai.response.finishReason",
+         "value": {
+          "stringValue": "tool-calls"
+         }
+        },
+        {
+         "key": "ai.response.text",
+         "value": {
+          "stringValue": ""
+         }
+        },
+        {
+         "key": "ai.response.toolCalls",
+         "value": {
+          "stringValue": "[{\"type\":\"tool-call\",\"toolCallId\":\"call_gHkSfC4HOA8G0S4eMS0NAmgY\",\"toolName\":\"read\",\"input\":{\"filePath\":\"/home/ubuntu/lens-qa/oc-fix/w1/weather.txt\"}}]"
+         }
+        },
+        {
+         "key": "ai.usage.inputTokens",
+         "value": {
+          "intValue": 6187
+         }
+        },
+        {
+         "key": "ai.usage.inputTokenDetails.noCacheTokens",
+         "value": {
+          "intValue": 299
+         }
+        },
+        {
+         "key": "ai.usage.inputTokenDetails.cacheReadTokens",
+         "value": {
+          "intValue": 5888
+         }
+        },
+        {
+         "key": "ai.usage.outputTokens",
+         "value": {
+          "intValue": 32
+         }
+        },
+        {
+         "key": "ai.usage.outputTokenDetails.textTokens",
+         "value": {
+          "intValue": 32
+         }
+        },
+        {
+         "key": "ai.usage.outputTokenDetails.reasoningTokens",
+         "value": {
+          "intValue": 0
+         }
+        },
+        {
+         "key": "ai.usage.totalTokens",
+         "value": {
+          "intValue": 6219
+         }
+        },
+        {
+         "key": "ai.usage.reasoningTokens",
+         "value": {
+          "intValue": 0
+         }
+        },
+        {
+         "key": "ai.usage.cachedInputTokens",
+         "value": {
+          "intValue": 5888
+         }
+        }
+       ],
+       "status": {
+        "code": 0
+       },
+       "flags": 257
+      },
+      {
+       "traceId": "7e16bb8b327fb4202177ff55343ef71a",
+       "spanId": "75eca8cb32f3caea",
+       "parentSpanId": "64dff025e5e1bec6",
+       "name": "ai.streamText.doStream",
+       "kind": 1,
+       "startTimeUnixNano": "1795327330044000000",
+       "endTimeUnixNano": "1795327331060915163",
+       "attributes": [
+        {
+         "key": "operation.name",
+         "value": {
+          "stringValue": "ai.streamText.doStream session.llm"
+         }
+        },
+        {
+         "key": "resource.name",
+         "value": {
+          "stringValue": "session.llm"
+         }
+        },
+        {
+         "key": "ai.operationId",
+         "value": {
+          "stringValue": "ai.streamText.doStream"
+         }
+        },
+        {
+         "key": "ai.telemetry.functionId",
+         "value": {
+          "stringValue": "session.llm"
+         }
+        },
+        {
+         "key": "ai.model.provider",
+         "value": {
+          "stringValue": "litellm.chat"
+         }
+        },
+        {
+         "key": "ai.model.id",
+         "value": {
+          "stringValue": "openai/gpt-5-mini"
+         }
+        },
+        {
+         "key": "ai.telemetry.metadata.sessionId",
+         "value": {
+          "stringValue": "ses_fixture"
+         }
+        },
+        {
+         "key": "ai.prompt.messages",
+         "value": {
+          "stringValue": "[{\"role\":\"system\",\"content\":\"You are OpenCode, You and the user share the same workspace \"},{\"role\":\"user\",\"content\":[{\"type\":\"text\",\"text\":\"\\\"Create a file named weather.txt in the current directory containing exactly: Paris 14C. Then read it back and tell me its contents.\\\"\"}]},{\"role\":\"assistant\",\"content\":[{\"type\":\"text\",\"text\":\"I'll create a new file named weather.txt with the requested contents, then read it back to confirm. Proceeding to add the file.\"},{\"type\":\"tool-call\",\"toolCallId\":\"call_Kx40AeLZQE9iPy9ocOZziVv6\",\"toolName\":\"apply_patch\",\"input\":{\"patchText\":\"*** Begin Patch\\n*** Add File: weather.txt\\n+Paris 14C\\n*** End Patch\"}}]},{\"role\":\"tool\",\"content\":[{\"type\":\"tool-result\",\"toolCallId\":\"call_Kx40AeLZQE9iPy9ocOZziVv6\",\"toolName\":\"apply_patch\",\"output\":{\"type\":\"text\",\"value\":\"Success. Updated the following files:\\nA home/ubuntu/lens-qa/oc-fix/w1/weather.txt\"}}]}]"
+         }
+        },
+        {
+         "key": "ai.prompt.toolChoice",
+         "value": {
+          "stringValue": "{\"type\":\"auto\"}"
+         }
+        },
+        {
+         "key": "gen_ai.system",
+         "value": {
+          "stringValue": "litellm.chat"
+         }
+        },
+        {
+         "key": "gen_ai.request.model",
+         "value": {
+          "stringValue": "openai/gpt-5-mini"
+         }
+        },
+        {
+         "key": "gen_ai.request.max_tokens",
+         "value": {
+          "intValue": 32000
+         }
+        },
+        {
+         "key": "session.id",
+         "value": {
+          "stringValue": "ses_fixture"
+         }
+        },
+        {
+         "key": "ai.response.finishReason",
+         "value": {
+          "stringValue": "tool-calls"
+         }
+        },
+        {
+         "key": "ai.response.toolCalls",
+         "value": {
+          "stringValue": "[{\"type\":\"tool-call\",\"toolCallId\":\"call_gHkSfC4HOA8G0S4eMS0NAmgY\",\"toolName\":\"read\",\"input\":{\"filePath\":\"/home/ubuntu/lens-qa/oc-fix/w1/weather.txt\"}}]"
+         }
+        },
+        {
+         "key": "ai.response.id",
+         "value": {
+          "stringValue": "chatcmpl-EmuwMLgtX9yrJjpUgmZ3uq5gyGMB3"
+         }
+        },
+        {
+         "key": "ai.response.model",
+         "value": {
+          "stringValue": "openai/gpt-5-mini"
+         }
+        },
+        {
+         "key": "ai.response.timestamp",
+         "value": {
+          "stringValue": "2026-11-22T06:02:10.000Z"
+         }
+        },
+        {
+         "key": "ai.usage.inputTokens",
+         "value": {
+          "intValue": 6187
+         }
+        },
+        {
+         "key": "ai.usage.inputTokenDetails.noCacheTokens",
+         "value": {
+          "intValue": 299
+         }
+        },
+        {
+         "key": "ai.usage.inputTokenDetails.cacheReadTokens",
+         "value": {
+          "intValue": 5888
+         }
+        },
+        {
+         "key": "ai.usage.outputTokens",
+         "value": {
+          "intValue": 32
+         }
+        },
+        {
+         "key": "ai.usage.outputTokenDetails.textTokens",
+         "value": {
+          "intValue": 32
+         }
+        },
+        {
+         "key": "ai.usage.outputTokenDetails.reasoningTokens",
+         "value": {
+          "intValue": 0
+         }
+        },
+        {
+         "key": "ai.usage.totalTokens",
+         "value": {
+          "intValue": 6219
+         }
+        },
+        {
+         "key": "ai.usage.reasoningTokens",
+         "value": {
+          "intValue": 0
+         }
+        },
+        {
+         "key": "ai.usage.cachedInputTokens",
+         "value": {
+          "intValue": 5888
+         }
+        },
+        {
+         "key": "gen_ai.response.finish_reasons",
+         "value": {
+          "arrayValue": {
+           "values": [
+            {
+             "stringValue": "tool-calls"
+            }
+           ]
+          }
+         }
+        },
+        {
+         "key": "gen_ai.response.id",
+         "value": {
+          "stringValue": "chatcmpl-EmuwMLgtX9yrJjpUgmZ3uq5gyGMB3"
+         }
+        },
+        {
+         "key": "gen_ai.response.model",
+         "value": {
+          "stringValue": "openai/gpt-5-mini"
+         }
+        },
+        {
+         "key": "gen_ai.usage.input_tokens",
+         "value": {
+          "intValue": 6187
+         }
+        },
+        {
+         "key": "gen_ai.usage.output_tokens",
+         "value": {
+          "intValue": 32
+         }
+        },
+        {
+         "key": "ai.response.text",
+         "value": {
+          "stringValue": ""
+         }
+        }
+       ],
+       "status": {
+        "code": 0
+       },
+       "flags": 257
+      },
+      {
+       "traceId": "7e16bb8b327fb4202177ff55343ef71a",
+       "spanId": "1e1e90e6af1e6bee",
+       "parentSpanId": "75eca8cb32f3caea",
+       "name": "ai.toolCall",
+       "kind": 1,
+       "startTimeUnixNano": "1795327331043000000",
+       "endTimeUnixNano": "1795327331054377418",
+       "attributes": [
+        {
+         "key": "operation.name",
+         "value": {
+          "stringValue": "ai.toolCall session.llm"
+         }
+        },
+        {
+         "key": "resource.name",
+         "value": {
+          "stringValue": "session.llm"
+         }
+        },
+        {
+         "key": "ai.operationId",
+         "value": {
+          "stringValue": "ai.toolCall"
+         }
+        },
+        {
+         "key": "ai.telemetry.functionId",
+         "value": {
+          "stringValue": "session.llm"
+         }
+        },
+        {
+         "key": "ai.toolCall.name",
+         "value": {
+          "stringValue": "read"
+         }
+        },
+        {
+         "key": "ai.toolCall.id",
+         "value": {
+          "stringValue": "call_gHkSfC4HOA8G0S4eMS0NAmgY"
+         }
+        },
+        {
+         "key": "ai.toolCall.args",
+         "value": {
+          "stringValue": "{\"filePath\":\"/home/ubuntu/lens-qa/oc-fix/w1/weather.txt\"}"
+         }
+        },
+        {
+         "key": "session.id",
+         "value": {
+          "stringValue": "ses_fixture"
+         }
+        },
+        {
+         "key": "ai.toolCall.result",
+         "value": {
+          "stringValue": "{\"title\":\"home/ubuntu/lens-qa/oc-fix/w1/weather.txt\",\"output\":\"<path>/home/ubuntu/lens-qa/oc-fix/w1/weather.txt</path>\\n<type>file</type>\\n<content>\\n1: Paris 14C\\n\\n(End of file - total 1 lines)\\n</content>\",\"metadata\":{\"preview\":\"Paris 14C\",\"truncated\":false,\"loaded\":[],\"display\":{\"type\":\"file\",\"path\":\"/home/ubuntu/lens-qa/oc-fix/w1/weather.txt\",\"text\":\"Paris 14C\",\"lineStart\":1,\"lineEnd\":1,\"totalLines\":1,\"truncated\":false}}}"
+         }
+        }
+       ],
+       "status": {
+        "code": 0
+       },
+       "flags": 257
+      },
+      {
+       "traceId": "7e16bb8b327fb4202177ff55343ef71a",
+       "spanId": "9d1d05004a6e754f",
+       "parentSpanId": "b55bc11253768469",
+       "name": "Tool.execute",
+       "kind": 1,
+       "startTimeUnixNano": "1795327331043970388",
+       "endTimeUnixNano": "1795327331054905634",
+       "attributes": [
+        {
+         "key": "tool.name",
+         "value": {
+          "stringValue": "read"
+         }
+        },
+        {
+         "key": "session.id",
+         "value": {
+          "stringValue": "ses_fixture"
+         }
+        },
+        {
+         "key": "message.id",
+         "value": {
+          "stringValue": "msg_201d906ec001r7VTUPDNJoqBA2"
+         }
+        },
+        {
+         "key": "tool.call_id",
+         "value": {
+          "stringValue": "call_gHkSfC4HOA8G0S4eMS0NAmgY"
+         }
+        }
+       ],
+       "status": {
+        "code": 1
+       },
+       "flags": 257
+      },
+      {
+       "traceId": "7e16bb8b327fb4202177ff55343ef71a",
+       "spanId": "9882de5d2efb3111",
+       "parentSpanId": "88f3622b396f4fc5",
+       "name": "ai.streamText",
+       "kind": 1,
+       "startTimeUnixNano": "1795327331082000000",
+       "endTimeUnixNano": "1795327331942753349",
+       "attributes": [
+        {
+         "key": "operation.name",
+         "value": {
+          "stringValue": "ai.streamText session.llm"
+         }
+        },
+        {
+         "key": "resource.name",
+         "value": {
+          "stringValue": "session.llm"
+         }
+        },
+        {
+         "key": "ai.operationId",
+         "value": {
+          "stringValue": "ai.streamText"
+         }
+        },
+        {
+         "key": "ai.telemetry.functionId",
+         "value": {
+          "stringValue": "session.llm"
+         }
+        },
+        {
+         "key": "ai.model.provider",
+         "value": {
+          "stringValue": "litellm.chat"
+         }
+        },
+        {
+         "key": "ai.model.id",
+         "value": {
+          "stringValue": "openai/gpt-5-mini"
+         }
+        },
+        {
+         "key": "ai.telemetry.metadata.sessionId",
+         "value": {
+          "stringValue": "ses_fixture"
+         }
+        },
+        {
+         "key": "ai.prompt",
+         "value": {
+          "stringValue": "{\"messages\":[{\"role\":\"system\",\"content\":\"You are OpenCode, You and the user share the same workspace \"},{\"role\":\"user\",\"content\":[{\"type\":\"text\",\"text\":\"\\\"Create a file named weather.txt in the current directory containing exactly: Paris 14C. Then read it back and tell me its contents.\\\"\"}]},{\"role\":\"assistant\",\"content\":[{\"type\":\"text\",\"text\":\"I'll create a new file named weather.txt with the requested contents, then read it back to confirm. Proceeding to add the file.\"},{\"type\":\"tool-call\",\"toolCallId\":\"call_Kx40AeLZQE9iPy9ocOZziVv6\",\"toolName\":\"apply_patch\",\"input\":{\"patchText\":\"*** Begin Patch\\n*** Add File: weather.txt\\n+Paris 14C\\n*** End Patch\"}}]},{\"role\":\"tool\",\"content\":[{\"type\":\"tool-result\",\"toolCallId\":\"call_Kx40AeLZQE9iPy9ocOZziVv6\",\"toolName\":\"apply_patch\",\"output\":{\"type\":\"text\",\"value\":\"Success. Updated the following files:\\nA home/ubuntu/lens-qa/oc-fix/w1/weather.txt\"}}]},{\"role\":\"assistant\",\"content\":[{\"type\":\"tool-call\",\"toolCallId\":\"call_gHkSfC4HOA8G0S4eMS0NAmgY\",\"toolName\":\"read\",\"input\":{\"filePath\":\"/home/ubuntu/lens-qa/oc-fix/w1/weather.txt\"}}]},{\"role\":\"tool\",\"content\":[{\"type\":\"tool-result\",\"toolCallId\":\"call_gHkSfC4HOA8G0S4eMS0NAmgY\",\"toolName\":\"read\",\"output\":{\"type\":\"text\",\"value\":\"<path>/home/ubuntu/lens-qa/oc-fix/w1/weather.txt</path>\\n<type>file</type>\\n<content>\\n1: Paris 14C\\n\\n(End of file - total 1 lines)\\n</content>\"}}]}]}"
+         }
+        },
+        {
+         "key": "session.id",
+         "value": {
+          "stringValue": "ses_fixture"
+         }
+        },
+        {
+         "key": "ai.response.finishReason",
+         "value": {
+          "stringValue": "stop"
+         }
+        },
+        {
+         "key": "ai.response.text",
+         "value": {
+          "stringValue": "I created the file and read it back.\n\nContents of weather.txt:\nParis 14C"
+         }
+        },
+        {
+         "key": "ai.usage.inputTokens",
+         "value": {
+          "intValue": 6280
+         }
+        },
+        {
+         "key": "ai.usage.inputTokenDetails.noCacheTokens",
+         "value": {
+          "intValue": 264
+         }
+        },
+        {
+         "key": "ai.usage.inputTokenDetails.cacheReadTokens",
+         "value": {
+          "intValue": 6016
+         }
+        },
+        {
+         "key": "ai.usage.outputTokens",
+         "value": {
+          "intValue": 21
+         }
+        },
+        {
+         "key": "ai.usage.outputTokenDetails.textTokens",
+         "value": {
+          "intValue": 21
+         }
+        },
+        {
+         "key": "ai.usage.outputTokenDetails.reasoningTokens",
+         "value": {
+          "intValue": 0
+         }
+        },
+        {
+         "key": "ai.usage.totalTokens",
+         "value": {
+          "intValue": 6301
+         }
+        },
+        {
+         "key": "ai.usage.reasoningTokens",
+         "value": {
+          "intValue": 0
+         }
+        },
+        {
+         "key": "ai.usage.cachedInputTokens",
+         "value": {
+          "intValue": 6016
+         }
+        }
+       ],
+       "status": {
+        "code": 0
+       },
+       "flags": 257
+      },
+      {
+       "traceId": "7e16bb8b327fb4202177ff55343ef71a",
+       "spanId": "4624041bfe4f7b27",
+       "parentSpanId": "9882de5d2efb3111",
+       "name": "ai.streamText.doStream",
+       "kind": 1,
+       "startTimeUnixNano": "1795327331083000000",
+       "endTimeUnixNano": "1795327331942243859",
+       "attributes": [
+        {
+         "key": "operation.name",
+         "value": {
+          "stringValue": "ai.streamText.doStream session.llm"
+         }
+        },
+        {
+         "key": "resource.name",
+         "value": {
+          "stringValue": "session.llm"
+         }
+        },
+        {
+         "key": "ai.operationId",
+         "value": {
+          "stringValue": "ai.streamText.doStream"
+         }
+        },
+        {
+         "key": "ai.telemetry.functionId",
+         "value": {
+          "stringValue": "session.llm"
+         }
+        },
+        {
+         "key": "ai.model.provider",
+         "value": {
+          "stringValue": "litellm.chat"
+         }
+        },
+        {
+         "key": "ai.model.id",
+         "value": {
+          "stringValue": "openai/gpt-5-mini"
+         }
+        },
+        {
+         "key": "ai.telemetry.metadata.sessionId",
+         "value": {
+          "stringValue": "ses_fixture"
+         }
+        },
+        {
+         "key": "ai.prompt.messages",
+         "value": {
+          "stringValue": "[{\"role\":\"system\",\"content\":\"You are OpenCode, You and the user share the same workspace \"},{\"role\":\"user\",\"content\":[{\"type\":\"text\",\"text\":\"\\\"Create a file named weather.txt in the current directory containing exactly: Paris 14C. Then read it back and tell me its contents.\\\"\"}]},{\"role\":\"assistant\",\"content\":[{\"type\":\"text\",\"text\":\"I'll create a new file named weather.txt with the requested contents, then read it back to confirm. Proceeding to add the file.\"},{\"type\":\"tool-call\",\"toolCallId\":\"call_Kx40AeLZQE9iPy9ocOZziVv6\",\"toolName\":\"apply_patch\",\"input\":{\"patchText\":\"*** Begin Patch\\n*** Add File: weather.txt\\n+Paris 14C\\n*** End Patch\"}}]},{\"role\":\"tool\",\"content\":[{\"type\":\"tool-result\",\"toolCallId\":\"call_Kx40AeLZQE9iPy9ocOZziVv6\",\"toolName\":\"apply_patch\",\"output\":{\"type\":\"text\",\"value\":\"Success. Updated the following files:\\nA home/ubuntu/lens-qa/oc-fix/w1/weather.txt\"}}]},{\"role\":\"assistant\",\"content\":[{\"type\":\"tool-call\",\"toolCallId\":\"call_gHkSfC4HOA8G0S4eMS0NAmgY\",\"toolName\":\"read\",\"input\":{\"filePath\":\"/home/ubuntu/lens-qa/oc-fix/w1/weather.txt\"}}]},{\"role\":\"tool\",\"content\":[{\"type\":\"tool-result\",\"toolCallId\":\"call_gHkSfC4HOA8G0S4eMS0NAmgY\",\"toolName\":\"read\",\"output\":{\"type\":\"text\",\"value\":\"<path>/home/ubuntu/lens-qa/oc-fix/w1/weather.txt</path>\\n<type>file</type>\\n<content>\\n1: Paris 14C\\n\\n(End of file - total 1 lines)\\n</content>\"}}]}]"
+         }
+        },
+        {
+         "key": "ai.prompt.toolChoice",
+         "value": {
+          "stringValue": "{\"type\":\"auto\"}"
+         }
+        },
+        {
+         "key": "gen_ai.system",
+         "value": {
+          "stringValue": "litellm.chat"
+         }
+        },
+        {
+         "key": "gen_ai.request.model",
+         "value": {
+          "stringValue": "openai/gpt-5-mini"
+         }
+        },
+        {
+         "key": "gen_ai.request.max_tokens",
+         "value": {
+          "intValue": 32000
+         }
+        },
+        {
+         "key": "session.id",
+         "value": {
+          "stringValue": "ses_fixture"
+         }
+        },
+        {
+         "key": "ai.response.finishReason",
+         "value": {
+          "stringValue": "stop"
+         }
+        },
+        {
+         "key": "ai.response.id",
+         "value": {
+          "stringValue": "chatcmpl-EmuwNQokvEnw2knTj4YZTX2FzBKB1"
+         }
+        },
+        {
+         "key": "ai.response.model",
+         "value": {
+          "stringValue": "openai/gpt-5-mini"
+         }
+        },
+        {
+         "key": "ai.response.timestamp",
+         "value": {
+          "stringValue": "2026-11-22T06:02:11.000Z"
+         }
+        },
+        {
+         "key": "ai.usage.inputTokens",
+         "value": {
+          "intValue": 6280
+         }
+        },
+        {
+         "key": "ai.usage.inputTokenDetails.noCacheTokens",
+         "value": {
+          "intValue": 264
+         }
+        },
+        {
+         "key": "ai.usage.inputTokenDetails.cacheReadTokens",
+         "value": {
+          "intValue": 6016
+         }
+        },
+        {
+         "key": "ai.usage.outputTokens",
+         "value": {
+          "intValue": 21
+         }
+        },
+        {
+         "key": "ai.usage.outputTokenDetails.textTokens",
+         "value": {
+          "intValue": 21
+         }
+        },
+        {
+         "key": "ai.usage.outputTokenDetails.reasoningTokens",
+         "value": {
+          "intValue": 0
+         }
+        },
+        {
+         "key": "ai.usage.totalTokens",
+         "value": {
+          "intValue": 6301
+         }
+        },
+        {
+         "key": "ai.usage.reasoningTokens",
+         "value": {
+          "intValue": 0
+         }
+        },
+        {
+         "key": "ai.usage.cachedInputTokens",
+         "value": {
+          "intValue": 6016
+         }
+        },
+        {
+         "key": "gen_ai.response.finish_reasons",
+         "value": {
+          "arrayValue": {
+           "values": [
+            {
+             "stringValue": "stop"
+            }
+           ]
+          }
+         }
+        },
+        {
+         "key": "gen_ai.response.id",
+         "value": {
+          "stringValue": "chatcmpl-EmuwNQokvEnw2knTj4YZTX2FzBKB1"
+         }
+        },
+        {
+         "key": "gen_ai.response.model",
+         "value": {
+          "stringValue": "openai/gpt-5-mini"
+         }
+        },
+        {
+         "key": "gen_ai.usage.input_tokens",
+         "value": {
+          "intValue": 6280
+         }
+        },
+        {
+         "key": "gen_ai.usage.output_tokens",
+         "value": {
+          "intValue": 21
+         }
+        },
+        {
+         "key": "ai.response.text",
+         "value": {
+          "stringValue": "I created the file and read it back.\n\nContents of weather.txt:\nParis 14C"
+         }
+        }
+       ],
+       "status": {
+        "code": 0
+       },
+       "flags": 257
+      },
+      {
+       "traceId": "7e16bb8b327fb4202177ff55343ef71a",
+       "spanId": "9173986956104eef",
+       "parentSpanId": "ad0b89d9311bc8fa",
+       "name": "ai.streamText",
+       "kind": 1,
+       "startTimeUnixNano": "1795327332500000000",
+       "endTimeUnixNano": "1795327343454841012",
+       "attributes": [
+        {
+         "key": "operation.name",
+         "value": {
+          "stringValue": "ai.streamText session.llm"
+         }
+        },
+        {
+         "key": "resource.name",
+         "value": {
+          "stringValue": "session.llm"
+         }
+        },
+        {
+         "key": "ai.operationId",
+         "value": {
+          "stringValue": "ai.streamText"
+         }
+        },
+        {
+         "key": "ai.telemetry.functionId",
+         "value": {
+          "stringValue": "session.llm"
+         }
+        },
+        {
+         "key": "ai.model.provider",
+         "value": {
+          "stringValue": "litellm.chat"
+         }
+        },
+        {
+         "key": "ai.model.id",
+         "value": {
+          "stringValue": "openai/gpt-5-mini"
+         }
+        },
+        {
+         "key": "ai.telemetry.metadata.sessionId",
+         "value": {
+          "stringValue": "ses_fixture"
+         }
+        },
+        {
+         "key": "ai.prompt",
+         "value": {
+          "stringValue": "{\"messages\":[{\"role\":\"system\",\"content\":\"You are OpenCode, You and the user share the same workspace \"},{\"role\":\"user\",\"content\":[{\"type\":\"text\",\"text\":\"\\\"Create a file named weather.txt in the current directory containing exactly: Paris 14C. Then read it back and tell me its contents.\\\"\"}]},{\"role\":\"assistant\",\"content\":[{\"type\":\"text\",\"text\":\"I'll create a new file named weather.txt with the requested contents, then read it back to confirm. Proceeding to add the file.\"},{\"type\":\"tool-call\",\"toolCallId\":\"call_Kx40AeLZQE9iPy9ocOZziVv6\",\"toolName\":\"apply_patch\",\"input\":{\"patchText\":\"*** Begin Patch\\n*** Add File: weather.txt\\n+Paris 14C\\n*** End Patch\"}}]},{\"role\":\"tool\",\"content\":[{\"type\":\"tool-result\",\"toolCallId\":\"call_Kx40AeLZQE9iPy9ocOZziVv6\",\"toolName\":\"apply_patch\",\"output\":{\"type\":\"text\",\"value\":\"Success. Updated the following files:\\nA home/ubuntu/lens-qa/oc-fix/w1/weather.txt\"}}]},{\"role\":\"assistant\",\"content\":[{\"type\":\"tool-call\",\"toolCallId\":\"call_gHkSfC4HOA8G0S4eMS0NAmgY\",\"toolName\":\"read\",\"input\":{\"filePath\":\"/home/ubuntu/lens-qa/oc-fix/w1/weather.txt\"}}]},{\"role\":\"tool\",\"content\":[{\"type\":\"tool-result\",\"toolCallId\":\"call_gHkSfC4HOA8G0S4eMS0NAmgY\",\"toolName\":\"read\",\"output\":{\"type\":\"text\",\"value\":\"<path>/home/ubuntu/lens-qa/oc-fix/w1/weather.txt</path>\\n<type>file</type>\\n<content>\\n1: Paris 14C\\n\\n(End of file - total 1 lines)\\n</content>\"}}]},{\"role\":\"assistant\",\"content\":[{\"type\":\"text\",\"text\":\"I created the file and read it back.\\n\\nContents of weather.txt:\\nParis 14C\"}]},{\"role\":\"user\",\"content\":[{\"type\":\"text\",\"text\":\"\\\"Append a second line \\\\\\\"Tokyo 22C\\\\\\\" to weather.txt, list the directory, and say which city is warmer.\\\"\"}]}]}"
+         }
+        },
+        {
+         "key": "session.id",
+         "value": {
+          "stringValue": "ses_fixture"
+         }
+        },
+        {
+         "key": "ai.response.finishReason",
+         "value": {
+          "stringValue": "tool-calls"
+         }
+        },
+        {
+         "key": "ai.response.text",
+         "value": {
+          "stringValue": "I'll append \"Tokyo 22C\" as a new second line in weather.txt, then list files in the current directory and read the file contents. Proceeding to edit the file."
+         }
+        },
+        {
+         "key": "ai.response.toolCalls",
+         "value": {
+          "stringValue": "[{\"type\":\"tool-call\",\"toolCallId\":\"call_Q1nHG3rpGHw3VgLIBN8S5EBd\",\"toolName\":\"apply_patch\",\"input\":{\"patchText\":\"*** Begin Patch\\n*** Update File: weather.txt\\n@@\\n-Paris 14C\\n+Paris 14C\\n+Tokyo 22C\\n*** End Patch\"}}]"
+         }
+        },
+        {
+         "key": "ai.usage.inputTokens",
+         "value": {
+          "intValue": 6334
+         }
+        },
+        {
+         "key": "ai.usage.inputTokenDetails.noCacheTokens",
+         "value": {
+          "intValue": 190
+         }
+        },
+        {
+         "key": "ai.usage.inputTokenDetails.cacheReadTokens",
+         "value": {
+          "intValue": 6144
+         }
+        },
+        {
+         "key": "ai.usage.outputTokens",
+         "value": {
+          "intValue": 998
+         }
+        },
+        {
+         "key": "ai.usage.outputTokenDetails.textTokens",
+         "value": {
+          "intValue": 102
+         }
+        },
+        {
+         "key": "ai.usage.outputTokenDetails.reasoningTokens",
+         "value": {
+          "intValue": 896
+         }
+        },
+        {
+         "key": "ai.usage.totalTokens",
+         "value": {
+          "intValue": 7332
+         }
+        },
+        {
+         "key": "ai.usage.reasoningTokens",
+         "value": {
+          "intValue": 896
+         }
+        },
+        {
+         "key": "ai.usage.cachedInputTokens",
+         "value": {
+          "intValue": 6144
+         }
+        }
+       ],
+       "status": {
+        "code": 0
+       },
+       "flags": 257
+      },
+      {
+       "traceId": "7e16bb8b327fb4202177ff55343ef71a",
+       "spanId": "1beb10cc4bae442e",
+       "parentSpanId": "9173986956104eef",
+       "name": "ai.streamText.doStream",
+       "kind": 1,
+       "startTimeUnixNano": "1795327332501000000",
+       "endTimeUnixNano": "1795327343454615198",
+       "attributes": [
+        {
+         "key": "operation.name",
+         "value": {
+          "stringValue": "ai.streamText.doStream session.llm"
+         }
+        },
+        {
+         "key": "resource.name",
+         "value": {
+          "stringValue": "session.llm"
+         }
+        },
+        {
+         "key": "ai.operationId",
+         "value": {
+          "stringValue": "ai.streamText.doStream"
+         }
+        },
+        {
+         "key": "ai.telemetry.functionId",
+         "value": {
+          "stringValue": "session.llm"
+         }
+        },
+        {
+         "key": "ai.model.provider",
+         "value": {
+          "stringValue": "litellm.chat"
+         }
+        },
+        {
+         "key": "ai.model.id",
+         "value": {
+          "stringValue": "openai/gpt-5-mini"
+         }
+        },
+        {
+         "key": "ai.telemetry.metadata.sessionId",
+         "value": {
+          "stringValue": "ses_fixture"
+         }
+        },
+        {
+         "key": "ai.prompt.messages",
+         "value": {
+          "stringValue": "[{\"role\":\"system\",\"content\":\"You are OpenCode, You and the user share the same workspace \"},{\"role\":\"user\",\"content\":[{\"type\":\"text\",\"text\":\"\\\"Create a file named weather.txt in the current directory containing exactly: Paris 14C. Then read it back and tell me its contents.\\\"\"}]},{\"role\":\"assistant\",\"content\":[{\"type\":\"text\",\"text\":\"I'll create a new file named weather.txt with the requested contents, then read it back to confirm. Proceeding to add the file.\"},{\"type\":\"tool-call\",\"toolCallId\":\"call_Kx40AeLZQE9iPy9ocOZziVv6\",\"toolName\":\"apply_patch\",\"input\":{\"patchText\":\"*** Begin Patch\\n*** Add File: weather.txt\\n+Paris 14C\\n*** End Patch\"}}]},{\"role\":\"tool\",\"content\":[{\"type\":\"tool-result\",\"toolCallId\":\"call_Kx40AeLZQE9iPy9ocOZziVv6\",\"toolName\":\"apply_patch\",\"output\":{\"type\":\"text\",\"value\":\"Success. Updated the following files:\\nA home/ubuntu/lens-qa/oc-fix/w1/weather.txt\"}}]},{\"role\":\"assistant\",\"content\":[{\"type\":\"tool-call\",\"toolCallId\":\"call_gHkSfC4HOA8G0S4eMS0NAmgY\",\"toolName\":\"read\",\"input\":{\"filePath\":\"/home/ubuntu/lens-qa/oc-fix/w1/weather.txt\"}}]},{\"role\":\"tool\",\"content\":[{\"type\":\"tool-result\",\"toolCallId\":\"call_gHkSfC4HOA8G0S4eMS0NAmgY\",\"toolName\":\"read\",\"output\":{\"type\":\"text\",\"value\":\"<path>/home/ubuntu/lens-qa/oc-fix/w1/weather.txt</path>\\n<type>file</type>\\n<content>\\n1: Paris 14C\\n\\n(End of file - total 1 lines)\\n</content>\"}}]},{\"role\":\"assistant\",\"content\":[{\"type\":\"text\",\"text\":\"I created the file and read it back.\\n\\nContents of weather.txt:\\nParis 14C\"}]},{\"role\":\"user\",\"content\":[{\"type\":\"text\",\"text\":\"\\\"Append a second line \\\\\\\"Tokyo 22C\\\\\\\" to weather.txt, list the directory, and say which city is warmer.\\\"\"}]}]"
+         }
+        },
+        {
+         "key": "ai.prompt.toolChoice",
+         "value": {
+          "stringValue": "{\"type\":\"auto\"}"
+         }
+        },
+        {
+         "key": "gen_ai.system",
+         "value": {
+          "stringValue": "litellm.chat"
+         }
+        },
+        {
+         "key": "gen_ai.request.model",
+         "value": {
+          "stringValue": "openai/gpt-5-mini"
+         }
+        },
+        {
+         "key": "gen_ai.request.max_tokens",
+         "value": {
+          "intValue": 32000
+         }
+        },
+        {
+         "key": "session.id",
+         "value": {
+          "stringValue": "ses_fixture"
+         }
+        },
+        {
+         "key": "ai.response.finishReason",
+         "value": {
+          "stringValue": "tool-calls"
+         }
+        },
+        {
+         "key": "ai.response.toolCalls",
+         "value": {
+          "stringValue": "[{\"type\":\"tool-call\",\"toolCallId\":\"call_Q1nHG3rpGHw3VgLIBN8S5EBd\",\"toolName\":\"apply_patch\",\"input\":{\"patchText\":\"*** Begin Patch\\n*** Update File: weather.txt\\n@@\\n-Paris 14C\\n+Paris 14C\\n+Tokyo 22C\\n*** End Patch\"}}]"
+         }
+        },
+        {
+         "key": "ai.response.id",
+         "value": {
+          "stringValue": "chatcmpl-EmuwOaTdtWmCPdNEAR5XjehQc498C"
+         }
+        },
+        {
+         "key": "ai.response.model",
+         "value": {
+          "stringValue": "openai/gpt-5-mini"
+         }
+        },
+        {
+         "key": "ai.response.timestamp",
+         "value": {
+          "stringValue": "2026-11-22T06:02:21.000Z"
+         }
+        },
+        {
+         "key": "ai.usage.inputTokens",
+         "value": {
+          "intValue": 6334
+         }
+        },
+        {
+         "key": "ai.usage.inputTokenDetails.noCacheTokens",
+         "value": {
+          "intValue": 190
+         }
+        },
+        {
+         "key": "ai.usage.inputTokenDetails.cacheReadTokens",
+         "value": {
+          "intValue": 6144
+         }
+        },
+        {
+         "key": "ai.usage.outputTokens",
+         "value": {
+          "intValue": 998
+         }
+        },
+        {
+         "key": "ai.usage.outputTokenDetails.textTokens",
+         "value": {
+          "intValue": 102
+         }
+        },
+        {
+         "key": "ai.usage.outputTokenDetails.reasoningTokens",
+         "value": {
+          "intValue": 896
+         }
+        },
+        {
+         "key": "ai.usage.totalTokens",
+         "value": {
+          "intValue": 7332
+         }
+        },
+        {
+         "key": "ai.usage.reasoningTokens",
+         "value": {
+          "intValue": 896
+         }
+        },
+        {
+         "key": "ai.usage.cachedInputTokens",
+         "value": {
+          "intValue": 6144
+         }
+        },
+        {
+         "key": "gen_ai.response.finish_reasons",
+         "value": {
+          "arrayValue": {
+           "values": [
+            {
+             "stringValue": "tool-calls"
+            }
+           ]
+          }
+         }
+        },
+        {
+         "key": "gen_ai.response.id",
+         "value": {
+          "stringValue": "chatcmpl-EmuwOaTdtWmCPdNEAR5XjehQc498C"
+         }
+        },
+        {
+         "key": "gen_ai.response.model",
+         "value": {
+          "stringValue": "openai/gpt-5-mini"
+         }
+        },
+        {
+         "key": "gen_ai.usage.input_tokens",
+         "value": {
+          "intValue": 6334
+         }
+        },
+        {
+         "key": "gen_ai.usage.output_tokens",
+         "value": {
+          "intValue": 998
+         }
+        },
+        {
+         "key": "ai.response.text",
+         "value": {
+          "stringValue": "I'll append \"Tokyo 22C\" as a new second line in weather.txt, then list files in the current directory and read the file contents. Proceeding to edit the file."
+         }
+        }
+       ],
+       "status": {
+        "code": 0
+       },
+       "flags": 257
+      },
+      {
+       "traceId": "7e16bb8b327fb4202177ff55343ef71a",
+       "spanId": "a4c80bf073cb64b7",
+       "parentSpanId": "1beb10cc4bae442e",
+       "name": "ai.toolCall",
+       "kind": 1,
+       "startTimeUnixNano": "1795327343429000000",
+       "endTimeUnixNano": "1795327343435522721",
+       "attributes": [
+        {
+         "key": "operation.name",
+         "value": {
+          "stringValue": "ai.toolCall session.llm"
+         }
+        },
+        {
+         "key": "resource.name",
+         "value": {
+          "stringValue": "session.llm"
+         }
+        },
+        {
+         "key": "ai.operationId",
+         "value": {
+          "stringValue": "ai.toolCall"
+         }
+        },
+        {
+         "key": "ai.telemetry.functionId",
+         "value": {
+          "stringValue": "session.llm"
+         }
+        },
+        {
+         "key": "ai.toolCall.name",
+         "value": {
+          "stringValue": "apply_patch"
+         }
+        },
+        {
+         "key": "ai.toolCall.id",
+         "value": {
+          "stringValue": "call_Q1nHG3rpGHw3VgLIBN8S5EBd"
+         }
+        },
+        {
+         "key": "ai.toolCall.args",
+         "value": {
+          "stringValue": "{\"patchText\":\"*** Begin Patch\\n*** Update File: weather.txt\\n@@\\n-Paris 14C\\n+Paris 14C\\n+Tokyo 22C\\n*** End Patch\"}"
+         }
+        },
+        {
+         "key": "session.id",
+         "value": {
+          "stringValue": "ses_fixture"
+         }
+        },
+        {
+         "key": "ai.toolCall.result",
+         "value": {
+          "stringValue": "{\"title\":\"Success. Updated the following files:\\nM home/ubuntu/lens-qa/oc-fix/w1/weather.txt\",\"metadata\":{\"diff\":\"Index: /home/ubuntu/lens-qa/oc-fix/w1/weather.txt\\n===================================================================\\n--- /home/ubuntu/lens-qa/oc-fix/w1/weather.txt\\n+++ /home/ubuntu/lens-qa/oc-fix/w1/weather.txt\\n@@ -1,1 +1,2 @@\\n Paris 14C\\n+Tokyo 22C\\n\\n\",\"files\":[{\"filePath\":\"/home/ubuntu/lens-qa/oc-fix/w1/weather.txt\",\"relativePath\":\"home/ubuntu/lens-qa/oc-fix/w1/weather.txt\",\"type\":\"update\",\"patch\":\"Index: /home/ubuntu/lens-qa/oc-fix/w1/weather.txt\\n===================================================================\\n--- /home/ubuntu/lens-qa/oc-fix/w1/weather.txt\\n+++ /home/ubuntu/lens-qa/oc-fix/w1/weather.txt\\n@@ -1,1 +1,2 @@\\n Paris 14C\\n+Tokyo 22C\\n\",\"additions\":1,\"deletions\":0}],\"diagnostics\":{},\"truncated\":false},\"output\":\"Success. Updated the following files:\\nM home/ubuntu/lens-qa/oc-fix/w1/weather.txt\"}"
+         }
+        }
+       ],
+       "status": {
+        "code": 0
+       },
+       "flags": 257
+      },
+      {
+       "traceId": "7e16bb8b327fb4202177ff55343ef71a",
+       "spanId": "74849304a410bf24",
+       "parentSpanId": "3f4fbc3474d2a4b9",
+       "name": "Tool.execute",
+       "kind": 1,
+       "startTimeUnixNano": "1795327343429911782",
+       "endTimeUnixNano": "1795327343436034042",
+       "attributes": [
+        {
+         "key": "tool.name",
+         "value": {
+          "stringValue": "apply_patch"
+         }
+        },
+        {
+         "key": "session.id",
+         "value": {
+          "stringValue": "ses_fixture"
+         }
+        },
+        {
+         "key": "message.id",
+         "value": {
+          "stringValue": "msg_201d910880016FzBR2lJx0FEDg"
+         }
+        },
+        {
+         "key": "tool.call_id",
+         "value": {
+          "stringValue": "call_Q1nHG3rpGHw3VgLIBN8S5EBd"
+         }
+        }
+       ],
+       "status": {
+        "code": 1
+       },
+       "flags": 257
+      },
+      {
+       "traceId": "7e16bb8b327fb4202177ff55343ef71a",
+       "spanId": "9982f56b4cdbbb6b",
+       "parentSpanId": "57ab6728c321f6a4",
+       "name": "ai.streamText",
+       "kind": 1,
+       "startTimeUnixNano": "1795327343473000000",
+       "endTimeUnixNano": "1795327344765091387",
+       "attributes": [
+        {
+         "key": "operation.name",
+         "value": {
+          "stringValue": "ai.streamText session.llm"
+         }
+        },
+        {
+         "key": "resource.name",
+         "value": {
+          "stringValue": "session.llm"
+         }
+        },
+        {
+         "key": "ai.operationId",
+         "value": {
+          "stringValue": "ai.streamText"
+         }
+        },
+        {
+         "key": "ai.telemetry.functionId",
+         "value": {
+          "stringValue": "session.llm"
+         }
+        },
+        {
+         "key": "ai.model.provider",
+         "value": {
+          "stringValue": "litellm.chat"
+         }
+        },
+        {
+         "key": "ai.model.id",
+         "value": {
+          "stringValue": "openai/gpt-5-mini"
+         }
+        },
+        {
+         "key": "ai.telemetry.metadata.sessionId",
+         "value": {
+          "stringValue": "ses_fixture"
+         }
+        },
+        {
+         "key": "ai.prompt",
+         "value": {
+          "stringValue": "{\"messages\":[{\"role\":\"system\",\"content\":\"You are OpenCode, You and the user share the same workspace \"},{\"role\":\"user\",\"content\":[{\"type\":\"text\",\"text\":\"\\\"Create a file named weather.txt in the current directory containing exactly: Paris 14C. Then read it back and tell me its contents.\\\"\"}]},{\"role\":\"assistant\",\"content\":[{\"type\":\"text\",\"text\":\"I'll create a new file named weather.txt with the requested contents, then read it back to confirm. Proceeding to add the file.\"},{\"type\":\"tool-call\",\"toolCallId\":\"call_Kx40AeLZQE9iPy9ocOZziVv6\",\"toolName\":\"apply_patch\",\"input\":{\"patchText\":\"*** Begin Patch\\n*** Add File: weather.txt\\n+Paris 14C\\n*** End Patch\"}}]},{\"role\":\"tool\",\"content\":[{\"type\":\"tool-result\",\"toolCallId\":\"call_Kx40AeLZQE9iPy9ocOZziVv6\",\"toolName\":\"apply_patch\",\"output\":{\"type\":\"text\",\"value\":\"Success. Updated the following files:\\nA home/ubuntu/lens-qa/oc-fix/w1/weather.txt\"}}]},{\"role\":\"assistant\",\"content\":[{\"type\":\"tool-call\",\"toolCallId\":\"call_gHkSfC4HOA8G0S4eMS0NAmgY\",\"toolName\":\"read\",\"input\":{\"filePath\":\"/home/ubuntu/lens-qa/oc-fix/w1/weather.txt\"}}]},{\"role\":\"tool\",\"content\":[{\"type\":\"tool-result\",\"toolCallId\":\"call_gHkSfC4HOA8G0S4eMS0NAmgY\",\"toolName\":\"read\",\"output\":{\"type\":\"text\",\"value\":\"<path>/home/ubuntu/lens-qa/oc-fix/w1/weather.txt</path>\\n<type>file</type>\\n<content>\\n1: Paris 14C\\n\\n(End of file - total 1 lines)\\n</content>\"}}]},{\"role\":\"assistant\",\"content\":[{\"type\":\"text\",\"text\":\"I created the file and read it back.\\n\\nContents of weather.txt:\\nParis 14C\"}]},{\"role\":\"user\",\"content\":[{\"type\":\"text\",\"text\":\"\\\"Append a second line \\\\\\\"Tokyo 22C\\\\\\\" to weather.txt, list the directory, and say which city is warmer.\\\"\"}]},{\"role\":\"assistant\",\"content\":[{\"type\":\"text\",\"text\":\"I'll append \\\"Tokyo 22C\\\" as a new second line in weather.txt, then list files in the current directory and read the file contents. Proceeding to edit the file.\"},{\"type\":\"tool-call\",\"toolCallId\":\"call_Q1nHG3rpGHw3VgLIBN8S5EBd\",\"toolName\":\"apply_patch\",\"input\":{\"patchText\":\"*** Begin Patch\\n*** Update File: weather.txt\\n@@\\n-Paris 14C\\n+Paris 14C\\n+Tokyo 22C\\n*** End Patch\"}}]},{\"role\":\"tool\",\"content\":[{\"type\":\"tool-result\",\"toolCallId\":\"call_Q1nHG3rpGHw3VgLIBN8S5EBd\",\"toolName\":\"apply_patch\",\"output\":{\"type\":\"text\",\"value\":\"Success. Updated the following files:\\nM home/ubuntu/lens-qa/oc-fix/w1/weather.txt\"}}]}]}"
+         }
+        },
+        {
+         "key": "session.id",
+         "value": {
+          "stringValue": "ses_fixture"
+         }
+        },
+        {
+         "key": "ai.response.finishReason",
+         "value": {
+          "stringValue": "tool-calls"
+         }
+        },
+        {
+         "key": "ai.response.text",
+         "value": {
+          "stringValue": ""
+         }
+        },
+        {
+         "key": "ai.response.toolCalls",
+         "value": {
+          "stringValue": "[{\"type\":\"tool-call\",\"toolCallId\":\"call_fxtd2beqK3Jt1gK1TD0qIEoj\",\"toolName\":\"bash\",\"input\":{\"command\":\"ls -la\",\"workdir\":\"/home/ubuntu/lens-qa/oc-fix/w1\"}}]"
+         }
+        },
+        {
+         "key": "ai.usage.inputTokens",
+         "value": {
+          "intValue": 6464
+         }
+        },
+        {
+         "key": "ai.usage.inputTokenDetails.noCacheTokens",
+         "value": {
+          "intValue": 320
+         }
+        },
+        {
+         "key": "ai.usage.inputTokenDetails.cacheReadTokens",
+         "value": {
+          "intValue": 6144
+         }
+        },
+        {
+         "key": "ai.usage.outputTokens",
+         "value": {
+          "intValue": 37
+         }
+        },
+        {
+         "key": "ai.usage.outputTokenDetails.textTokens",
+         "value": {
+          "intValue": 37
+         }
+        },
+        {
+         "key": "ai.usage.outputTokenDetails.reasoningTokens",
+         "value": {
+          "intValue": 0
+         }
+        },
+        {
+         "key": "ai.usage.totalTokens",
+         "value": {
+          "intValue": 6501
+         }
+        },
+        {
+         "key": "ai.usage.reasoningTokens",
+         "value": {
+          "intValue": 0
+         }
+        },
+        {
+         "key": "ai.usage.cachedInputTokens",
+         "value": {
+          "intValue": 6144
+         }
+        }
+       ],
+       "status": {
+        "code": 0
+       },
+       "flags": 257
+      },
+      {
+       "traceId": "7e16bb8b327fb4202177ff55343ef71a",
+       "spanId": "88c80a969a35bb2e",
+       "parentSpanId": "9982f56b4cdbbb6b",
+       "name": "ai.streamText.doStream",
+       "kind": 1,
+       "startTimeUnixNano": "1795327343474000000",
+       "endTimeUnixNano": "1795327344764764460",
+       "attributes": [
+        {
+         "key": "operation.name",
+         "value": {
+          "stringValue": "ai.streamText.doStream session.llm"
+         }
+        },
+        {
+         "key": "resource.name",
+         "value": {
+          "stringValue": "session.llm"
+         }
+        },
+        {
+         "key": "ai.operationId",
+         "value": {
+          "stringValue": "ai.streamText.doStream"
+         }
+        },
+        {
+         "key": "ai.telemetry.functionId",
+         "value": {
+          "stringValue": "session.llm"
+         }
+        },
+        {
+         "key": "ai.model.provider",
+         "value": {
+          "stringValue": "litellm.chat"
+         }
+        },
+        {
+         "key": "ai.model.id",
+         "value": {
+          "stringValue": "openai/gpt-5-mini"
+         }
+        },
+        {
+         "key": "ai.telemetry.metadata.sessionId",
+         "value": {
+          "stringValue": "ses_fixture"
+         }
+        },
+        {
+         "key": "ai.prompt.messages",
+         "value": {
+          "stringValue": "[{\"role\":\"system\",\"content\":\"You are OpenCode, You and the user share the same workspace \"},{\"role\":\"user\",\"content\":[{\"type\":\"text\",\"text\":\"\\\"Create a file named weather.txt in the current directory containing exactly: Paris 14C. Then read it back and tell me its contents.\\\"\"}]},{\"role\":\"assistant\",\"content\":[{\"type\":\"text\",\"text\":\"I'll create a new file named weather.txt with the requested contents, then read it back to confirm. Proceeding to add the file.\"},{\"type\":\"tool-call\",\"toolCallId\":\"call_Kx40AeLZQE9iPy9ocOZziVv6\",\"toolName\":\"apply_patch\",\"input\":{\"patchText\":\"*** Begin Patch\\n*** Add File: weather.txt\\n+Paris 14C\\n*** End Patch\"}}]},{\"role\":\"tool\",\"content\":[{\"type\":\"tool-result\",\"toolCallId\":\"call_Kx40AeLZQE9iPy9ocOZziVv6\",\"toolName\":\"apply_patch\",\"output\":{\"type\":\"text\",\"value\":\"Success. Updated the following files:\\nA home/ubuntu/lens-qa/oc-fix/w1/weather.txt\"}}]},{\"role\":\"assistant\",\"content\":[{\"type\":\"tool-call\",\"toolCallId\":\"call_gHkSfC4HOA8G0S4eMS0NAmgY\",\"toolName\":\"read\",\"input\":{\"filePath\":\"/home/ubuntu/lens-qa/oc-fix/w1/weather.txt\"}}]},{\"role\":\"tool\",\"content\":[{\"type\":\"tool-result\",\"toolCallId\":\"call_gHkSfC4HOA8G0S4eMS0NAmgY\",\"toolName\":\"read\",\"output\":{\"type\":\"text\",\"value\":\"<path>/home/ubuntu/lens-qa/oc-fix/w1/weather.txt</path>\\n<type>file</type>\\n<content>\\n1: Paris 14C\\n\\n(End of file - total 1 lines)\\n</content>\"}}]},{\"role\":\"assistant\",\"content\":[{\"type\":\"text\",\"text\":\"I created the file and read it back.\\n\\nContents of weather.txt:\\nParis 14C\"}]},{\"role\":\"user\",\"content\":[{\"type\":\"text\",\"text\":\"\\\"Append a second line \\\\\\\"Tokyo 22C\\\\\\\" to weather.txt, list the directory, and say which city is warmer.\\\"\"}]},{\"role\":\"assistant\",\"content\":[{\"type\":\"text\",\"text\":\"I'll append \\\"Tokyo 22C\\\" as a new second line in weather.txt, then list files in the current directory and read the file contents. Proceeding to edit the file.\"},{\"type\":\"tool-call\",\"toolCallId\":\"call_Q1nHG3rpGHw3VgLIBN8S5EBd\",\"toolName\":\"apply_patch\",\"input\":{\"patchText\":\"*** Begin Patch\\n*** Update File: weather.txt\\n@@\\n-Paris 14C\\n+Paris 14C\\n+Tokyo 22C\\n*** End Patch\"}}]},{\"role\":\"tool\",\"content\":[{\"type\":\"tool-result\",\"toolCallId\":\"call_Q1nHG3rpGHw3VgLIBN8S5EBd\",\"toolName\":\"apply_patch\",\"output\":{\"type\":\"text\",\"value\":\"Success. Updated the following files:\\nM home/ubuntu/lens-qa/oc-fix/w1/weather.txt\"}}]}]"
+         }
+        },
+        {
+         "key": "ai.prompt.toolChoice",
+         "value": {
+          "stringValue": "{\"type\":\"auto\"}"
+         }
+        },
+        {
+         "key": "gen_ai.system",
+         "value": {
+          "stringValue": "litellm.chat"
+         }
+        },
+        {
+         "key": "gen_ai.request.model",
+         "value": {
+          "stringValue": "openai/gpt-5-mini"
+         }
+        },
+        {
+         "key": "gen_ai.request.max_tokens",
+         "value": {
+          "intValue": 32000
+         }
+        },
+        {
+         "key": "session.id",
+         "value": {
+          "stringValue": "ses_fixture"
+         }
+        },
+        {
+         "key": "ai.response.finishReason",
+         "value": {
+          "stringValue": "tool-calls"
+         }
+        },
+        {
+         "key": "ai.response.toolCalls",
+         "value": {
+          "stringValue": "[{\"type\":\"tool-call\",\"toolCallId\":\"call_fxtd2beqK3Jt1gK1TD0qIEoj\",\"toolName\":\"bash\",\"input\":{\"command\":\"ls -la\",\"workdir\":\"/home/ubuntu/lens-qa/oc-fix/w1\"}}]"
+         }
+        },
+        {
+         "key": "ai.response.id",
+         "value": {
+          "stringValue": "chatcmpl-EmuwZvUTu8CwY4N0WYw8bDChjSTCn"
+         }
+        },
+        {
+         "key": "ai.response.model",
+         "value": {
+          "stringValue": "openai/gpt-5-mini"
+         }
+        },
+        {
+         "key": "ai.response.timestamp",
+         "value": {
+          "stringValue": "2026-11-22T06:02:24.000Z"
+         }
+        },
+        {
+         "key": "ai.usage.inputTokens",
+         "value": {
+          "intValue": 6464
+         }
+        },
+        {
+         "key": "ai.usage.inputTokenDetails.noCacheTokens",
+         "value": {
+          "intValue": 320
+         }
+        },
+        {
+         "key": "ai.usage.inputTokenDetails.cacheReadTokens",
+         "value": {
+          "intValue": 6144
+         }
+        },
+        {
+         "key": "ai.usage.outputTokens",
+         "value": {
+          "intValue": 37
+         }
+        },
+        {
+         "key": "ai.usage.outputTokenDetails.textTokens",
+         "value": {
+          "intValue": 37
+         }
+        },
+        {
+         "key": "ai.usage.outputTokenDetails.reasoningTokens",
+         "value": {
+          "intValue": 0
+         }
+        },
+        {
+         "key": "ai.usage.totalTokens",
+         "value": {
+          "intValue": 6501
+         }
+        },
+        {
+         "key": "ai.usage.reasoningTokens",
+         "value": {
+          "intValue": 0
+         }
+        },
+        {
+         "key": "ai.usage.cachedInputTokens",
+         "value": {
+          "intValue": 6144
+         }
+        },
+        {
+         "key": "gen_ai.response.finish_reasons",
+         "value": {
+          "arrayValue": {
+           "values": [
+            {
+             "stringValue": "tool-calls"
+            }
+           ]
+          }
+         }
+        },
+        {
+         "key": "gen_ai.response.id",
+         "value": {
+          "stringValue": "chatcmpl-EmuwZvUTu8CwY4N0WYw8bDChjSTCn"
+         }
+        },
+        {
+         "key": "gen_ai.response.model",
+         "value": {
+          "stringValue": "openai/gpt-5-mini"
+         }
+        },
+        {
+         "key": "gen_ai.usage.input_tokens",
+         "value": {
+          "intValue": 6464
+         }
+        },
+        {
+         "key": "gen_ai.usage.output_tokens",
+         "value": {
+          "intValue": 37
+         }
+        },
+        {
+         "key": "ai.response.text",
+         "value": {
+          "stringValue": ""
+         }
+        }
+       ],
+       "status": {
+        "code": 0
+       },
+       "flags": 257
+      },
+      {
+       "traceId": "7e16bb8b327fb4202177ff55343ef71a",
+       "spanId": "fd840362407048e8",
+       "parentSpanId": "88c80a969a35bb2e",
+       "name": "ai.toolCall",
+       "kind": 1,
+       "startTimeUnixNano": "1795327344684000000",
+       "endTimeUnixNano": "1795327344749357225",
+       "attributes": [
+        {
+         "key": "operation.name",
+         "value": {
+          "stringValue": "ai.toolCall session.llm"
+         }
+        },
+        {
+         "key": "resource.name",
+         "value": {
+          "stringValue": "session.llm"
+         }
+        },
+        {
+         "key": "ai.operationId",
+         "value": {
+          "stringValue": "ai.toolCall"
+         }
+        },
+        {
+         "key": "ai.telemetry.functionId",
+         "value": {
+          "stringValue": "session.llm"
+         }
+        },
+        {
+         "key": "ai.toolCall.name",
+         "value": {
+          "stringValue": "bash"
+         }
+        },
+        {
+         "key": "ai.toolCall.id",
+         "value": {
+          "stringValue": "call_fxtd2beqK3Jt1gK1TD0qIEoj"
+         }
+        },
+        {
+         "key": "ai.toolCall.args",
+         "value": {
+          "stringValue": "{\"command\":\"ls -la\",\"workdir\":\"/home/ubuntu/lens-qa/oc-fix/w1\"}"
+         }
+        },
+        {
+         "key": "session.id",
+         "value": {
+          "stringValue": "ses_fixture"
+         }
+        },
+        {
+         "key": "ai.toolCall.result",
+         "value": {
+          "stringValue": "{\"title\":\"ls -la\",\"metadata\":{\"output\":\"total 28\\ndrwxr-xr-x 2 ubuntu ubuntu 4096 Nov 22 06:02 .\\ndrwxr-xr-x 4 ubuntu ubuntu 4096 Nov 22 06:01 ..\\n-rw-r--r-- 1 ubuntu ubuntu  393 Nov 22 06:01 opencode.json\\n-rw-r--r-- 1 ubuntu ubuntu  219 Nov 22 06:02 p1.out\\n-rw-r--r-- 1 ubuntu ubuntu  221 Nov 22 06:02 p2.out\\n-rw-r--r-- 1 ubuntu ubuntu  118 Nov 22 06:01 serve.log\\n-rw-r--r-- 1 ubuntu ubuntu   20 Nov 22 06:02 weather.txt\\n\",\"exit\":0,\"truncated\":false},\"output\":\"total 28\\ndrwxr-xr-x 2 ubuntu ubuntu 4096 Nov 22 06:02 .\\ndrwxr-xr-x 4 ubuntu ubuntu 4096 Nov 22 06:01 ..\\n-rw-r--r-- 1 ubuntu ubuntu  393 Nov 22 06:01 opencode.json\\n-rw-r--r-- 1 ubuntu ubuntu  219 Nov 22 06:02 p1.out\\n-rw-r--r-- 1 ubuntu ubuntu  221 Nov 22 06:02 p2.out\\n-rw-r--r-- 1 ubuntu ubuntu  118 Nov 22 06:01 serve.log\\n-rw-r--r-- 1 ubuntu ubuntu   20 Nov 22 06:02 weather.txt\\n\"}"
+         }
+        }
+       ],
+       "status": {
+        "code": 0
+       },
+       "flags": 257
+      },
+      {
+       "traceId": "7e16bb8b327fb4202177ff55343ef71a",
+       "spanId": "d7df774fbd019227",
+       "parentSpanId": "c29b57f3ae0f8eaf",
+       "name": "Tool.execute",
+       "kind": 1,
+       "startTimeUnixNano": "1795327344684532659",
+       "endTimeUnixNano": "1795327344749451214",
+       "attributes": [
+        {
+         "key": "tool.name",
+         "value": {
+          "stringValue": "bash"
+         }
+        },
+        {
+         "key": "session.id",
+         "value": {
+          "stringValue": "ses_fixture"
+         }
+        },
+        {
+         "key": "message.id",
+         "value": {
+          "stringValue": "msg_201d93b62001gwVmIFQ4eWVpXW"
+         }
+        },
+        {
+         "key": "tool.call_id",
+         "value": {
+          "stringValue": "call_fxtd2beqK3Jt1gK1TD0qIEoj"
+         }
+        }
+       ],
+       "status": {
+        "code": 1
+       },
+       "flags": 257
+      },
+      {
+       "traceId": "7e16bb8b327fb4202177ff55343ef71a",
+       "spanId": "c8678ecabe1e672c",
+       "parentSpanId": "adf95ee8cf49a141",
+       "name": "ai.streamText",
+       "kind": 1,
+       "startTimeUnixNano": "1795327344792000000",
+       "endTimeUnixNano": "1795327345840007678",
+       "attributes": [
+        {
+         "key": "operation.name",
+         "value": {
+          "stringValue": "ai.streamText session.llm"
+         }
+        },
+        {
+         "key": "resource.name",
+         "value": {
+          "stringValue": "session.llm"
+         }
+        },
+        {
+         "key": "ai.operationId",
+         "value": {
+          "stringValue": "ai.streamText"
+         }
+        },
+        {
+         "key": "ai.telemetry.functionId",
+         "value": {
+          "stringValue": "session.llm"
+         }
+        },
+        {
+         "key": "ai.model.provider",
+         "value": {
+          "stringValue": "litellm.chat"
+         }
+        },
+        {
+         "key": "ai.model.id",
+         "value": {
+          "stringValue": "openai/gpt-5-mini"
+         }
+        },
+        {
+         "key": "ai.telemetry.metadata.sessionId",
+         "value": {
+          "stringValue": "ses_fixture"
+         }
+        },
+        {
+         "key": "ai.prompt",
+         "value": {
+          "stringValue": "{\"messages\":[{\"role\":\"system\",\"content\":\"You are OpenCode, You and the user share the same workspace \"},{\"role\":\"user\",\"content\":[{\"type\":\"text\",\"text\":\"\\\"Create a file named weather.txt in the current directory containing exactly: Paris 14C. Then read it back and tell me its contents.\\\"\"}]},{\"role\":\"assistant\",\"content\":[{\"type\":\"text\",\"text\":\"I'll create a new file named weather.txt with the requested contents, then read it back to confirm. Proceeding to add the file.\"},{\"type\":\"tool-call\",\"toolCallId\":\"call_Kx40AeLZQE9iPy9ocOZziVv6\",\"toolName\":\"apply_patch\",\"input\":{\"patchText\":\"*** Begin Patch\\n*** Add File: weather.txt\\n+Paris 14C\\n*** End Patch\"}}]},{\"role\":\"tool\",\"content\":[{\"type\":\"tool-result\",\"toolCallId\":\"call_Kx40AeLZQE9iPy9ocOZziVv6\",\"toolName\":\"apply_patch\",\"output\":{\"type\":\"text\",\"value\":\"Success. Updated the following files:\\nA home/ubuntu/lens-qa/oc-fix/w1/weather.txt\"}}]},{\"role\":\"assistant\",\"content\":[{\"type\":\"tool-call\",\"toolCallId\":\"call_gHkSfC4HOA8G0S4eMS0NAmgY\",\"toolName\":\"read\",\"input\":{\"filePath\":\"/home/ubuntu/lens-qa/oc-fix/w1/weather.txt\"}}]},{\"role\":\"tool\",\"content\":[{\"type\":\"tool-result\",\"toolCallId\":\"call_gHkSfC4HOA8G0S4eMS0NAmgY\",\"toolName\":\"read\",\"output\":{\"type\":\"text\",\"value\":\"<path>/home/ubuntu/lens-qa/oc-fix/w1/weather.txt</path>\\n<type>file</type>\\n<content>\\n1: Paris 14C\\n\\n(End of file - total 1 lines)\\n</content>\"}}]},{\"role\":\"assistant\",\"content\":[{\"type\":\"text\",\"text\":\"I created the file and read it back.\\n\\nContents of weather.txt:\\nParis 14C\"}]},{\"role\":\"user\",\"content\":[{\"type\":\"text\",\"text\":\"\\\"Append a second line \\\\\\\"Tokyo 22C\\\\\\\" to weather.txt, list the directory, and say which city is warmer.\\\"\"}]},{\"role\":\"assistant\",\"content\":[{\"type\":\"text\",\"text\":\"I'll append \\\"Tokyo 22C\\\" as a new second line in weather.txt, then list files in the current directory and read the file contents. Proceeding to edit the file.\"},{\"type\":\"tool-call\",\"toolCallId\":\"call_Q1nHG3rpGHw3VgLIBN8S5EBd\",\"toolName\":\"apply_patch\",\"input\":{\"patchText\":\"*** Begin Patch\\n*** Update File: weather.txt\\n@@\\n-Paris 14C\\n+Paris 14C\\n+Tokyo 22C\\n*** End Patch\"}}]},{\"role\":\"tool\",\"content\":[{\"type\":\"tool-result\",\"toolCallId\":\"call_Q1nHG3rpGHw3VgLIBN8S5EBd\",\"toolName\":\"apply_patch\",\"output\":{\"type\":\"text\",\"value\":\"Success. Updated the following files:\\nM home/ubuntu/lens-qa/oc-fix/w1/weather.txt\"}}]},{\"role\":\"assistant\",\"content\":[{\"type\":\"tool-call\",\"toolCallId\":\"call_fxtd2beqK3Jt1gK1TD0qIEoj\",\"toolName\":\"bash\",\"input\":{\"command\":\"ls -la\",\"workdir\":\"/home/ubuntu/lens-qa/oc-fix/w1\"}}]},{\"role\":\"tool\",\"content\":[{\"type\":\"tool-result\",\"toolCallId\":\"call_fxtd2beqK3Jt1gK1TD0qIEoj\",\"toolName\":\"bash\",\"output\":{\"type\":\"text\",\"value\":\"total 28\\ndrwxr-xr-x 2 ubuntu ubuntu 4096 Nov 22 06:02 .\\ndrwxr-xr-x 4 ubuntu ubuntu 4096 Nov 22 06:01 ..\\n-rw-r--r-- 1 ubuntu ubuntu  393 Nov 22 06:01 opencode.json\\n-rw-r--r-- 1 ubuntu ubuntu  219 Nov 22 06:02 p1.out\\n-rw-r--r-- 1 ubuntu ubuntu  221 Nov 22 06:02 p2.out\\n-rw-r--r-- 1 ubuntu ubuntu  118 Nov 22 06:01 serve.log\\n-rw-r--r-- 1 ubuntu ubuntu   20 Nov 22 06:02 weather.txt\\n\"}}]}]}"
+         }
+        },
+        {
+         "key": "session.id",
+         "value": {
+          "stringValue": "ses_fixture"
+         }
+        },
+        {
+         "key": "ai.response.finishReason",
+         "value": {
+          "stringValue": "tool-calls"
+         }
+        },
+        {
+         "key": "ai.response.text",
+         "value": {
+          "stringValue": ""
+         }
+        },
+        {
+         "key": "ai.response.toolCalls",
+         "value": {
+          "stringValue": "[{\"type\":\"tool-call\",\"toolCallId\":\"call_5zFntfw8h25SdZZrBAJtvixD\",\"toolName\":\"read\",\"input\":{\"filePath\":\"/home/ubuntu/lens-qa/oc-fix/w1/weather.txt\"}}]"
+         }
+        },
+        {
+         "key": "ai.usage.inputTokens",
+         "value": {
+          "intValue": 6675
+         }
+        },
+        {
+         "key": "ai.usage.inputTokenDetails.noCacheTokens",
+         "value": {
+          "intValue": 403
+         }
+        },
+        {
+         "key": "ai.usage.inputTokenDetails.cacheReadTokens",
+         "value": {
+          "intValue": 6272
+         }
+        },
+        {
+         "key": "ai.usage.outputTokens",
+         "value": {
+          "intValue": 32
+         }
+        },
+        {
+         "key": "ai.usage.outputTokenDetails.textTokens",
+         "value": {
+          "intValue": 32
+         }
+        },
+        {
+         "key": "ai.usage.outputTokenDetails.reasoningTokens",
+         "value": {
+          "intValue": 0
+         }
+        },
+        {
+         "key": "ai.usage.totalTokens",
+         "value": {
+          "intValue": 6707
+         }
+        },
+        {
+         "key": "ai.usage.reasoningTokens",
+         "value": {
+          "intValue": 0
+         }
+        },
+        {
+         "key": "ai.usage.cachedInputTokens",
+         "value": {
+          "intValue": 6272
+         }
+        }
+       ],
+       "status": {
+        "code": 0
+       },
+       "flags": 257
+      },
+      {
+       "traceId": "7e16bb8b327fb4202177ff55343ef71a",
+       "spanId": "0e9650a39aa35502",
+       "parentSpanId": "c8678ecabe1e672c",
+       "name": "ai.streamText.doStream",
+       "kind": 1,
+       "startTimeUnixNano": "1795327344793000000",
+       "endTimeUnixNano": "1795327345839684047",
+       "attributes": [
+        {
+         "key": "operation.name",
+         "value": {
+          "stringValue": "ai.streamText.doStream session.llm"
+         }
+        },
+        {
+         "key": "resource.name",
+         "value": {
+          "stringValue": "session.llm"
+         }
+        },
+        {
+         "key": "ai.operationId",
+         "value": {
+          "stringValue": "ai.streamText.doStream"
+         }
+        },
+        {
+         "key": "ai.telemetry.functionId",
+         "value": {
+          "stringValue": "session.llm"
+         }
+        },
+        {
+         "key": "ai.model.provider",
+         "value": {
+          "stringValue": "litellm.chat"
+         }
+        },
+        {
+         "key": "ai.model.id",
+         "value": {
+          "stringValue": "openai/gpt-5-mini"
+         }
+        },
+        {
+         "key": "ai.telemetry.metadata.sessionId",
+         "value": {
+          "stringValue": "ses_fixture"
+         }
+        },
+        {
+         "key": "ai.prompt.messages",
+         "value": {
+          "stringValue": "[{\"role\":\"system\",\"content\":\"You are OpenCode, You and the user share the same workspace \"},{\"role\":\"user\",\"content\":[{\"type\":\"text\",\"text\":\"\\\"Create a file named weather.txt in the current directory containing exactly: Paris 14C. Then read it back and tell me its contents.\\\"\"}]},{\"role\":\"assistant\",\"content\":[{\"type\":\"text\",\"text\":\"I'll create a new file named weather.txt with the requested contents, then read it back to confirm. Proceeding to add the file.\"},{\"type\":\"tool-call\",\"toolCallId\":\"call_Kx40AeLZQE9iPy9ocOZziVv6\",\"toolName\":\"apply_patch\",\"input\":{\"patchText\":\"*** Begin Patch\\n*** Add File: weather.txt\\n+Paris 14C\\n*** End Patch\"}}]},{\"role\":\"tool\",\"content\":[{\"type\":\"tool-result\",\"toolCallId\":\"call_Kx40AeLZQE9iPy9ocOZziVv6\",\"toolName\":\"apply_patch\",\"output\":{\"type\":\"text\",\"value\":\"Success. Updated the following files:\\nA home/ubuntu/lens-qa/oc-fix/w1/weather.txt\"}}]},{\"role\":\"assistant\",\"content\":[{\"type\":\"tool-call\",\"toolCallId\":\"call_gHkSfC4HOA8G0S4eMS0NAmgY\",\"toolName\":\"read\",\"input\":{\"filePath\":\"/home/ubuntu/lens-qa/oc-fix/w1/weather.txt\"}}]},{\"role\":\"tool\",\"content\":[{\"type\":\"tool-result\",\"toolCallId\":\"call_gHkSfC4HOA8G0S4eMS0NAmgY\",\"toolName\":\"read\",\"output\":{\"type\":\"text\",\"value\":\"<path>/home/ubuntu/lens-qa/oc-fix/w1/weather.txt</path>\\n<type>file</type>\\n<content>\\n1: Paris 14C\\n\\n(End of file - total 1 lines)\\n</content>\"}}]},{\"role\":\"assistant\",\"content\":[{\"type\":\"text\",\"text\":\"I created the file and read it back.\\n\\nContents of weather.txt:\\nParis 14C\"}]},{\"role\":\"user\",\"content\":[{\"type\":\"text\",\"text\":\"\\\"Append a second line \\\\\\\"Tokyo 22C\\\\\\\" to weather.txt, list the directory, and say which city is warmer.\\\"\"}]},{\"role\":\"assistant\",\"content\":[{\"type\":\"text\",\"text\":\"I'll append \\\"Tokyo 22C\\\" as a new second line in weather.txt, then list files in the current directory and read the file contents. Proceeding to edit the file.\"},{\"type\":\"tool-call\",\"toolCallId\":\"call_Q1nHG3rpGHw3VgLIBN8S5EBd\",\"toolName\":\"apply_patch\",\"input\":{\"patchText\":\"*** Begin Patch\\n*** Update File: weather.txt\\n@@\\n-Paris 14C\\n+Paris 14C\\n+Tokyo 22C\\n*** End Patch\"}}]},{\"role\":\"tool\",\"content\":[{\"type\":\"tool-result\",\"toolCallId\":\"call_Q1nHG3rpGHw3VgLIBN8S5EBd\",\"toolName\":\"apply_patch\",\"output\":{\"type\":\"text\",\"value\":\"Success. Updated the following files:\\nM home/ubuntu/lens-qa/oc-fix/w1/weather.txt\"}}]},{\"role\":\"assistant\",\"content\":[{\"type\":\"tool-call\",\"toolCallId\":\"call_fxtd2beqK3Jt1gK1TD0qIEoj\",\"toolName\":\"bash\",\"input\":{\"command\":\"ls -la\",\"workdir\":\"/home/ubuntu/lens-qa/oc-fix/w1\"}}]},{\"role\":\"tool\",\"content\":[{\"type\":\"tool-result\",\"toolCallId\":\"call_fxtd2beqK3Jt1gK1TD0qIEoj\",\"toolName\":\"bash\",\"output\":{\"type\":\"text\",\"value\":\"total 28\\ndrwxr-xr-x 2 ubuntu ubuntu 4096 Nov 22 06:02 .\\ndrwxr-xr-x 4 ubuntu ubuntu 4096 Nov 22 06:01 ..\\n-rw-r--r-- 1 ubuntu ubuntu  393 Nov 22 06:01 opencode.json\\n-rw-r--r-- 1 ubuntu ubuntu  219 Nov 22 06:02 p1.out\\n-rw-r--r-- 1 ubuntu ubuntu  221 Nov 22 06:02 p2.out\\n-rw-r--r-- 1 ubuntu ubuntu  118 Nov 22 06:01 serve.log\\n-rw-r--r-- 1 ubuntu ubuntu   20 Nov 22 06:02 weather.txt\\n\"}}]}]"
+         }
+        },
+        {
+         "key": "ai.prompt.toolChoice",
+         "value": {
+          "stringValue": "{\"type\":\"auto\"}"
+         }
+        },
+        {
+         "key": "gen_ai.system",
+         "value": {
+          "stringValue": "litellm.chat"
+         }
+        },
+        {
+         "key": "gen_ai.request.model",
+         "value": {
+          "stringValue": "openai/gpt-5-mini"
+         }
+        },
+        {
+         "key": "gen_ai.request.max_tokens",
+         "value": {
+          "intValue": 32000
+         }
+        },
+        {
+         "key": "session.id",
+         "value": {
+          "stringValue": "ses_fixture"
+         }
+        },
+        {
+         "key": "ai.response.finishReason",
+         "value": {
+          "stringValue": "tool-calls"
+         }
+        },
+        {
+         "key": "ai.response.toolCalls",
+         "value": {
+          "stringValue": "[{\"type\":\"tool-call\",\"toolCallId\":\"call_5zFntfw8h25SdZZrBAJtvixD\",\"toolName\":\"read\",\"input\":{\"filePath\":\"/home/ubuntu/lens-qa/oc-fix/w1/weather.txt\"}}]"
+         }
+        },
+        {
+         "key": "ai.response.id",
+         "value": {
+          "stringValue": "chatcmpl-Emuwbtj912kTNvSd2doNi0nhVaPtj"
+         }
+        },
+        {
+         "key": "ai.response.model",
+         "value": {
+          "stringValue": "openai/gpt-5-mini"
+         }
+        },
+        {
+         "key": "ai.response.timestamp",
+         "value": {
+          "stringValue": "2026-11-22T06:02:25.000Z"
+         }
+        },
+        {
+         "key": "ai.usage.inputTokens",
+         "value": {
+          "intValue": 6675
+         }
+        },
+        {
+         "key": "ai.usage.inputTokenDetails.noCacheTokens",
+         "value": {
+          "intValue": 403
+         }
+        },
+        {
+         "key": "ai.usage.inputTokenDetails.cacheReadTokens",
+         "value": {
+          "intValue": 6272
+         }
+        },
+        {
+         "key": "ai.usage.outputTokens",
+         "value": {
+          "intValue": 32
+         }
+        },
+        {
+         "key": "ai.usage.outputTokenDetails.textTokens",
+         "value": {
+          "intValue": 32
+         }
+        },
+        {
+         "key": "ai.usage.outputTokenDetails.reasoningTokens",
+         "value": {
+          "intValue": 0
+         }
+        },
+        {
+         "key": "ai.usage.totalTokens",
+         "value": {
+          "intValue": 6707
+         }
+        },
+        {
+         "key": "ai.usage.reasoningTokens",
+         "value": {
+          "intValue": 0
+         }
+        },
+        {
+         "key": "ai.usage.cachedInputTokens",
+         "value": {
+          "intValue": 6272
+         }
+        },
+        {
+         "key": "gen_ai.response.finish_reasons",
+         "value": {
+          "arrayValue": {
+           "values": [
+            {
+             "stringValue": "tool-calls"
+            }
+           ]
+          }
+         }
+        },
+        {
+         "key": "gen_ai.response.id",
+         "value": {
+          "stringValue": "chatcmpl-Emuwbtj912kTNvSd2doNi0nhVaPtj"
+         }
+        },
+        {
+         "key": "gen_ai.response.model",
+         "value": {
+          "stringValue": "openai/gpt-5-mini"
+         }
+        },
+        {
+         "key": "gen_ai.usage.input_tokens",
+         "value": {
+          "intValue": 6675
+         }
+        },
+        {
+         "key": "gen_ai.usage.output_tokens",
+         "value": {
+          "intValue": 32
+         }
+        },
+        {
+         "key": "ai.response.text",
+         "value": {
+          "stringValue": ""
+         }
+        }
+       ],
+       "status": {
+        "code": 0
+       },
+       "flags": 257
+      },
+      {
+       "traceId": "7e16bb8b327fb4202177ff55343ef71a",
+       "spanId": "ad88433f87c20284",
+       "parentSpanId": "0e9650a39aa35502",
+       "name": "ai.toolCall",
+       "kind": 1,
+       "startTimeUnixNano": "1795327345823000000",
+       "endTimeUnixNano": "1795327345830759103",
+       "attributes": [
+        {
+         "key": "operation.name",
+         "value": {
+          "stringValue": "ai.toolCall session.llm"
+         }
+        },
+        {
+         "key": "resource.name",
+         "value": {
+          "stringValue": "session.llm"
+         }
+        },
+        {
+         "key": "ai.operationId",
+         "value": {
+          "stringValue": "ai.toolCall"
+         }
+        },
+        {
+         "key": "ai.telemetry.functionId",
+         "value": {
+          "stringValue": "session.llm"
+         }
+        },
+        {
+         "key": "ai.toolCall.name",
+         "value": {
+          "stringValue": "read"
+         }
+        },
+        {
+         "key": "ai.toolCall.id",
+         "value": {
+          "stringValue": "call_5zFntfw8h25SdZZrBAJtvixD"
+         }
+        },
+        {
+         "key": "ai.toolCall.args",
+         "value": {
+          "stringValue": "{\"filePath\":\"/home/ubuntu/lens-qa/oc-fix/w1/weather.txt\"}"
+         }
+        },
+        {
+         "key": "session.id",
+         "value": {
+          "stringValue": "ses_fixture"
+         }
+        },
+        {
+         "key": "ai.toolCall.result",
+         "value": {
+          "stringValue": "{\"title\":\"home/ubuntu/lens-qa/oc-fix/w1/weather.txt\",\"output\":\"<path>/home/ubuntu/lens-qa/oc-fix/w1/weather.txt</path>\\n<type>file</type>\\n<content>\\n1: Paris 14C\\n2: Tokyo 22C\\n\\n(End of file - total 2 lines)\\n</content>\",\"metadata\":{\"preview\":\"Paris 14C\\nTokyo 22C\",\"truncated\":false,\"loaded\":[],\"display\":{\"type\":\"file\",\"path\":\"/home/ubuntu/lens-qa/oc-fix/w1/weather.txt\",\"text\":\"Paris 14C\\nTokyo 22C\",\"lineStart\":1,\"lineEnd\":2,\"totalLines\":2,\"truncated\":false}}}"
+         }
+        }
+       ],
+       "status": {
+        "code": 0
+       },
+       "flags": 257
+      },
+      {
+       "traceId": "7e16bb8b327fb4202177ff55343ef71a",
+       "spanId": "4a1dd23f9cfe3921",
+       "parentSpanId": "ca2236dcae1a8798",
+       "name": "Tool.execute",
+       "kind": 1,
+       "startTimeUnixNano": "1795327345823861672",
+       "endTimeUnixNano": "1795327345831232468",
+       "attributes": [
+        {
+         "key": "tool.name",
+         "value": {
+          "stringValue": "read"
+         }
+        },
+        {
+         "key": "session.id",
+         "value": {
+          "stringValue": "ses_fixture"
+         }
+        },
+        {
+         "key": "message.id",
+         "value": {
+          "stringValue": "msg_201d9407f001r7N4Zf4DyQD2qN"
+         }
+        },
+        {
+         "key": "tool.call_id",
+         "value": {
+          "stringValue": "call_5zFntfw8h25SdZZrBAJtvixD"
+         }
+        }
+       ],
+       "status": {
+        "code": 1
+       },
+       "flags": 257
+      },
+      {
+       "traceId": "7e16bb8b327fb4202177ff55343ef71a",
+       "spanId": "7326674aaed3a598",
+       "parentSpanId": "9e3cb09447fe08ce",
+       "name": "ai.streamText",
+       "kind": 1,
+       "startTimeUnixNano": "1795327345853000000",
+       "endTimeUnixNano": "1795327347472880308",
+       "attributes": [
+        {
+         "key": "operation.name",
+         "value": {
+          "stringValue": "ai.streamText session.llm"
+         }
+        },
+        {
+         "key": "resource.name",
+         "value": {
+          "stringValue": "session.llm"
+         }
+        },
+        {
+         "key": "ai.operationId",
+         "value": {
+          "stringValue": "ai.streamText"
+         }
+        },
+        {
+         "key": "ai.telemetry.functionId",
+         "value": {
+          "stringValue": "session.llm"
+         }
+        },
+        {
+         "key": "ai.model.provider",
+         "value": {
+          "stringValue": "litellm.chat"
+         }
+        },
+        {
+         "key": "ai.model.id",
+         "value": {
+          "stringValue": "openai/gpt-5-mini"
+         }
+        },
+        {
+         "key": "ai.telemetry.metadata.sessionId",
+         "value": {
+          "stringValue": "ses_fixture"
+         }
+        },
+        {
+         "key": "ai.prompt",
+         "value": {
+          "stringValue": "{\"messages\":[{\"role\":\"system\",\"content\":\"You are OpenCode, You and the user share the same workspace \"},{\"role\":\"user\",\"content\":[{\"type\":\"text\",\"text\":\"\\\"Create a file named weather.txt in the current directory containing exactly: Paris 14C. Then read it back and tell me its contents.\\\"\"}]},{\"role\":\"assistant\",\"content\":[{\"type\":\"text\",\"text\":\"I'll create a new file named weather.txt with the requested contents, then read it back to confirm. Proceeding to add the file.\"},{\"type\":\"tool-call\",\"toolCallId\":\"call_Kx40AeLZQE9iPy9ocOZziVv6\",\"toolName\":\"apply_patch\",\"input\":{\"patchText\":\"*** Begin Patch\\n*** Add File: weather.txt\\n+Paris 14C\\n*** End Patch\"}}]},{\"role\":\"tool\",\"content\":[{\"type\":\"tool-result\",\"toolCallId\":\"call_Kx40AeLZQE9iPy9ocOZziVv6\",\"toolName\":\"apply_patch\",\"output\":{\"type\":\"text\",\"value\":\"Success. Updated the following files:\\nA home/ubuntu/lens-qa/oc-fix/w1/weather.txt\"}}]},{\"role\":\"assistant\",\"content\":[{\"type\":\"tool-call\",\"toolCallId\":\"call_gHkSfC4HOA8G0S4eMS0NAmgY\",\"toolName\":\"read\",\"input\":{\"filePath\":\"/home/ubuntu/lens-qa/oc-fix/w1/weather.txt\"}}]},{\"role\":\"tool\",\"content\":[{\"type\":\"tool-result\",\"toolCallId\":\"call_gHkSfC4HOA8G0S4eMS0NAmgY\",\"toolName\":\"read\",\"output\":{\"type\":\"text\",\"value\":\"<path>/home/ubuntu/lens-qa/oc-fix/w1/weather.txt</path>\\n<type>file</type>\\n<content>\\n1: Paris 14C\\n\\n(End of file - total 1 lines)\\n</content>\"}}]},{\"role\":\"assistant\",\"content\":[{\"type\":\"text\",\"text\":\"I created the file and read it back.\\n\\nContents of weather.txt:\\nParis 14C\"}]},{\"role\":\"user\",\"content\":[{\"type\":\"text\",\"text\":\"\\\"Append a second line \\\\\\\"Tokyo 22C\\\\\\\" to weather.txt, list the directory, and say which city is warmer.\\\"\"}]},{\"role\":\"assistant\",\"content\":[{\"type\":\"text\",\"text\":\"I'll append \\\"Tokyo 22C\\\" as a new second line in weather.txt, then list files in the current directory and read the file contents. Proceeding to edit the file.\"},{\"type\":\"tool-call\",\"toolCallId\":\"call_Q1nHG3rpGHw3VgLIBN8S5EBd\",\"toolName\":\"apply_patch\",\"input\":{\"patchText\":\"*** Begin Patch\\n*** Update File: weather.txt\\n@@\\n-Paris 14C\\n+Paris 14C\\n+Tokyo 22C\\n*** End Patch\"}}]},{\"role\":\"tool\",\"content\":[{\"type\":\"tool-result\",\"toolCallId\":\"call_Q1nHG3rpGHw3VgLIBN8S5EBd\",\"toolName\":\"apply_patch\",\"output\":{\"type\":\"text\",\"value\":\"Success. Updated the following files:\\nM home/ubuntu/lens-qa/oc-fix/w1/weather.txt\"}}]},{\"role\":\"assistant\",\"content\":[{\"type\":\"tool-call\",\"toolCallId\":\"call_fxtd2beqK3Jt1gK1TD0qIEoj\",\"toolName\":\"bash\",\"input\":{\"command\":\"ls -la\",\"workdir\":\"/home/ubuntu/lens-qa/oc-fix/w1\"}}]},{\"role\":\"tool\",\"content\":[{\"type\":\"tool-result\",\"toolCallId\":\"call_fxtd2beqK3Jt1gK1TD0qIEoj\",\"toolName\":\"bash\",\"output\":{\"type\":\"text\",\"value\":\"total 28\\ndrwxr-xr-x 2 ubuntu ubuntu 4096 Nov 22 06:02 .\\ndrwxr-xr-x 4 ubuntu ubuntu 4096 Nov 22 06:01 ..\\n-rw-r--r-- 1 ubuntu ubuntu  393 Nov 22 06:01 opencode.json\\n-rw-r--r-- 1 ubuntu ubuntu  219 Nov 22 06:02 p1.out\\n-rw-r--r-- 1 ubuntu ubuntu  221 Nov 22 06:02 p2.out\\n-rw-r--r-- 1 ubuntu ubuntu  118 Nov 22 06:01 serve.log\\n-rw-r--r-- 1 ubuntu ubuntu   20 Nov 22 06:02 weather.txt\\n\"}}]},{\"role\":\"assistant\",\"content\":[{\"type\":\"tool-call\",\"toolCallId\":\"call_5zFntfw8h25SdZZrBAJtvixD\",\"toolName\":\"read\",\"input\":{\"filePath\":\"/home/ubuntu/lens-qa/oc-fix/w1/weather.txt\"}}]},{\"role\":\"tool\",\"content\":[{\"type\":\"tool-result\",\"toolCallId\":\"call_5zFntfw8h25SdZZrBAJtvixD\",\"toolName\":\"read\",\"output\":{\"type\":\"text\",\"value\":\"<path>/home/ubuntu/lens-qa/oc-fix/w1/weather.txt</path>\\n<type>file</type>\\n<content>\\n1: Paris 14C\\n2: Tokyo 22C\\n\\n(End of file - total 2 lines)\\n</content>\"}}]}]}"
+         }
+        },
+        {
+         "key": "session.id",
+         "value": {
+          "stringValue": "ses_fixture"
+         }
+        },
+        {
+         "key": "ai.response.finishReason",
+         "value": {
+          "stringValue": "stop"
+         }
+        },
+        {
+         "key": "ai.response.text",
+         "value": {
+          "stringValue": "I appended the line and checked the directory.\n\nDirectory listing (current directory):\n- . (dir)\n- .. (dir)\n- opencode.json\n- p1.out\n- p2.out\n- serve.log\n- weather.txt\n\nContents of weather.txt:\nParis 14C\nTokyo 22C\n\nTokyo is warmer (22C vs 14C)."
+         }
+        },
+        {
+         "key": "ai.usage.inputTokens",
+         "value": {
+          "intValue": 6775
+         }
+        },
+        {
+         "key": "ai.usage.inputTokenDetails.noCacheTokens",
+         "value": {
+          "intValue": 247
+         }
+        },
+        {
+         "key": "ai.usage.inputTokenDetails.cacheReadTokens",
+         "value": {
+          "intValue": 6528
+         }
+        },
+        {
+         "key": "ai.usage.outputTokens",
+         "value": {
+          "intValue": 77
+         }
+        },
+        {
+         "key": "ai.usage.outputTokenDetails.textTokens",
+         "value": {
+          "intValue": 77
+         }
+        },
+        {
+         "key": "ai.usage.outputTokenDetails.reasoningTokens",
+         "value": {
+          "intValue": 0
+         }
+        },
+        {
+         "key": "ai.usage.totalTokens",
+         "value": {
+          "intValue": 6852
+         }
+        },
+        {
+         "key": "ai.usage.reasoningTokens",
+         "value": {
+          "intValue": 0
+         }
+        },
+        {
+         "key": "ai.usage.cachedInputTokens",
+         "value": {
+          "intValue": 6528
+         }
+        }
+       ],
+       "status": {
+        "code": 0
+       },
+       "flags": 257
+      },
+      {
+       "traceId": "7e16bb8b327fb4202177ff55343ef71a",
+       "spanId": "a080675ea56e3ae0",
+       "parentSpanId": "7326674aaed3a598",
+       "name": "ai.streamText.doStream",
+       "kind": 1,
+       "startTimeUnixNano": "1795327345855000000",
+       "endTimeUnixNano": "1795327347473403178",
+       "attributes": [
+        {
+         "key": "operation.name",
+         "value": {
+          "stringValue": "ai.streamText.doStream session.llm"
+         }
+        },
+        {
+         "key": "resource.name",
+         "value": {
+          "stringValue": "session.llm"
+         }
+        },
+        {
+         "key": "ai.operationId",
+         "value": {
+          "stringValue": "ai.streamText.doStream"
+         }
+        },
+        {
+         "key": "ai.telemetry.functionId",
+         "value": {
+          "stringValue": "session.llm"
+         }
+        },
+        {
+         "key": "ai.model.provider",
+         "value": {
+          "stringValue": "litellm.chat"
+         }
+        },
+        {
+         "key": "ai.model.id",
+         "value": {
+          "stringValue": "openai/gpt-5-mini"
+         }
+        },
+        {
+         "key": "ai.telemetry.metadata.sessionId",
+         "value": {
+          "stringValue": "ses_fixture"
+         }
+        },
+        {
+         "key": "ai.prompt.messages",
+         "value": {
+          "stringValue": "[{\"role\":\"system\",\"content\":\"You are OpenCode, You and the user share the same workspace \"},{\"role\":\"user\",\"content\":[{\"type\":\"text\",\"text\":\"\\\"Create a file named weather.txt in the current directory containing exactly: Paris 14C. Then read it back and tell me its contents.\\\"\"}]},{\"role\":\"assistant\",\"content\":[{\"type\":\"text\",\"text\":\"I'll create a new file named weather.txt with the requested contents, then read it back to confirm. Proceeding to add the file.\"},{\"type\":\"tool-call\",\"toolCallId\":\"call_Kx40AeLZQE9iPy9ocOZziVv6\",\"toolName\":\"apply_patch\",\"input\":{\"patchText\":\"*** Begin Patch\\n*** Add File: weather.txt\\n+Paris 14C\\n*** End Patch\"}}]},{\"role\":\"tool\",\"content\":[{\"type\":\"tool-result\",\"toolCallId\":\"call_Kx40AeLZQE9iPy9ocOZziVv6\",\"toolName\":\"apply_patch\",\"output\":{\"type\":\"text\",\"value\":\"Success. Updated the following files:\\nA home/ubuntu/lens-qa/oc-fix/w1/weather.txt\"}}]},{\"role\":\"assistant\",\"content\":[{\"type\":\"tool-call\",\"toolCallId\":\"call_gHkSfC4HOA8G0S4eMS0NAmgY\",\"toolName\":\"read\",\"input\":{\"filePath\":\"/home/ubuntu/lens-qa/oc-fix/w1/weather.txt\"}}]},{\"role\":\"tool\",\"content\":[{\"type\":\"tool-result\",\"toolCallId\":\"call_gHkSfC4HOA8G0S4eMS0NAmgY\",\"toolName\":\"read\",\"output\":{\"type\":\"text\",\"value\":\"<path>/home/ubuntu/lens-qa/oc-fix/w1/weather.txt</path>\\n<type>file</type>\\n<content>\\n1: Paris 14C\\n\\n(End of file - total 1 lines)\\n</content>\"}}]},{\"role\":\"assistant\",\"content\":[{\"type\":\"text\",\"text\":\"I created the file and read it back.\\n\\nContents of weather.txt:\\nParis 14C\"}]},{\"role\":\"user\",\"content\":[{\"type\":\"text\",\"text\":\"\\\"Append a second line \\\\\\\"Tokyo 22C\\\\\\\" to weather.txt, list the directory, and say which city is warmer.\\\"\"}]},{\"role\":\"assistant\",\"content\":[{\"type\":\"text\",\"text\":\"I'll append \\\"Tokyo 22C\\\" as a new second line in weather.txt, then list files in the current directory and read the file contents. Proceeding to edit the file.\"},{\"type\":\"tool-call\",\"toolCallId\":\"call_Q1nHG3rpGHw3VgLIBN8S5EBd\",\"toolName\":\"apply_patch\",\"input\":{\"patchText\":\"*** Begin Patch\\n*** Update File: weather.txt\\n@@\\n-Paris 14C\\n+Paris 14C\\n+Tokyo 22C\\n*** End Patch\"}}]},{\"role\":\"tool\",\"content\":[{\"type\":\"tool-result\",\"toolCallId\":\"call_Q1nHG3rpGHw3VgLIBN8S5EBd\",\"toolName\":\"apply_patch\",\"output\":{\"type\":\"text\",\"value\":\"Success. Updated the following files:\\nM home/ubuntu/lens-qa/oc-fix/w1/weather.txt\"}}]},{\"role\":\"assistant\",\"content\":[{\"type\":\"tool-call\",\"toolCallId\":\"call_fxtd2beqK3Jt1gK1TD0qIEoj\",\"toolName\":\"bash\",\"input\":{\"command\":\"ls -la\",\"workdir\":\"/home/ubuntu/lens-qa/oc-fix/w1\"}}]},{\"role\":\"tool\",\"content\":[{\"type\":\"tool-result\",\"toolCallId\":\"call_fxtd2beqK3Jt1gK1TD0qIEoj\",\"toolName\":\"bash\",\"output\":{\"type\":\"text\",\"value\":\"total 28\\ndrwxr-xr-x 2 ubuntu ubuntu 4096 Nov 22 06:02 .\\ndrwxr-xr-x 4 ubuntu ubuntu 4096 Nov 22 06:01 ..\\n-rw-r--r-- 1 ubuntu ubuntu  393 Nov 22 06:01 opencode.json\\n-rw-r--r-- 1 ubuntu ubuntu  219 Nov 22 06:02 p1.out\\n-rw-r--r-- 1 ubuntu ubuntu  221 Nov 22 06:02 p2.out\\n-rw-r--r-- 1 ubuntu ubuntu  118 Nov 22 06:01 serve.log\\n-rw-r--r-- 1 ubuntu ubuntu   20 Nov 22 06:02 weather.txt\\n\"}}]},{\"role\":\"assistant\",\"content\":[{\"type\":\"tool-call\",\"toolCallId\":\"call_5zFntfw8h25SdZZrBAJtvixD\",\"toolName\":\"read\",\"input\":{\"filePath\":\"/home/ubuntu/lens-qa/oc-fix/w1/weather.txt\"}}]},{\"role\":\"tool\",\"content\":[{\"type\":\"tool-result\",\"toolCallId\":\"call_5zFntfw8h25SdZZrBAJtvixD\",\"toolName\":\"read\",\"output\":{\"type\":\"text\",\"value\":\"<path>/home/ubuntu/lens-qa/oc-fix/w1/weather.txt</path>\\n<type>file</type>\\n<content>\\n1: Paris 14C\\n2: Tokyo 22C\\n\\n(End of file - total 2 lines)\\n</content>\"}}]}]"
+         }
+        },
+        {
+         "key": "ai.prompt.toolChoice",
+         "value": {
+          "stringValue": "{\"type\":\"auto\"}"
+         }
+        },
+        {
+         "key": "gen_ai.system",
+         "value": {
+          "stringValue": "litellm.chat"
+         }
+        },
+        {
+         "key": "gen_ai.request.model",
+         "value": {
+          "stringValue": "openai/gpt-5-mini"
+         }
+        },
+        {
+         "key": "gen_ai.request.max_tokens",
+         "value": {
+          "intValue": 32000
+         }
+        },
+        {
+         "key": "session.id",
+         "value": {
+          "stringValue": "ses_fixture"
+         }
+        },
+        {
+         "key": "ai.response.finishReason",
+         "value": {
+          "stringValue": "stop"
+         }
+        },
+        {
+         "key": "ai.response.id",
+         "value": {
+          "stringValue": "chatcmpl-EmuwcGot1Y7IitIzgqxW2tcvQy8xv"
+         }
+        },
+        {
+         "key": "ai.response.model",
+         "value": {
+          "stringValue": "openai/gpt-5-mini"
+         }
+        },
+        {
+         "key": "ai.response.timestamp",
+         "value": {
+          "stringValue": "2026-11-22T06:02:26.000Z"
+         }
+        },
+        {
+         "key": "ai.usage.inputTokens",
+         "value": {
+          "intValue": 6775
+         }
+        },
+        {
+         "key": "ai.usage.inputTokenDetails.noCacheTokens",
+         "value": {
+          "intValue": 247
+         }
+        },
+        {
+         "key": "ai.usage.inputTokenDetails.cacheReadTokens",
+         "value": {
+          "intValue": 6528
+         }
+        },
+        {
+         "key": "ai.usage.outputTokens",
+         "value": {
+          "intValue": 77
+         }
+        },
+        {
+         "key": "ai.usage.outputTokenDetails.textTokens",
+         "value": {
+          "intValue": 77
+         }
+        },
+        {
+         "key": "ai.usage.outputTokenDetails.reasoningTokens",
+         "value": {
+          "intValue": 0
+         }
+        },
+        {
+         "key": "ai.usage.totalTokens",
+         "value": {
+          "intValue": 6852
+         }
+        },
+        {
+         "key": "ai.usage.reasoningTokens",
+         "value": {
+          "intValue": 0
+         }
+        },
+        {
+         "key": "ai.usage.cachedInputTokens",
+         "value": {
+          "intValue": 6528
+         }
+        },
+        {
+         "key": "gen_ai.response.finish_reasons",
+         "value": {
+          "arrayValue": {
+           "values": [
+            {
+             "stringValue": "stop"
+            }
+           ]
+          }
+         }
+        },
+        {
+         "key": "gen_ai.response.id",
+         "value": {
+          "stringValue": "chatcmpl-EmuwcGot1Y7IitIzgqxW2tcvQy8xv"
+         }
+        },
+        {
+         "key": "gen_ai.response.model",
+         "value": {
+          "stringValue": "openai/gpt-5-mini"
+         }
+        },
+        {
+         "key": "gen_ai.usage.input_tokens",
+         "value": {
+          "intValue": 6775
+         }
+        },
+        {
+         "key": "gen_ai.usage.output_tokens",
+         "value": {
+          "intValue": 77
+         }
+        },
+        {
+         "key": "ai.response.text",
+         "value": {
+          "stringValue": "I appended the line and checked the directory.\n\nDirectory listing (current directory):\n- . (dir)\n- .. (dir)\n- opencode.json\n- p1.out\n- p2.out\n- serve.log\n- weather.txt\n\nContents of weather.txt:\nParis 14C\nTokyo 22C\n\nTokyo is warmer (22C vs 14C)."
+         }
+        }
+       ],
+       "status": {
+        "code": 0
+       },
+       "flags": 257
+      }
+     ]
+    }
+   ]
+  }
+ ]
+}
