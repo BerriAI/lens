@@ -7,7 +7,9 @@ use super::{Investigations, StoredLens, decode, failure};
 const HISTORY: &str = "WITH jobs AS (
     SELECT j.job AS job, j.id AS id, j.created_at AS created_at
     FROM (SELECT * FROM lens_jobs FINAL WHERE lens_id={lens_id:String}) AS j
-    LEFT JOIN lens_state_heads AS h USING (key, revision, digest)
+    LEFT JOIN (SELECT key, revision, digest FROM lens_state_heads WHERE key IN (
+        SELECT key FROM lens_jobs WHERE lens_id={lens_id:String}
+    )) AS h USING (key, revision, digest)
     WHERE (j.key={key:String} AND j.revision={revision:UInt64} AND j.digest={digest:String})
         OR (j.key != {key:String} AND j.archived_version <= {version:UInt64}
             AND h.key=j.key AND h.revision=j.revision AND h.digest=j.digest)
@@ -17,7 +19,9 @@ ORDER BY created_at DESC, id DESC LIMIT {limit:UInt32} OFFSET {offset:UInt64} FO
 const FINDING_RUNS: &str = "WITH jobs AS (
     SELECT j.job AS job, j.id AS id
     FROM (SELECT * FROM lens_jobs FINAL WHERE lens_id={lens_id:String}) AS j
-    LEFT JOIN lens_state_heads AS h USING (key, revision, digest)
+    LEFT JOIN (SELECT key, revision, digest FROM lens_state_heads WHERE key IN (
+        SELECT key FROM lens_jobs WHERE lens_id={lens_id:String}
+    )) AS h USING (key, revision, digest)
     WHERE (j.key={key:String} AND j.revision={revision:UInt64} AND j.digest={digest:String})
         OR (j.key != {key:String} AND j.archived_version <= {version:UInt64}
             AND h.key=j.key AND h.revision=j.revision AND h.digest=j.digest)

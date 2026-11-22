@@ -708,3 +708,20 @@ async fn unavailable_worker_storage_reports_failure(
     };
     assert!(matches!(result, Err(RepositoryError::Unavailable(_))));
 }
+
+#[rstest]
+#[tokio::test]
+async fn eligible_workers_read_candidate_heads_without_scanning_the_head_table(
+    #[future(awt)] database: Database,
+    worker: Worker,
+) {
+    seed_scopes(&database, &worker).await;
+    database.seed("unrelated", json!({})).await;
+    let workers = database
+        .repository()
+        .eligible_workers(&all(), "")
+        .await
+        .unwrap();
+    assert_eq!(workers.len(), 1);
+    assert_eq!(database.head_table_scans().await, 0);
+}

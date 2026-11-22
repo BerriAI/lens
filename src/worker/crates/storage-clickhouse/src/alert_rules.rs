@@ -135,7 +135,11 @@ pub async fn recent(
     let body = store
         .command(
             "SELECT b.data AS data FROM lens_state_blobs AS b \
-         INNER JOIN lens_state_heads AS h USING (key, revision, digest) \
+         INNER JOIN (SELECT key, revision, digest FROM lens_state_heads WHERE key IN ( \
+         SELECT b.key FROM lens_state_blobs AS b WHERE startsWith(b.key, {prefix:String}) \
+         AND parseDateTime64BestEffortOrNull(JSONExtractString(b.data, 'detected_at'), 6, 'UTC') \
+             >= parseDateTime64BestEffort({since:String}, 6, 'UTC') \
+         )) AS h USING (key, revision, digest) \
          WHERE startsWith(b.key, {prefix:String}) \
          AND parseDateTime64BestEffortOrNull(JSONExtractString(b.data, 'detected_at'), 6, 'UTC') \
              >= parseDateTime64BestEffort({since:String}, 6, 'UTC') \

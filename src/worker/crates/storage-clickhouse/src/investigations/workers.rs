@@ -13,7 +13,11 @@ use crate::{
 
 const ELIGIBLE: &str = "SELECT w.key AS key, w.revision AS revision, w.digest AS digest
     FROM (SELECT * FROM lens_workers FINAL) AS w
-    INNER JOIN lens_state_heads AS h USING (key, revision, digest)
+    INNER JOIN (SELECT key, revision, digest FROM lens_state_heads WHERE key IN (
+        SELECT w.key FROM lens_workers AS w WHERE w.revoked=0 AND w.id > {after:String}
+        AND (w.all_teams=1 OR ({all_teams:Bool}=0 AND w.team_id={team_id:String}
+            AND ({team_id:String} != '' OR w.api_key_hash={api_key_hash:String})))
+    )) AS h USING (key, revision, digest)
     WHERE w.revoked=0 AND w.id > {after:String}
     AND (w.all_teams=1 OR ({all_teams:Bool}=0 AND w.team_id={team_id:String}
         AND ({team_id:String} != '' OR w.api_key_hash={api_key_hash:String})))
