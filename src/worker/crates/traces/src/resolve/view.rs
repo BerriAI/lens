@@ -226,6 +226,17 @@ pub fn resolve_trace(
                     .any(|turn| rows[*turn].span_id == row.parent_span_id)
         })
         .max_by_key(|(index, row)| (row.start_ns, *index))
+        .or_else(|| {
+            // A plugin that rebuilds turns from a transcript records the reply on the turn itself.
+            rows.iter()
+                .enumerate()
+                .filter(|(index, row)| {
+                    row.parent_span_id.is_empty()
+                        && spans[*index].kind == ObservationType::Agent
+                        && !row.reply_preview.is_empty()
+                })
+                .max_by_key(|(index, row)| (row.start_ns, *index))
+        })
         .map(|(_, row)| row.reply_preview.clone())
         .unwrap_or_default();
     let summary = TraceSummary {

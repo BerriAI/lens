@@ -68,6 +68,11 @@ describe("Claude Code turns", () => {
     expect(sessionTurns(session()).map((turn) => turn.root.input_preview)).toEqual([FIRST, SECOND]);
   });
 
+  it.each(["openai-codex", "opencode"])("numbers the turns a %s plugin recorded", (framework) => {
+    const spans = session().map((span) => ({ ...span, framework }));
+    expect(outline(spans)).toEqual(["Turn 1", "  r1", "    g1", "  read", "Turn 2", "  r2", "    g2"]);
+  });
+
   it("gives a trace that is not a Claude Code session no turns", () => {
     expect(sessionTurns(research.spans as Span[])).toEqual([]);
   });

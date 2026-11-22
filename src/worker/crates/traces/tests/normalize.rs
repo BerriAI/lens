@@ -193,6 +193,7 @@ fn array<'a>(value: &'a Value, key: &str) -> &'a [Value] {
 #[case::mastra_swarm(include_bytes!("fixtures/mastra_swarm.json"))]
 #[case::vercel_ai_sdk_py_simple(include_bytes!("fixtures/vercel_ai_sdk_py_simple.json"))]
 #[case::vercel_ai_sdk_py_swarm(include_bytes!("fixtures/vercel_ai_sdk_py_swarm.json"))]
+#[case::claude_code_plugin(include_bytes!("fixtures/claude_code_plugin_session.json"))]
 fn fixture_normalization(#[case] body: &[u8]) {
     let spans = decode_otlp(body, Some("application/json")).expect("captured OTLP export");
     assert!(!spans.is_empty());
@@ -325,4 +326,49 @@ fn malformed_call_keys_are_rejected_at_the_boundary(#[case] encoded: &str) {
 #[case::array(serde_json::json!([]))]
 fn call_keys_reject_non_string_json(#[case] value: Value) {
     assert!(serde_json::from_value::<litellm_traces::CallKey>(value).is_err());
+}
+
+#[rstest]
+fn claude_code_plugin_spans_are_claude_code_spans() {
+    let spans = decode_otlp(
+        include_bytes!("fixtures/claude_code_plugin_session.json"),
+        Some("application/json"),
+    )
+    .expect("captured OTLP export");
+    let seen: Vec<_> = spans
+        .iter()
+        .map(|span| {
+            (
+                span.name.as_str(),
+                span.normalized.observation_type,
+                span.normalized.framework.clone(),
+                span.normalized.agent_name.as_deref(),
+            )
+        })
+        .collect();
+    let claude = Some(Integration::ClaudeCode);
+    assert_eq!(
+        seen,
+        [
+            (
+                "invoke_agent claude-code",
+                ObservationType::Agent,
+                claude.clone(),
+                Some("claude-code")
+            ),
+            (
+                "chat claude-opus-5-5",
+                ObservationType::Llm,
+                claude.clone(),
+                Some("claude-code")
+            ),
+            (
+                "chat claude-opus-5-5",
+                ObservationType::Llm,
+                claude.clone(),
+                Some("claude-code")
+            ),
+            ("Bash", ObservationType::Tool, claude, Some("claude-code")),
+        ]
+    );
 }

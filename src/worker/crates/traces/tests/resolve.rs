@@ -1142,6 +1142,54 @@ fn last_turn_without_a_reply_keeps_the_previous_turns_reply() {
     assert_eq!(summary.output_preview, "first reply");
 }
 
+fn plugin_turn(span_id: &str, reply: &str, start_ms: i64) -> TraceSpansRow {
+    TraceSpansRow {
+        name: "invoke_agent claude-code".into(),
+        reply_preview: reply.into(),
+        ..turn(span_id, "typed prompt", start_ms)
+    }
+}
+
+#[rstest]
+#[case::recorded_order(false)]
+#[case::reversed(true)]
+fn turns_that_carry_their_own_reply_give_the_last_reply(#[case] reverse: bool) {
+    let mut rows = vec![
+        plugin_turn("turn-1", "first reply", 0),
+        plugin_turn("turn-2", "second reply", 1_000),
+        plugin_turn("turn-3", "", 2_000),
+        TraceSpansRow {
+            reply_preview: "subagent reply".into(),
+            ..at(
+                row(
+                    "subagent",
+                    "turn-2",
+                    "invoke_agent helper",
+                    "agent",
+                    "helper",
+                ),
+                3_000,
+                10,
+            )
+        },
+    ];
+    if reverse {
+        rows.reverse();
+    }
+    let summary = resolve_trace("trace", "ref", &rows, &[]).unwrap().summary;
+    assert_eq!(summary.output_preview, "second reply");
+}
+
+#[rstest]
+fn a_recorded_reply_wins_over_a_reply_on_the_turn() {
+    let rows = [
+        plugin_turn("turn-1", "reply on the turn", 1_000),
+        reply("reply-1", "turn-1", "recorded reply", 10),
+    ];
+    let summary = resolve_trace("trace", "ref", &rows, &[]).unwrap().summary;
+    assert_eq!(summary.output_preview, "recorded reply");
+}
+
 #[rstest]
 #[case::no_agent_telemetry("langchain", "claude_code.assistant_response")]
 #[case::other_record("claude-code", "claude_code.tool_result")]

@@ -1361,6 +1361,28 @@ fn opencode_own_ai_sdk_span_is_named_opencode(span: Span, #[case] operation: &st
 }
 
 #[rstest]
+#[case::turn("invoke_agent", ObservationType::Agent)]
+#[case::model_call("chat", ObservationType::Llm)]
+#[case::tool_call("execute_tool", ObservationType::Tool)]
+fn opencode_plugin_span_is_an_opencode_span(
+    span: Span,
+    #[case] operation: &str,
+    #[case] role: ObservationType,
+) {
+    let decoded = decode(
+        span,
+        "berriai.lens.opencode",
+        &[("gen_ai.operation.name", operation)],
+        vec![],
+    )
+    .unwrap();
+
+    assert_eq!(decoded.normalized.framework, Some(Integration::Opencode));
+    assert_eq!(decoded.normalized.agent_name.as_deref(), Some("opencode"));
+    assert_eq!(decoded.normalized.observation_type, role);
+}
+
+#[rstest]
 fn opencode_internal_span_is_not_an_agent_run(span: Span) {
     let decoded = decode(span, "opencode", &[("db.system", "sqlite")], vec![]).unwrap();
 

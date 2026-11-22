@@ -19,6 +19,8 @@ mod metadata;
 
 pub(crate) const CLAUDE_CODE_SCOPE: &str = "com.anthropic.claude_code.tracing";
 pub(crate) const CLAUDE_CODE_EVENTS_SCOPE: &str = "com.anthropic.claude_code.events";
+/// The LiteLLM Lens plugin for Claude Code, which rebuilds each turn from the session transcript
+pub(crate) const CLAUDE_CODE_PLUGIN_SCOPE: &str = "berriai.lens.claude-code";
 pub(crate) fn visible_claude_response(event: &str, source: &str) -> bool {
     event == "assistant_response"
         && (matches!(source, "repl_main_thread" | "sdk" | "sdk_main_thread")
@@ -26,6 +28,8 @@ pub(crate) fn visible_claude_response(event: &str, source: &str) -> bool {
 }
 pub(crate) const CLAUDE_CODE_AGENT: &str = "claude-code";
 pub(crate) const OPENCODE_SCOPE: &str = "opencode";
+/// The LiteLLM Lens plugin for OpenCode, which sends one agent span per turn of a session
+pub(crate) const OPENCODE_PLUGIN_SCOPE: &str = "berriai.lens.opencode";
 pub(crate) const OPENCODE_AGENT: &str = "opencode";
 pub(crate) const OPENCODE_PROMPTS: [&str; 2] = ["ai.prompt", "ai.prompt.messages"];
 /// How OpenCode opens the side call that names a session; it starts with the user's first turn,

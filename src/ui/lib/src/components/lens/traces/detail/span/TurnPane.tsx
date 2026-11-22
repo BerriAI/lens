@@ -38,6 +38,7 @@ const under = (members: readonly Span[], parent: string | null, depth: number): 
     );
 
 const REPLY = "claude_code.assistant_response";
+const NATIVE_TURN = "claude_code.interaction";
 
 function Step({ span, depth, onOpen }: Placed & { onOpen: (id: string) => void }) {
   const failed = span.status === "error";
@@ -79,7 +80,11 @@ export function TurnPane({
 }) {
   const facts = turnFacts(row);
   const message = row.root.input_preview;
-  const replied = row.members.findLast((span) => span.name === REPLY && span.parent_span_id === row.root.span_id);
+  // Claude Code's telemetry records the reply as a span under the turn, whose own span has no output; a plugin
+  // records it on the turn itself.
+  const replied =
+    row.members.findLast((span) => span.name === REPLY && span.parent_span_id === row.root.span_id) ??
+    (row.root.name === NATIVE_TURN ? undefined : row.root);
   const answer = useSpanDetail(
     accessToken,
     trace.summary.trace_id,
@@ -105,7 +110,7 @@ export function TurnPane({
             </p>
           </section>
         )}
-        {replied && answer?.output && (
+        {answer?.output && (
           <section aria-label="Agent answer" className="flex flex-col gap-1.5">
             <h3 className={HEADING}>Agent</h3>
             <Payload
