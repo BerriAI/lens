@@ -38,6 +38,7 @@ import { LensGettingStarted } from "./onboarding/LensGettingStarted";
 import { useLensReadiness, type LensReadiness } from "./hooks/useLensReadiness";
 import { OnboardingProvider, type Onboarding } from "./onboarding/OnboardingContext";
 import { traceRefOf, useOpenTraceRouting, type TraceRef } from "./traces/routing";
+import { ALL_AGENTS_LABEL } from "./agents/AgentPicker";
 import { useLensAgents } from "./agents/AgentScoped";
 import { AgentsView } from "./agents/AgentsView";
 import { ProfilesView } from "./profiles/ProfilesView";
@@ -249,7 +250,7 @@ function LensContent({ userRole, readOnly }: Omit<WorkspaceProps, "accessToken">
                 <header className="lens-workspace-header flex min-h-14 shrink-0 flex-wrap items-center justify-between gap-3 border-b bg-card py-2 pr-4 pl-14 md:px-6">
                   <div className="flex min-w-0 items-center gap-2 text-sm">
                     <span aria-hidden="true" className="lens-breadcrumb-dot mr-1 size-1.5 shrink-0 rounded-full" />
-                    {activeTab === "traces" && agents.agent && (
+                    {activeTab === "traces" && (agents.agent || agents.all) && (
                       <>
                         <Button
                           variant="link"
@@ -260,7 +261,9 @@ function LensContent({ userRole, readOnly }: Omit<WorkspaceProps, "accessToken">
                           Agents
                         </Button>
                         <ChevronRight aria-hidden="true" className="size-3.5 shrink-0 text-muted-foreground/60" />
-                        <span className="hidden max-w-64 truncate text-muted-foreground sm:inline">{agents.agent}</span>
+                        <span className="hidden max-w-64 truncate text-muted-foreground sm:inline">
+                          {agents.agent ?? ALL_AGENTS_LABEL}
+                        </span>
                         <ChevronRight
                           aria-hidden="true"
                           className="hidden size-3.5 shrink-0 text-muted-foreground/60 sm:block"

@@ -1,6 +1,6 @@
 "use client";
 
-import { Bot, Check, ChevronsUpDown, Search } from "lucide-react";
+import { Bot, Check, ChevronsUpDown, Layers, Search } from "lucide-react";
 import { useState } from "react";
 
 import { Input } from "../../ui/input";
@@ -8,7 +8,10 @@ import { Popover, PopoverContent, PopoverTrigger } from "../../ui/popover";
 import { cn } from "../../../lib/cva.config";
 
 import { FrameworkLogo, traceFramework } from "../traces/ui/TraceFramework";
+import { ALL_AGENTS } from "../traces/routing";
 import type { AgentSummary } from "./agentRollup";
+
+export const ALL_AGENTS_LABEL = "All agents";
 
 export function AgentMark({ agent }: { agent: Pick<AgentSummary, "frameworks"> | undefined }) {
   const framework = agent ? traceFramework({ frameworks: [...agent.frameworks] }) : null;
@@ -18,6 +21,9 @@ export function AgentMark({ agent }: { agent: Pick<AgentSummary, "frameworks"> |
     <Bot aria-hidden className="size-4 shrink-0 text-muted-foreground" />
   );
 }
+
+export const matchesAllAgents = (query: string): boolean =>
+  ALL_AGENTS_LABEL.toLowerCase().includes(query.trim().toLowerCase());
 
 export const matchesAgent = (agent: Pick<AgentSummary, "name">, query: string): boolean =>
   agent.name.toLowerCase().includes(query.trim().toLowerCase());
@@ -35,6 +41,9 @@ export function AgentPicker({ agent, agents, onSelect }: AgentPickerProps) {
   const [open, setOpen] = useState(false);
   const [query, setQuery] = useState("");
   const shown = agents.filter((item) => matchesAgent(item, query));
+  const all = agent === ALL_AGENTS;
+  const label = all ? ALL_AGENTS_LABEL : agent;
+  const offerAll = matchesAllAgents(query);
   const choose = (next: string) => {
     setOpen(false);
     setQuery("");
@@ -43,11 +52,15 @@ export function AgentPicker({ agent, agents, onSelect }: AgentPickerProps) {
   return (
     <Popover open={open} onOpenChange={setOpen}>
       <PopoverTrigger
-        aria-label={`Agent: ${agent}`}
+        aria-label={`Agent: ${label}`}
         className="inline-flex h-7 max-w-56 items-center gap-1.5 rounded-md border px-2 text-sm font-medium hover:bg-muted"
       >
-        <AgentMark agent={agents.find((item) => item.name === agent)} />
-        <span className="truncate">{agent}</span>
+        {all ? (
+          <Layers aria-hidden className="size-4 shrink-0 text-muted-foreground" />
+        ) : (
+          <AgentMark agent={agents.find((item) => item.name === agent)} />
+        )}
+        <span className="truncate">{label}</span>
         <ChevronsUpDown aria-hidden className="size-3.5 shrink-0 text-muted-foreground" />
       </PopoverTrigger>
       <PopoverContent align="start" className="w-72 gap-1 p-1.5">
@@ -65,6 +78,15 @@ export function AgentPicker({ agent, agents, onSelect }: AgentPickerProps) {
         <div className="border-t" />
         <p className="px-2 pt-1.5 pb-0.5 text-xs text-muted-foreground">Agents</p>
         <ul aria-label="Agents" className="flex max-h-72 flex-col overflow-y-auto">
+          {offerAll && (
+            <li>
+              <button type="button" className={ITEM} onClick={() => choose(ALL_AGENTS)}>
+                <Check aria-hidden className={cn("size-3.5 shrink-0", !all && "invisible")} />
+                <Layers aria-hidden className="size-4 shrink-0 text-muted-foreground" />
+                <span className="truncate">{ALL_AGENTS_LABEL}</span>
+              </button>
+            </li>
+          )}
           {shown.map((item) => (
             <li key={item.name}>
               <button type="button" className={ITEM} onClick={() => choose(item.name)}>
@@ -75,7 +97,7 @@ export function AgentPicker({ agent, agents, onSelect }: AgentPickerProps) {
               </button>
             </li>
           ))}
-          {shown.length === 0 && <li className="px-2 py-1.5 text-sm text-muted-foreground">No agents match</li>}
+          {shown.length === 0 && !offerAll && <li className="px-2 py-1.5 text-sm text-muted-foreground">No agents match</li>}
         </ul>
       </PopoverContent>
     </Popover>
