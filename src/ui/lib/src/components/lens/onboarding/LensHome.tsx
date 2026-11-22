@@ -142,11 +142,13 @@ export function LensHome({
               ? "Lens is unavailable. Check your deployment, then retry."
               : !connection.data.status.storage_ready
                 ? "Trace storage is not ready. Check your deployment, then retry."
-                : !traceUrl
-                  ? "Set your public Lens address in deployment setup so your agent knows where to send traces."
-                  : connection.data.status.credentials_ready === false
-                    ? "Lens is syncing tracing credentials. This page will update when they are ready."
-                    : null;
+                : gateway
+                  ? null
+                  : !traceUrl
+                    ? "Set your public Lens address in deployment setup so your agent knows where to send traces."
+                    : connection.data.status.credentials_ready === false
+                      ? "Lens is syncing tracing credentials. This page will update when they are ready."
+                      : null;
   const startWatching = () =>
     setProgress((current) => ({
       ...current,
