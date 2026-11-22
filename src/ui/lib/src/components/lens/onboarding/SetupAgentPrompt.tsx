@@ -12,14 +12,17 @@ import codexLogo from "../../../../public/assets/logos/codex.svg";
 import cursorLogo from "../../../../public/assets/logos/cursor.svg";
 import { maskSecret } from "./tracing/tracingKeys";
 import {
+  gatewayTracingPrompt,
   setupPrompt,
   type SetupConnection,
   type SetupEval,
   type SetupGoal,
+  type SetupPath,
 } from "./setupPrompt";
 
 export function SetupAgentPrompt({
   goal = "start",
+  path,
   connection,
   evaluation,
   featureConfigured,
@@ -31,6 +34,7 @@ export function SetupAgentPrompt({
   primaryAction = true,
 }: {
   readonly goal?: SetupGoal;
+  readonly path?: SetupPath;
   readonly connection?: SetupConnection;
   readonly evaluation?: SetupEval;
   readonly featureConfigured?: boolean;
@@ -57,33 +61,42 @@ export function SetupAgentPrompt({
   }, []);
   const context = {
     standalone,
+    path,
     goal,
     connection,
     evaluation,
     featureConfigured,
     agentName,
   };
-  const prompt = setupPrompt({
-    ...context,
+  const gateway = path === "gateway";
+  const build = (base: string, key?: string) =>
+    gateway
+      ? gatewayTracingPrompt({
+          gatewayUrl: standalone ? undefined : base,
+          lensUrl: standalone ? base : undefined,
+          agentName,
+        })
+      : setupPrompt({ ...context, baseUrl: base, tracingKey: key });
+  const prompt = build(
     baseUrl,
-    tracingKey: tracingKey
+    tracingKey
       ? maskSecret(tracingKey)
       : prepareTracingKey
         ? "<created when you copy>"
         : undefined,
-  });
+  );
   const copy = async (includeKey = true) => {
     if (copying) return;
     setCopying(true);
     setError(null);
     try {
       const key = includeKey
-        ? tracingKey ?? (await prepareTracingKey?.())
+        ? (tracingKey ?? (await prepareTracingKey?.()))
         : undefined;
       const current = currentBaseUrl();
       setBaseUrl(current);
       const success = await copyToClipboard(
-        setupPrompt({ ...context, baseUrl: current, tracingKey: key }),
+        build(current, key),
         "Prompt copied",
       );
       setCopied(success);
@@ -152,8 +165,9 @@ export function SetupAgentPrompt({
             </p>
           </div>
           <p className="text-sm leading-6 text-muted-foreground">
-            The instructions help your coding agent configure tracing, run one
-            real task, and verify its trace arrived.
+            {gateway
+              ? "The instructions help your coding agent send telemetry to your LiteLLM gateway with the key it already uses, then run one real task."
+              : "The instructions help your coding agent configure tracing, run one real task, and verify its trace arrived."}
           </p>
         </div>
       )}
@@ -188,7 +202,11 @@ export function SetupAgentPrompt({
               ? "Includes your tracing key. Paste only into a coding agent you trust; the key will be in its chat history."
               : prepareTracingKey
                 ? "Creates a tracing key and includes it in the instructions. The key will be in your coding agent’s chat history."
-                : "Includes your Lens address. Uses the tracing key in your project."
+                : gateway
+                  ? standalone
+                    ? "Your coding agent finds the gateway address and LiteLLM key your agent already uses. No Lens tracing key is needed."
+                    : "Includes your gateway address. Uses the LiteLLM key your agent already has. No Lens tracing key is needed."
+                  : "Includes your Lens address. Uses the tracing key in your project."
             : "Copy a prompt for your coding agent. It checks your setup and asks only for missing choices."}
         </p>
         {tracingKey && (

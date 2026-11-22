@@ -1,5 +1,10 @@
 import { describe, expect, it } from "vitest";
-import { setupPrompt, type SetupConnection } from "./setupPrompt";
+import {
+  CLAUDE_CODE_GATEWAY_TELEMETRY,
+  gatewayTracingPrompt,
+  setupPrompt,
+  type SetupConnection,
+} from "./setupPrompt";
 
 describe("agent setup prompt", () => {
   it("includes an explicitly supplied tracing key with storage guidance only for tracing setup", () => {
@@ -133,4 +138,38 @@ describe("agent setup prompt", () => {
       expect(prompt).not.toContain("Set up manually on Lens Home, then Create tracing key");
     },
   );
+
+  it("sends gateway telemetry to the gateway with the LiteLLM key and never to Lens or a Lens tracing key", () => {
+    const prompt = gatewayTracingPrompt({
+      gatewayUrl: "https://user:pass@gateway.example/?token=1#frag",
+      agentName: " support-agent ",
+    });
+    expect(prompt).toContain('LiteLLM gateway address: "https://gateway.example"');
+    expect(prompt).not.toContain("pass");
+    expect(prompt).toContain("Do not create or use a Lens tracing key");
+    expect(prompt).toContain("Authorization: Bearer <the LiteLLM key>");
+    expect(prompt).toContain('Setup link agent name: "support-agent"');
+    expect(prompt).not.toContain("dedicated Lens tracing key");
+    expect(prompt).not.toContain("/v1/traces/receipt");
+    for (const [name, value] of CLAUDE_CODE_GATEWAY_TELEMETRY) {
+      expect(prompt).toContain(`${name}=${value}`);
+    }
+  });
+
+  it("asks the coding agent to find the gateway when only the Lens address is known and to stop when there is none", () => {
+    const prompt = gatewayTracingPrompt({ lensUrl: "https://lens.example/ui/" });
+    expect(prompt).toContain("Find the LiteLLM gateway address");
+    expect(prompt).toContain("choose Standalone Lens on Lens Home");
+    expect(prompt).toContain('Lens address, for viewing traces only: "https://lens.example');
+    expect(prompt).not.toContain("LiteLLM gateway address: ");
+  });
+
+  it("describes direct telemetry only when the standalone path is chosen inside the gateway dashboard", () => {
+    const direct = setupPrompt({ standalone: false, path: "standalone", goal: "tracing" });
+    expect(direct).toContain("does not use a LiteLLM gateway");
+    expect(direct).not.toContain("I opened Lens from an existing LiteLLM admin dashboard");
+    expect(setupPrompt({ standalone: false, goal: "tracing" })).toContain(
+      "I opened Lens from an existing LiteLLM admin dashboard",
+    );
+  });
 });
