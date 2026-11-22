@@ -500,6 +500,30 @@ describe("Lens Home connection", () => {
     ).toHaveLength(0);
   });
 
+  it("keeps the public address and tracing credential notices off the gateway path", async () => {
+    const user = userEvent.setup();
+    const gateway = serve();
+    const get = gateway.get.getMockImplementation();
+    gateway.get.mockImplementation((path, ...rest) => {
+      const body = get?.(path, ...rest);
+      return path === "/lens/admin/tracing/keys" ||
+        path === "/v1/traces/agents"
+        ? body
+        : { ...body, url: "" };
+    });
+    renderWithLens(home());
+    await user.click(screen.getByRole("radio", { name: /Standalone Lens/ }));
+    expect(
+      await screen.findByText(/Set your public Lens address/),
+    ).toBeVisible();
+    await user.click(
+      screen.getByRole("radio", { name: /Through the LiteLLM gateway/ }),
+    );
+    expect(
+      screen.queryByText(/Set your public Lens address/),
+    ).not.toBeInTheDocument();
+  });
+
   it("shows gateway environment for manual setup and switches to the Lens tracing key flow for standalone", async () => {
     const user = userEvent.setup();
     serve();
