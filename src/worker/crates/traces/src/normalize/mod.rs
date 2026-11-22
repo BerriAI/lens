@@ -28,6 +28,8 @@ pub(crate) fn visible_claude_response(event: &str, source: &str) -> bool {
 }
 pub(crate) const CLAUDE_CODE_AGENT: &str = "claude-code";
 pub(crate) const OPENCODE_SCOPE: &str = "opencode";
+/// The LiteLLM Lens plugin for OpenCode, which sends one agent span per turn of a session
+pub(crate) const OPENCODE_PLUGIN_SCOPE: &str = "berriai.lens.opencode";
 pub(crate) const OPENCODE_AGENT: &str = "opencode";
 pub(crate) const OPENCODE_PROMPTS: [&str; 2] = ["ai.prompt", "ai.prompt.messages"];
 /// How OpenCode opens the side call that names a session; it starts with the user's first turn,

@@ -1,6 +1,7 @@
 use super::{Extraction, Integration, ObservationType, RoleEvidence, Rule, SpanContext, SpanFacts};
 use crate::normalize::{
-    OPENCODE_AGENT, OPENCODE_PROMPTS, OPENCODE_SCOPE, OPENCODE_TITLE_CALL, OPENCODE_TURN,
+    OPENCODE_AGENT, OPENCODE_PLUGIN_SCOPE, OPENCODE_PROMPTS, OPENCODE_SCOPE, OPENCODE_TITLE_CALL,
+    OPENCODE_TURN,
 };
 
 /// Set by the Vercel AI SDK on the model-call and tool spans of a run; OpenCode's other spans
@@ -15,12 +16,14 @@ pub(super) struct Opencode;
 
 impl Rule for Opencode {
     fn matches(&self, context: &SpanContext<'_>) -> bool {
-        context.scope == OPENCODE_SCOPE
-            && (is_agent_work(context) || context.parent_span_id.is_empty())
+        context.scope == OPENCODE_PLUGIN_SCOPE
+            || context.scope == OPENCODE_SCOPE
+                && (is_agent_work(context) || context.parent_span_id.is_empty())
     }
 
     fn integration(&self, context: &SpanContext<'_>) -> Option<Integration> {
-        is_agent_work(context).then_some(Integration::Opencode)
+        (context.scope == OPENCODE_PLUGIN_SCOPE || is_agent_work(context))
+            .then_some(Integration::Opencode)
     }
 
     fn agent_name(&self, _: &SpanContext<'_>, recorded: Option<String>) -> Option<String> {

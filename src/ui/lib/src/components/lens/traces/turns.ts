@@ -17,11 +17,14 @@ export interface SessionTurn {
 
 const byStart = (a: Span, b: Span): number => a.start_offset_ms - b.start_offset_ms;
 
+/** Coding agents whose session is one trace with a parentless agent span per typed message. */
+const SESSION_FRAMEWORKS: readonly (string | null | undefined)[] = ["claude-code", "openai-codex", "opencode"];
+
 const isTurn = (span: Span): boolean =>
-  span.parent_span_id === null && span.type === "agent" && span.framework === "claude-code";
+  span.parent_span_id === null && span.type === "agent" && SESSION_FRAMEWORKS.includes(span.framework);
 
 /**
- * Claude Code records one parentless agent span per typed message when its telemetry is on, and Lens files
+ * A coding agent records one parentless agent span per typed message (Claude Code's telemetry, or a Lens plugin), and Lens files
  * a session's spans in one trace, so each of those spans is a turn. A trace without them has no turns.
  */
 export function sessionTurns(recorded: readonly Span[]): SessionTurn[] {
