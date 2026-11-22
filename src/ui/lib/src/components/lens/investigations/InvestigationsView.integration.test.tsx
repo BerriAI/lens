@@ -172,7 +172,7 @@ describe("Lens findings and runs", () => {
     proxy.get.mockReset();
     proxy.get.mockImplementation(async (path) => {
       if (path === "/lens") return { lenses: [lens], workers: [], tracing_enabled: true };
-      if (path === "/lens/lens/runs") return lens.jobs;
+      if (path === "/lens/admin/lens/runs") return lens.jobs;
       return { data: [] };
     });
   });
@@ -260,7 +260,7 @@ describe("Lens findings and runs", () => {
     };
     proxy.get.mockImplementation(async (path) => {
       if (path === "/lens") return { lenses: [budgeted], workers: [], tracing_enabled: true };
-      if (path === "/lens/lens/runs") return jobs;
+      if (path === "/lens/admin/lens/runs") return jobs;
       return { data: [] };
     });
     renderWithProviders(<InvestigationsView readOnly />);
@@ -285,7 +285,7 @@ describe("Lens findings and runs", () => {
       const jobs = lens.jobs.map((job) => ({ ...job, status, error, findings: [] }));
       proxy.get.mockImplementation(async (path) => {
         if (path === "/lens") return { lenses: [{ ...lens, jobs }], workers: [], tracing_enabled: true };
-        if (path === "/lens/lens/runs") return jobs;
+        if (path === "/lens/admin/lens/runs") return jobs;
         if (path === "/lens/admin/agents") return [];
         return { data: [] };
       });
@@ -313,7 +313,7 @@ describe("Lens findings and runs", () => {
     proxy.get.mockImplementation(async (path) => {
       if (path === "/lens")
         return { lenses: [{ ...lens, findings: [finding], jobs }], workers: [], tracing_enabled: true };
-      if (path === "/lens/lens/runs") return jobs;
+      if (path === "/lens/admin/lens/runs") return jobs;
       return { data: [] };
     });
     const user = userEvent.setup();
@@ -361,7 +361,7 @@ describe("Lens findings and runs", () => {
     const older = { ...lens.jobs[0], id: "older", created_at: "2026-09-29T10:00:00Z" };
     proxy.get.mockImplementation(async (path) => {
       if (path === "/lens") return { lenses: [lens], workers: [], tracing_enabled: true };
-      if (path === "/lens/lens/runs") return [...lens.jobs, older];
+      if (path === "/lens/admin/lens/runs") return [...lens.jobs, older];
       return { data: [] };
     });
     const onUrlUpdate = vi.fn();
@@ -399,7 +399,7 @@ it("runs with saved settings from Run now without opening setup, then accepts an
           },
         ],
       };
-    if (path === "/lens/lens/runs") return lens.jobs;
+    if (path === "/lens/admin/lens/runs") return lens.jobs;
     if (path === "/lens/admin/activity/available") return { traces: true, requests: false };
     return { data: [] };
   });
@@ -414,7 +414,7 @@ it("runs with saved settings from Run now without opening setup, then accepts an
   const choices = await screen.findByRole("dialog", { name: "Run now" });
   expect(within(choices).getByRole("button", { name: "Since last run" })).toHaveAttribute("aria-pressed", "true");
   await user.click(within(choices).getByRole("button", { name: "Run now" }));
-  expect(sentBody(proxy.post, "/lens/lens/runs")).toEqual([{}]);
+  expect(sentBody(proxy.post, "/lens/admin/lens/runs")).toEqual([{}]);
   await waitFor(() => expect(screen.queryByRole("dialog")).not.toBeInTheDocument());
 
   proxy.post.mockClear();
@@ -423,7 +423,7 @@ it("runs with saved settings from Run now without opening setup, then accepts an
   fireEvent.change(within(custom).getByRole("combobox", { name: "Agent" }), { target: { value: "billing" } });
   await user.click(within(custom).getByRole("button", { name: "Last 24h" }));
   await user.click(within(custom).getByRole("button", { name: "Run now" }));
-  expect(sentBody(proxy.post, "/lens/lens/runs")).toEqual([{ agent_name: "billing", lookback_hours: 24 }]);
+  expect(sentBody(proxy.post, "/lens/admin/lens/runs")).toEqual([{ agent_name: "billing", lookback_hours: 24 }]);
 });
 
 it("guides a first-time administrator into worker connection and lens setup", async () => {
@@ -487,8 +487,8 @@ it("opens the saved results of an older batch", async () => {
   };
   proxy.get.mockImplementation(async (path) => {
     if (path === "/lens") return { lenses: [lens], workers: [], tracing_enabled: true };
-    if (path === "/lens/lens/runs") return [lens.jobs[0], older];
-    if (path === "/lens/lens/runs/older") return older;
+    if (path === "/lens/admin/lens/runs") return [lens.jobs[0], older];
+    if (path === "/lens/admin/lens/runs/older") return older;
     return { data: [] };
   });
   const user = userEvent.setup();
@@ -515,8 +515,8 @@ it("keeps history status and cost updating when an older run fails to load", asy
   proxy.get.mockImplementation(async (path) => {
     if (path.endsWith("/reviews")) return { reviews: [], reviewed: 0 };
     if (path === "/lens") return { lenses: [{ ...lens, jobs: [running] }], workers: [], tracing_enabled: true };
-    if (path === "/lens/lens/runs") return runs();
-    if (path === "/lens/lens/runs/older") throw new Error("Run unavailable");
+    if (path === "/lens/admin/lens/runs") return runs();
+    if (path === "/lens/admin/lens/runs/older") throw new Error("Run unavailable");
     return { data: [] };
   });
   const user = userEvent.setup();
@@ -552,7 +552,7 @@ it("reads request content from the beginning after its abbreviated preview", asy
   };
   proxy.get.mockImplementation(async (path, options) => {
     if (path === "/lens") return { lenses: [{ ...lens, jobs: [job] }], workers: [], tracing_enabled: true };
-    if (path === "/lens/lens/runs") return [job];
+    if (path === "/lens/admin/lens/runs") return [job];
     if (!path.includes("/executions/")) return { data: [] };
     const offset = Number(options.query.offset ?? 0);
     return {
@@ -705,7 +705,7 @@ it("keeps saved investigations accessible when tracing is disabled", async () =>
   testQueryClient.clear();
   proxy.get.mockImplementation(async (path) => {
     if (path === "/lens") return { lenses: [lens], workers: [], tracing_enabled: false };
-    if (path === "/lens/lens/runs") return lens.jobs;
+    if (path === "/lens/admin/lens/runs") return lens.jobs;
     return { data: [] };
   });
   renderWithProviders(<InvestigationsView readOnly />);
@@ -733,7 +733,7 @@ it("reopens the inline editor from a shared link and drops it from the URL on ca
   testQueryClient.clear();
   proxy.get.mockImplementation(async (path) => {
     if (path === "/lens") return { lenses: [lens], workers: [], tracing_enabled: true };
-    if (path === "/lens/lens/runs") return lens.jobs;
+    if (path === "/lens/admin/lens/runs") return lens.jobs;
     if (path === "/lens/admin/agents") return [];
     return { data: [] };
   });
@@ -761,7 +761,7 @@ it("reopens a finding and a results section from shared links", async () => {
   testQueryClient.clear();
   proxy.get.mockImplementation(async (path) => {
     if (path === "/lens") return { lenses: [lens], workers: [], tracing_enabled: true };
-    if (path === "/lens/lens/runs") return lens.jobs;
+    if (path === "/lens/admin/lens/runs") return lens.jobs;
     return { data: [] };
   });
   const onUrlUpdate = vi.fn();
@@ -822,7 +822,7 @@ it("reviews only the owning investigation when following an existing finding lin
   });
   await user.click(await screen.findByRole("button", { name: "Mark resolved" }));
   await waitFor(() => expect(proxy.patch).toHaveBeenCalledTimes(1));
-  expect(proxy.patch.mock.calls[0][0]).toBe("/lens/twin/findings/issue");
+  expect(proxy.patch.mock.calls[0][0]).toBe("/lens/admin/twin/findings/issue");
 });
 
 it("lists investigations without edit or run controls for read-only viewers", async () => {
@@ -831,7 +831,7 @@ it("lists investigations without edit or run controls for read-only viewers", as
   proxy.get.mockImplementation(async (path) => {
     if (path === "/lens") return { lenses: [lens], tracing_enabled: true, workers: [] };
     if (path === "/lens/admin/activity/available") return { traces: true, requests: false };
-    if (path === "/lens/lens/runs") return [];
+    if (path === "/lens/admin/lens/runs") return [];
     if (path === "/lens/admin/agents") return [];
     return { data: [] };
   });
@@ -850,7 +850,7 @@ it("opens investigations from the keyboard without treating nested edit keys as 
   proxy.get.mockImplementation(async (path) => {
     if (path === "/lens") return { lenses: [lens], tracing_enabled: true, workers: [] };
     if (path === "/lens/admin/activity/available") return { traces: true, requests: false };
-    if (path === "/lens/lens/runs") return [];
+    if (path === "/lens/admin/lens/runs") return [];
     if (path === "/lens/admin/agents") return [];
     return { data: [] };
   });
@@ -889,8 +889,8 @@ it("opens a failed investigation's details from its row and edits only from the 
   proxy.get.mockImplementation(async (path) => {
     if (path === "/lens") return { lenses: [{ ...lens, jobs: [job] }], workers: [], tracing_enabled: true };
     if (path === "/lens/admin/activity/available") return { traces: true, requests: false };
-    if (path === "/lens/lens/runs") return [job];
-    if (path === "/lens/lens/runs/failed-run") return job;
+    if (path === "/lens/admin/lens/runs") return [job];
+    if (path === "/lens/admin/lens/runs/failed-run") return job;
     if (path === "/lens/admin/agents") return [];
     return { data: [] };
   });
@@ -913,8 +913,8 @@ it("shows the actual saved failure and run context without opening backend logs"
   const job = { ...lens.jobs[0], id: "failed-run", status: "failed" as const, stage: "Failed", error, findings: [] };
   proxy.get.mockImplementation(async (path) => {
     if (path === "/lens") return { lenses: [{ ...lens, jobs: [job] }], workers: [], tracing_enabled: true };
-    if (path === "/lens/lens/runs") return [job];
-    if (path === "/lens/lens/runs/failed-run") return job;
+    if (path === "/lens/admin/lens/runs") return [job];
+    if (path === "/lens/admin/lens/runs/failed-run") return job;
     return { data: [] };
   });
   renderWithProviders(<InvestigationsView readOnly />);
@@ -937,7 +937,7 @@ it.each([true, false])(
     };
     proxy.get.mockImplementation(async (path) => {
       if (path === "/lens") return { lenses: [{ ...lens, jobs: [job] }], workers: [], tracing_enabled: true };
-      if (path === "/lens/lens/runs") return [job];
+      if (path === "/lens/admin/lens/runs") return [job];
       return { data: [] };
     });
     renderWithProviders(<InvestigationsView readOnly />);
@@ -961,7 +961,7 @@ it("sends the report's Review issues action to the open issues of that run", asy
   testQueryClient.clear();
   proxy.get.mockImplementation(async (path) => {
     if (path === "/lens") return { lenses: [lens], workers: [], tracing_enabled: true };
-    if (path === "/lens/lens/runs") return lens.jobs;
+    if (path === "/lens/admin/lens/runs") return lens.jobs;
     return { data: [] };
   });
   const user = userEvent.setup();
@@ -984,7 +984,7 @@ it("keeps a finding open to retry when its update fails", async () => {
   });
   proxy.patch.mockReset();
   proxy.patch.mockImplementation(async (path) => {
-    if (String(path).startsWith("/lens/twin/")) throw new Error("Twin reviews could not be updated");
+    if (String(path).startsWith("/lens/admin/twin/")) throw new Error("Twin reviews could not be updated");
   });
   const user = userEvent.setup();
   renderWithProviders(<InvestigationsView />, {
@@ -1000,7 +1000,7 @@ it("pauses monitoring from the detail menu by saving the investigation with moni
   const watching: Lens = { ...lens, settings: { ...lens.settings, enabled: true } };
   proxy.get.mockImplementation(async (path) => {
     if (path === "/lens") return { lenses: [watching], workers: [], tracing_enabled: true };
-    if (path === "/lens/lens/runs") return watching.jobs;
+    if (path === "/lens/admin/lens/runs") return watching.jobs;
     return { data: [] };
   });
   proxy.put.mockResolvedValue({ ...watching, settings: lens.settings });
@@ -1009,7 +1009,7 @@ it("pauses monitoring from the detail menu by saving the investigation with moni
   await user.click(await screen.findByRole("button", { name: "Investigation actions" }));
   await user.click(await screen.findByRole("menuitem", { name: "Pause monitoring" }));
   await waitFor(() => expect(proxy.put).toHaveBeenCalledTimes(1));
-  expect(sentBody(proxy.put, "/lens/lens")).toEqual([{ ...watching.settings, enabled: false }]);
+  expect(sentBody(proxy.put, "/lens/admin/lens")).toEqual([{ ...watching.settings, enabled: false }]);
 });
 
 it("updates elapsed time without reformatting the activity log and still shows new model calls", async () => {
@@ -1072,13 +1072,13 @@ it("stops the running job from the run report's primary action", async () => {
     if (path.endsWith("/reviews")) return { reviews: [], reviewed: 0 };
     if (path === "/lens")
       return { lenses: [{ ...lens, jobs: [running, lens.jobs[0]] }], workers: [], tracing_enabled: true };
-    if (path === "/lens/lens/runs") return [running, lens.jobs[0]];
+    if (path === "/lens/admin/lens/runs") return [running, lens.jobs[0]];
     return { data: [] };
   });
   const user = userEvent.setup();
   renderWithProviders(<InvestigationsView />);
   await user.click(await screen.findByRole("button", { name: "Stop run" }));
-  await waitFor(() => expect(proxy.post).toHaveBeenCalledWith("/lens/lens/cancel", expect.anything()));
+  await waitFor(() => expect(proxy.post).toHaveBeenCalledWith("/lens/admin/lens/cancel", expect.anything()));
 });
 
 it("keeps Stop run on an older run while another run is active", async () => {
@@ -1089,14 +1089,14 @@ it("keeps Stop run on an older run while another run is active", async () => {
     if (path.endsWith("/reviews")) return { reviews: [], reviewed: 0 };
     if (path === "/lens")
       return { lenses: [{ ...lens, jobs: [running, lens.jobs[0]] }], workers: [], tracing_enabled: true };
-    if (path === "/lens/lens/runs") return [running, lens.jobs[0]];
+    if (path === "/lens/admin/lens/runs") return [running, lens.jobs[0]];
     return { data: [] };
   });
   const user = userEvent.setup();
   renderWithProviders(<InvestigationsView />);
   const report = await screen.findByRole("region", { name: "Run report" });
   await user.click(await within(report).findByRole("button", { name: "Stop run" }));
-  await waitFor(() => expect(proxy.post).toHaveBeenCalledWith("/lens/lens/cancel", expect.anything()));
+  await waitFor(() => expect(proxy.post).toHaveBeenCalledWith("/lens/admin/lens/cancel", expect.anything()));
 });
 
 it("clears the open live stage when a worker reclaims the same investigation", async () => {
@@ -1118,7 +1118,7 @@ it("clears the open live stage when a worker reclaims the same investigation", a
   proxy.get.mockImplementation(async (path) => {
     if (path.endsWith("/reviews")) return { reviews: [], reviewed: 0 };
     if (path === "/lens") return { lenses: [{ ...lens, jobs: [running] }], workers: [], tracing_enabled: true };
-    if (path === "/lens/lens/runs") return [running];
+    if (path === "/lens/admin/lens/runs") return [running];
     return { data: [] };
   });
   renderWithProviders(<InvestigationsView />);
@@ -1147,7 +1147,7 @@ it("refreshes run history as soon as the list reports a job the scheduler starte
   proxy.get.mockImplementation(async (path) => {
     if (path.endsWith("/reviews")) return { reviews: [], reviewed: 0 };
     if (path === "/lens") return { lenses: [lens], workers: [], tracing_enabled: true };
-    if (path === "/lens/lens/runs") return runs();
+    if (path === "/lens/admin/lens/runs") return runs();
     return { data: [] };
   });
   const user = userEvent.setup();
@@ -1188,7 +1188,7 @@ it("lists recorded agents in Run now and runs the one picked from the list", asy
           },
         ],
       };
-    if (path === "/lens/lens/runs") return lens.jobs;
+    if (path === "/lens/admin/lens/runs") return lens.jobs;
     if (path === "/lens/admin/agents") return ["billing-agent", "support-bot"];
     if (path === "/lens/admin/activity/available") return { traces: true, requests: false };
     return { data: [] };
@@ -1204,7 +1204,7 @@ it("lists recorded agents in Run now and runs the one picked from the list", asy
   await user.click(await screen.findByRole("option", { name: "billing-agent" }));
   expect(dialog.getByRole("combobox", { name: "Agent" })).toHaveValue("billing-agent");
   await user.click(dialog.getByRole("button", { name: "Run now" }));
-  await waitFor(() => expect(sentBody(proxy.post, "/lens/lens/runs")).toEqual([{ agent_name: "billing-agent" }]));
+  await waitFor(() => expect(sentBody(proxy.post, "/lens/admin/lens/runs")).toEqual([{ agent_name: "billing-agent" }]));
 });
 
 it.each([

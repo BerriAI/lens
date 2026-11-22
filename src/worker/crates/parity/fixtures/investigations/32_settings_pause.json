@@ -1,7 +1,7 @@
 {
   "request": {
     "method": "PUT",
-    "path": "/lens/parity-lens",
+    "path": "/lens/admin/parity-lens",
     "headers": {
       "authorization": "Bearer {{admin_token}}",
       "content-type": "application/json"

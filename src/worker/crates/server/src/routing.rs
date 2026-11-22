@@ -107,7 +107,7 @@ pub async fn redirect_trailing_slash(request: Request, next: Next) -> Response {
         || (matches!(request.method().as_str(), "GET" | "HEAD")
             && matches!(
                 parts.as_slice(),
-                ["", "lens", "datasets", _] | ["", "lens", "datasets", _, "revisions", _, "cases"]
+                ["", "lens", "datasets", _, "revisions", _, "cases"]
             ));
     let contract: Vec<_> = request
         .headers()
@@ -129,9 +129,11 @@ pub async fn redirect_trailing_slash(request: Request, next: Next) -> Response {
         parts.as_slice(),
         ["", "lens"]
             | ["", "lens", _]
-            | ["", "lens", _, "runs" | "cancel"]
-            | ["", "lens", _, "runs" | "findings", _]
-            | ["", "lens", _, "runs", _, "reviews"]
+            | ["", "lens", _, "findings", "import"]
+            | ["", "lens", "admin", _]
+            | ["", "lens", "admin", _, "runs" | "cancel"]
+            | ["", "lens", "admin", _, "runs" | "findings", _]
+            | ["", "lens", "admin", _, "runs", _, "reviews"]
             | ["", "lens", "admin", _, "executions", _]
             | ["", "lens", "admin", "activity", "available"]
             | ["", "lens", "admin", "preview", "sample"]
@@ -140,8 +142,8 @@ pub async fn redirect_trailing_slash(request: Request, next: Next) -> Response {
             | ["", "lens", "admin", "feedback", "summary"]
             | ["", "lens", "admin", "tracing", "keys"]
             | ["", "lens", "admin", "tracing", "keys", _]
-            | ["", "lens", "datasets", _]
-            | ["", "lens", "datasets", _, "revisions" | "export"]
+            | ["", "lens", "admin", "datasets", _, "revisions" | "export"]
+            | ["", "lens", "admin", "datasets", _, "revisions", _, "cases"]
             | ["", "lens", "datasets", _, "revisions", _, "cases"]
             | ["", "lens", "evals", "runs", _, "finish" | "details"]
             | ["", "lens", "evals", "runs", _, "results", _, _]
@@ -227,9 +229,9 @@ mod composed_tests {
 
     #[rstest]
     #[case::eval("POST", "/lens/evals/runs", 204)]
-    #[case::read_dataset("GET", "/lens/datasets/one", 204)]
     #[case::read_cases("GET", "/lens/datasets/one/revisions/1/cases", 204)]
-    #[case::other_mutation("POST", "/lens/datasets/one", 409)]
+    #[case::admin_read("GET", "/lens/admin/datasets/one", 409)]
+    #[case::other_mutation("POST", "/lens/admin/datasets/one", 409)]
     #[case::other_api("GET", "/lens/traces", 409)]
     #[tokio::test]
     async fn agent_io_version_is_scoped_to_eval_routes(
@@ -272,14 +274,16 @@ mod composed_tests {
         let counted = calls.clone();
         let router = Router::new()
             .route(
-                "/lens/datasets",
+                "/lens/admin/datasets",
                 axum::routing::post(move || async move {
                     counted.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
                     StatusCode::NO_CONTENT
                 }),
             )
             .layer(middleware::from_fn(redirect_trailing_slash));
-        let request = Request::builder().method("POST").uri("/lens/datasets");
+        let request = Request::builder()
+            .method("POST")
+            .uri("/lens/admin/datasets");
         let request = match version {
             Some(version) => request.header("x-lens-contract", version),
             None => request,
@@ -305,7 +309,7 @@ mod composed_tests {
     }
 
     #[rstest]
-    #[case::datasets("/lens/datasets///?x=1", "/lens/datasets?x=1")]
+    #[case::datasets("/lens/admin/datasets///?x=1", "/lens/admin/datasets?x=1")]
     #[case::activity("/lens/admin/activity/available////", "/lens/admin/activity/available")]
     #[case::feedback("/lens/feedback//", "/lens/feedback")]
     #[case::evidence("/lens/admin/one/executions/two//", "/lens/admin/one/executions/two")]
@@ -316,7 +320,7 @@ mod composed_tests {
         #[case] target: &str,
     ) {
         let router = Router::new()
-            .public_route("/lens/datasets", get(|| async { StatusCode::OK }))
+            .public_route("/lens/admin/datasets", get(|| async { StatusCode::OK }))
             .merge(Router::new().fallback(|| async { StatusCode::NOT_FOUND }))
             .layer(middleware::from_fn(redirect_trailing_slash));
         let response = router

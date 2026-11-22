@@ -78,7 +78,7 @@ async fn ingested_traces_build_cases_through_the_application_router(
         }
     };
     let response = client
-        .post(format!("{}/lens/datasets/build", server.url))
+        .post(format!("{}/lens/admin/datasets/build", server.url))
         .bearer_auth(ADMIN)
         .json(&json!({"sources":[source]}))
         .send()
@@ -120,7 +120,7 @@ async fn session_and_saved_dataset_survive_application_restart(#[future(awt)] da
         .unwrap()
         .to_owned();
     let create = client
-        .post(format!("{}/lens/datasets", server.url))
+        .post(format!("{}/lens/admin/datasets", server.url))
         .header("cookie", &cookie)
         .header("origin", &server.url)
         .json(&json!({"name":"Saved cases","agent_name":"dataset-agent"}))
@@ -129,13 +129,13 @@ async fn session_and_saved_dataset_survive_application_restart(#[future(awt)] da
         .unwrap();
     assert_eq!(create.status(), 200, "{}", create.text().await.unwrap());
     let created: Dataset = create.json().await.unwrap();
-    let build = client.post(format!("{}/lens/datasets/build", server.url)).bearer_auth(ADMIN)
+    let build = client.post(format!("{}/lens/admin/datasets/build", server.url)).bearer_auth(ADMIN)
         .json(&json!({"dataset_id":created.id,"sources":[{"kind":"text","text":"A persisted question"}]})).send().await.unwrap();
     assert_eq!(build.status(), 200);
     let built: BuildResult = build.json().await.unwrap();
     let save = client
         .post(format!(
-            "{}/lens/datasets/{}/revisions",
+            "{}/lens/admin/datasets/{}/revisions",
             server.url, created.id
         ))
         .header("cookie", &cookie)
@@ -150,7 +150,10 @@ async fn session_and_saved_dataset_survive_application_restart(#[future(awt)] da
     drop(server);
     let restarted = database.serve(false).await;
     let read = client
-        .get(format!("{}/lens/datasets/{}", restarted.url, saved.id))
+        .get(format!(
+            "{}/lens/admin/datasets/{}",
+            restarted.url, saved.id
+        ))
         .header("cookie", &cookie)
         .send()
         .await
@@ -159,7 +162,7 @@ async fn session_and_saved_dataset_survive_application_restart(#[future(awt)] da
     assert_eq!(read.json::<Dataset>().await.unwrap(), saved);
     let exported = client
         .get(format!(
-            "{}/lens/datasets/{}/export",
+            "{}/lens/admin/datasets/{}/export",
             restarted.url, saved.id
         ))
         .header("cookie", &cookie)
@@ -175,7 +178,10 @@ async fn session_and_saved_dataset_survive_application_restart(#[future(awt)] da
 }
 
 #[rstest]
-#[case::datasets("/lens/datasets///?revision=1", "/lens/datasets?revision=1")]
+#[case::datasets(
+    "/lens/admin/datasets///?revision=1",
+    "/lens/admin/datasets?revision=1"
+)]
 #[case::traces("/v1/traces///", "/v1/traces")]
 #[case::feedback("/lens/feedback///", "/lens/feedback")]
 #[case::service("/lens/service///", "/lens/service")]

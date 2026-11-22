@@ -1,7 +1,7 @@
 {
   "request": {
     "method": "PATCH",
-    "path": "/lens/parity-lens/findings/finding",
+    "path": "/lens/admin/parity-lens/findings/finding",
     "headers": {
       "authorization": "Bearer {{admin_token}}",
       "content-type": "application/json"

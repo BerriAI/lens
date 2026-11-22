@@ -10,7 +10,7 @@ describe("investigation agent handoff", () => {
       "curl --fail-with-body -sS -H 'Authorization: Bearer ***' 'https://proxy.test/root/lens/lens-one'",
     );
     expect(text).toContain("Inspect jobs[0]");
-    expect(text).toContain("/lens/lens-one/runs/{job_id}");
+    expect(text).toContain("/lens/admin/lens-one/runs/{job_id}");
     expect(text).toContain("/lens/admin/lens-one/executions/{execution_id}");
     expect(text).toContain("URL-encoding the complete evidence.execution_id as one path segment");
     expect(text).toContain("Follow next_cursor");
@@ -28,7 +28,7 @@ describe("investigation agent handoff", () => {
 
   it("fetches an explicitly selected historical run as well as current feedback", () => {
     const text = investigationHandoffText(base, "lens/one", "run?two&three");
-    expect(text).toContain("'https://proxy.test/root/lens/lens%2Fone/runs/run%3Ftwo%26three'");
+    expect(text).toContain("'https://proxy.test/root/lens/admin/lens%2Fone/runs/run%3Ftwo%26three'");
     expect(text).toContain("selected run's findings");
     expect(text).toContain("current review status and reason by finding id");
     expect(text).not.toContain("Inspect jobs[0]");

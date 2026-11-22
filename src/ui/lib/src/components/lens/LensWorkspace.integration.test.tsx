@@ -18,7 +18,7 @@ const expectUrl = (onUrlUpdate: ReturnType<typeof vi.fn>, check: (params: URLSea
 
 const defaultResponse = (path: string, connected: boolean) =>
   Response.json(
-    path === "/lens/alerts/rules/overview"
+    path === "/lens/admin/alerts/rules/overview"
       ? { since: new Date().toISOString(), limit: 500, truncated: false, matches: [] }
       : path === "/lens/service"
       ? {
@@ -1323,7 +1323,7 @@ it("keeps embedded page actions usable as forms open and the selected tab change
   network.mockImplementation(async (input) => {
     const path = requestPath(input);
     if (path === "/lens") return Response.json({ lenses: [], workers: [], tracing_enabled: true });
-    if (path === "/lens/evals" || path === "/lens/datasets") return Response.json([]);
+    if (path === "/lens/evals" || path === "/lens/admin/datasets") return Response.json([]);
     if (path === "/v1/traces/agents") return Response.json({ agents: [] });
     return defaultResponse(path, true);
   });

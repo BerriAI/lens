@@ -173,7 +173,7 @@ async fn standalone_investigation_uses_local_storage_and_settles_budget(
     assert_eq!(created.status(), 200, "{}", created.text().await.unwrap());
     let created: Lens = created.json().await.unwrap();
     let cancelled = client
-        .post(format!("{}/lens/{}/cancel", server.url, created.id))
+        .post(format!("{}/lens/admin/{}/cancel", server.url, created.id))
         .bearer_auth(ADMIN)
         .json(&json!({}))
         .send()
@@ -186,7 +186,7 @@ async fn standalone_investigation_uses_local_storage_and_settles_budget(
         cancelled.text().await.unwrap()
     );
     let now = chrono::Utc::now();
-    let queued=client.post(format!("{}/lens/{}/runs",server.url,created.id)).bearer_auth(ADMIN).json(&json!({"start":now-chrono::TimeDelta::hours(1),"end":now+chrono::TimeDelta::seconds(1)})).send().await.unwrap();
+    let queued=client.post(format!("{}/lens/admin/{}/runs",server.url,created.id)).bearer_auth(ADMIN).json(&json!({"start":now-chrono::TimeDelta::hours(1),"end":now+chrono::TimeDelta::seconds(1)})).send().await.unwrap();
     assert_eq!(queued.status(), 200, "{}", queued.text().await.unwrap());
     let worker = server.worker.as_ref().unwrap();
     let (first, second) = tokio::join!(worker.run_once(), worker.run_once());
@@ -642,7 +642,7 @@ async fn interrupted_investigation_reuses_grouping_and_finished_checks_after_res
         .json(&json!({"name":"Checkpoint test","model":"test-analysis","agent_name":"local-worker-test","concurrency":1,"monthly_budget":100,"checks":[{"id":"invoice","instruction":"Check invoice status"}]}))
         .send().await.unwrap().error_for_status().unwrap().json().await.unwrap();
     client
-        .post(format!("{}/lens/{}/cancel", server.url, created.id))
+        .post(format!("{}/lens/admin/{}/cancel", server.url, created.id))
         .bearer_auth(ADMIN)
         .json(&json!({}))
         .send()
@@ -654,7 +654,7 @@ async fn interrupted_investigation_reuses_grouping_and_finished_checks_after_res
     let window =
         json!({"start":now-chrono::TimeDelta::hours(1),"end":now+chrono::TimeDelta::seconds(1)});
     client
-        .post(format!("{}/lens/{}/runs", server.url, created.id))
+        .post(format!("{}/lens/admin/{}/runs", server.url, created.id))
         .bearer_auth(ADMIN)
         .json(&window)
         .send()
@@ -716,7 +716,7 @@ async fn interrupted_investigation_reuses_grouping_and_finished_checks_after_res
             _ => unreachable!(),
         }
         client
-            .put(format!("{}/lens/{}", server.url, created.id))
+            .put(format!("{}/lens/admin/{}", server.url, created.id))
             .bearer_auth(ADMIN)
             .json(&settings)
             .send()
@@ -733,7 +733,7 @@ async fn interrupted_investigation_reuses_grouping_and_finished_checks_after_res
         window
     };
     client
-        .post(format!("{}/lens/{}/runs", restarted.url, created.id))
+        .post(format!("{}/lens/admin/{}/runs", restarted.url, created.id))
         .bearer_auth(ADMIN)
         .json(&window)
         .send()

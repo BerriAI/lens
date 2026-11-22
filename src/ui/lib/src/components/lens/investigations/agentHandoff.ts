@@ -14,12 +14,12 @@ export function investigationHandoffText(
     `curl --fail-with-body -sS -H ${shellQuote(`${authHeader}: Bearer ***`)} ${shellQuote(url)}`;
   const selectionText = (): string => {
     if (selectedRun) {
-      return `Inspect the selected run's findings, settings, coverage, assessments, and errors:\n${command(`${base}/runs/${encodeURIComponent(batchId)}`)}\nUse the investigation's top-level findings to check current review status and reason by finding id.`;
+      return `Inspect the selected run's findings, settings, coverage, assessments, and errors:\n${command(`${evidence}/runs/${encodeURIComponent(batchId)}`)}\nUse the investigation's top-level findings to check current review status and reason by finding id.`;
     }
     if (batchId === "all") {
       return "Inspect the top-level findings: these are all accumulated findings, including their current review status and reason.";
     }
-    return `Inspect jobs[0] for the latest run's findings, settings, coverage, assessments, and errors. Fetch its full snapshot at ${base}/runs/{job_id}. Use the top-level findings to check current review status and reason by finding id. If there is no run or its findings are null, report that explicitly rather than treating accumulated findings as this run's results.`;
+    return `Inspect jobs[0] for the latest run's findings, settings, coverage, assessments, and errors. Fetch its full snapshot at ${evidence}/runs/{job_id}. Use the top-level findings to check current review status and reason by finding id. If there is no run or its findings are null, report that explicitly rather than treating accumulated findings as this run's results.`;
   };
   return `Read this LiteLLM Lens investigation, inspect its findings, and explain any issues and suggested fixes.
 Replace *** with a LiteLLM API key authorized to read this investigation (proxy administrator or read-only administrator). Do not paste the key into chat.

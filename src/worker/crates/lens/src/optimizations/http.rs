@@ -29,13 +29,16 @@ pub fn router<R: SessionRepository + 'static>(
     engine: Optimizations,
 ) -> Router {
     Router::new()
-        .route("/lens/optimizations", get(list::<R>).post(create::<R>))
-        .route("/lens/optimizations/models", get(models::<R>))
+        .route(
+            "/lens/admin/optimizations",
+            get(list::<R>).post(create::<R>),
+        )
+        .route("/lens/admin/optimizations/models", get(models::<R>))
         .route("/lens/optimizations/assign", post(assign::<R>))
-        .route("/lens/optimizations/{id}", get(read::<R>))
-        .route("/lens/optimizations/{id}/status", post(status::<R>))
-        .route("/lens/optimizations/{id}/claim", post(claim::<R>))
-        .route("/lens/optimizations/{id}/submit", post(submit::<R>))
+        .route("/lens/admin/optimizations/{id}", get(read::<R>))
+        .route("/lens/admin/optimizations/{id}/status", post(status::<R>))
+        .route("/lens/admin/optimizations/{id}/claim", post(claim::<R>))
+        .route("/lens/admin/optimizations/{id}/submit", post(submit::<R>))
         .layer(DefaultBodyLimit::max(2_000_000))
         .with_state(Arc::new(App {
             authentication,

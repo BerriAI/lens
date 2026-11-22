@@ -78,7 +78,7 @@ async fn standalone_default_scope_closes_ingested_evals_without_a_gateway(
         &client,
         &server.url,
         reqwest::Method::POST,
-        "/lens/datasets",
+        "/lens/admin/datasets",
         Some(json!({"name":"Standalone eval cases", "agent_name":"standalone-agent"})),
     )
     .await;
@@ -87,7 +87,7 @@ async fn standalone_default_scope_closes_ingested_evals_without_a_gateway(
         &client,
         &server.url,
         reqwest::Method::POST,
-        &format!("/lens/datasets/{id}/revisions"),
+        &format!("/lens/admin/datasets/{id}/revisions"),
         Some(json!({"base_revision":0,"cases":[{
             "id":"first", "messages":[{"role":"user","content":"Finish the task"}],
             "source":{"trace_id":"11112222333344445555666677778888"}

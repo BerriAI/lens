@@ -51,28 +51,28 @@ async fn offline_replays_both_models_persists_measured_results_and_obeys_pause(
     let server = database.serve_registry(true, models()).await;
     let dataset = api(
         &server,
-        "/lens/datasets",
+        "/lens/admin/datasets",
         Some(json!({"name":"Arithmetic","agent_name":"calculator"})),
     )
     .await;
     let dataset_id = dataset["id"].as_str().unwrap();
-    api(&server,&format!("/lens/datasets/{dataset_id}/revisions"),Some(json!({"base_revision":0,"cases":[{"id":"case","messages":[{"role":"user","content":"What is 2+2?"}],"expected":"4","source":{},"request":{"messages":[{"role":"user","content":"What is 2+2?"}],"parameters":{"temperature":0.2}}}]}))).await;
-    let created = api(&server,"/lens/optimizations",Some(json!({"mode":"offline","agent":"calculator","baseline":"baseline","models":["candidate"],"teamId":"","traffic":10,"judge":"llm","judgeModel":"judge","rubric":"Is the answer correct?","baselineSampling":100,"candidateSampling":100,"datasetId":dataset_id,"datasetName":"Arithmetic","revision":1,"scope":"final","tolerance":0.1}))).await;
-    let saved = api(&server, &format!("/lens/datasets/{dataset_id}"), None).await;
+    api(&server,&format!("/lens/admin/datasets/{dataset_id}/revisions"),Some(json!({"base_revision":0,"cases":[{"id":"case","messages":[{"role":"user","content":"What is 2+2?"}],"expected":"4","source":{},"request":{"messages":[{"role":"user","content":"What is 2+2?"}],"parameters":{"temperature":0.2}}}]}))).await;
+    let created = api(&server,"/lens/admin/optimizations",Some(json!({"mode":"offline","agent":"calculator","baseline":"baseline","models":["candidate"],"teamId":"","traffic":10,"judge":"llm","judgeModel":"judge","rubric":"Is the answer correct?","baselineSampling":100,"candidateSampling":100,"datasetId":dataset_id,"datasetName":"Arithmetic","revision":1,"scope":"final","tolerance":0.1}))).await;
+    let saved = api(&server, &format!("/lens/admin/datasets/{dataset_id}"), None).await;
     assert_eq!(
         saved["cases"][0]["request"]["parameters"]["temperature"],
         0.2
     );
     let stopped = api(
         &server,
-        "/lens/optimizations",
+        "/lens/admin/optimizations",
         Some(created["config"].clone()),
     )
     .await;
     let stopped_id = stopped["id"].as_str().unwrap();
     let stopped = api(
         &server,
-        &format!("/lens/optimizations/{stopped_id}/status"),
+        &format!("/lens/admin/optimizations/{stopped_id}/status"),
         Some(json!({"status":"completed"})),
     )
     .await;
@@ -81,7 +81,7 @@ async fn offline_replays_both_models_persists_measured_results_and_obeys_pause(
     assert!(stopped["results"][0]["error"].is_string());
     assert_eq!(created["pending"], 2);
     let id = created["id"].as_str().unwrap();
-    let route = format!("/lens/optimizations/{id}");
+    let route = format!("/lens/admin/optimizations/{id}");
     api(
         &server,
         &format!("{route}/status"),
@@ -155,7 +155,7 @@ async fn live_assignment_rechecks_permissions_is_team_scoped_and_caps_admission(
     )
     .unwrap();
     let server = database.serve_registry(true, models).await;
-    let run=api(&server,"/lens/optimizations",Some(json!({"mode":"live","agent":"support","baseline":"baseline","models":["candidate"],"teamId":"team-a","traffic":100,"judge":"feedback","judgeModel":"","rubric":"","baselineSampling":100,"candidateSampling":100,"datasetId":"","datasetName":"","revision":0,"scope":"final","tolerance":0.1}))).await;
+    let run=api(&server,"/lens/admin/optimizations",Some(json!({"mode":"live","agent":"support","baseline":"baseline","models":["candidate"],"teamId":"team-a","traffic":100,"judge":"feedback","judgeModel":"","rubric":"","baselineSampling":100,"candidateSampling":100,"datasetId":"","datasetName":"","revision":0,"scope":"final","tolerance":0.1}))).await;
     let request = json!({"agent":"support","baseline":"baseline","traceId":"trace"});
     let call = |token: String, body: Value| {
         reqwest::Client::new()
@@ -285,7 +285,7 @@ async fn concurrent_live_assignments_preserve_sampling_and_admission(
     let server = database.serve_registry(true, models).await;
     let run = api(
         &server,
-        "/lens/optimizations",
+        "/lens/admin/optimizations",
         Some(json!({
             "mode":"live","agent":"support","baseline":"baseline","models":["candidate"],
             "teamId":"","traffic":100,"judge":"feedback","judgeModel":"","rubric":"",
@@ -320,7 +320,7 @@ async fn concurrent_live_assignments_preserve_sampling_and_admission(
         sample_repeatedly(&server, sampling_ticks)
     );
     assert_eq!(
-        api(&server, &format!("/lens/optimizations/{id}"), None).await["status"],
+        api(&server, &format!("/lens/admin/optimizations/{id}"), None).await["status"],
         "running"
     );
     assert_eq!(
@@ -366,7 +366,7 @@ async fn optimization_mutations_require_admin(
     let server = database.serve(true).await;
     let request = reqwest::Client::new()
         .post(format!(
-            "{}/lens/optimizations/00000000-0000-0000-0000-000000000001/status",
+            "{}/lens/admin/optimizations/00000000-0000-0000-0000-000000000001/status",
             server.url
         ))
         .json(&json!({"status":"paused"}));

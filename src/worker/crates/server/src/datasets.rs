@@ -61,19 +61,30 @@ where
     B: DatasetReader + 'static,
 {
     Router::new()
-        .public_route(
-            "/lens/datasets",
+        .admin_route(
+            &authentication,
+            "/datasets",
             get(list::<R, D, B>).post(create::<R, D, B>),
         )
-        .public_route("/lens/datasets/build", post(build::<R, D, B>))
-        .public_route("/lens/datasets/{dataset_id}", get(read::<R, D, B>))
-        .public_route(
-            "/lens/datasets/{dataset_id}/revisions",
+        .admin_route(&authentication, "/datasets/build", post(build::<R, D, B>))
+        .admin_route(
+            &authentication,
+            "/datasets/{dataset_id}",
+            get(read::<R, D, B>),
+        )
+        .admin_route(
+            &authentication,
+            "/datasets/{dataset_id}/revisions",
             post(save::<R, D, B>),
         )
-        .public_route("/lens/datasets/{dataset_id}/export", get(export::<R, D, B>))
-        .public_route(
-            "/lens/datasets/{dataset_id}/revisions/{revision}/cases",
+        .admin_route(
+            &authentication,
+            "/datasets/{dataset_id}/export",
+            get(export::<R, D, B>),
+        )
+        .admin_route(
+            &authentication,
+            "/datasets/{dataset_id}/revisions/{revision}/cases",
             get(cases::<R, D, B>),
         )
         .layer(DefaultBodyLimit::max(crate::routing::MAX_REQUEST_BYTES))

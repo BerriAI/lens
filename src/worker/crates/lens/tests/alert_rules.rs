@@ -14,7 +14,7 @@ use std::sync::Arc;
 async fn rules_can_be_added_edited_disabled_and_removed(#[future(awt)] database: Database) {
     let server = database.serve(true).await;
     let client = reqwest::Client::new();
-    let url = format!("{}/lens/alerts/rules", server.url);
+    let url = format!("{}/lens/admin/alerts/rules", server.url);
     let rules = json!([
         {"id":"short","enabled":true,"condition":{"kind":"run_duration","minutes":5}},
         {"id":"long","enabled":true,"condition":{"kind":"run_duration","minutes":20}},
@@ -88,7 +88,7 @@ async fn model_error_flows_from_ingestion_to_alert_without_a_model(
 ) {
     let server = database.serve(true).await;
     let client = reqwest::Client::new();
-    let rules_url = format!("{}/lens/alerts/rules", server.url);
+    let rules_url = format!("{}/lens/admin/alerts/rules", server.url);
     let saved = client
         .put(&rules_url)
         .bearer_auth(ADMIN)

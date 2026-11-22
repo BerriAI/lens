@@ -147,7 +147,7 @@ it("should preserve paused settings while saving a model, prompt, frequency, and
   await user.click(within(dialog).getByRole("button", { name: "Save changes" }));
   await waitFor(() =>
     expect(proxy.put).toHaveBeenCalledWith(
-      `/lens/${paused.id}`,
+      `/lens/admin/${paused.id}`,
       expect.objectContaining({
         body: expect.objectContaining({
           enabled: false,
@@ -251,7 +251,7 @@ it("should allow pausing when the saved model is no longer in the gateway catalo
   await user.click(within(dialog).getByRole("button", { name: "Save changes" }));
   await waitFor(() =>
     expect(proxy.put).toHaveBeenCalledWith(
-      `/lens/${initial.id}`,
+      `/lens/admin/${initial.id}`,
       expect.objectContaining({
         body: expect.objectContaining({
           enabled: false,
@@ -366,7 +366,7 @@ it("should expose one settings action for the agent's automatic configuration", 
   await user.click(within(dialog).getByRole("button", { name: "Save changes" }));
   await waitFor(() =>
     expect(proxy.put).toHaveBeenCalledWith(
-      `/lens/${initial.id}`,
+      `/lens/admin/${initial.id}`,
       expect.objectContaining({
         body: expect.objectContaining({ context: initial.settings.context }),
       }),

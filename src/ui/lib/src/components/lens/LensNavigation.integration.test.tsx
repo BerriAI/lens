@@ -36,14 +36,14 @@ describe("Lens navigation", () => {
             partial: 0,
             matches: [],
           });
-        if (path === "/lens/alerts/rules/overview")
+        if (path === "/lens/admin/alerts/rules/overview")
           return Response.json({
             since: new Date().toISOString(),
             limit: 500,
             truncated: false,
             matches: [],
           });
-        if (path === "/lens/alerts/rules")
+        if (path === "/lens/admin/alerts/rules")
           return Response.json({ revision: 0, rules: [] });
         if (path === "/v1/traces") return Response.json({ data: [{}] });
         if (path === "/lens") return Response.json({ lenses: [], workers: [], tracing_enabled: true });
@@ -272,7 +272,7 @@ describe("Lens navigation", () => {
             matches: [],
           }),
         );
-      if (path === "/lens/alerts/rules/overview")
+      if (path === "/lens/admin/alerts/rules/overview")
         return Promise.resolve(
           Response.json({
             since: "2026-11-20T00:00:00Z",

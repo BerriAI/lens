@@ -1,7 +1,7 @@
 {
   "request": {
     "method": "POST",
-    "path": "/lens/parity-lens/cancel",
+    "path": "/lens/admin/parity-lens/cancel",
     "headers": {
       "authorization": "Bearer {{admin_token}}",
       "content-type": "application/json"

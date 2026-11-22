@@ -10,7 +10,7 @@ use axum::{
     body::Bytes,
     extract::{DefaultBodyLimit, Path, RawQuery, State},
     http::{HeaderMap, Method},
-    routing::{get, patch, post},
+    routing::{get, patch, post, put},
 };
 use base64::{Engine, engine::general_purpose::URL_SAFE};
 use chrono::Utc;
@@ -76,27 +76,36 @@ where
 {
     Router::new()
         .public_route("/lens", get(list::<R, D, A>).post(create::<R, D, A>))
-        .public_route("/lens/watch-all", post(watch_all::<R, D, A>))
-        .public_route(
-            "/lens/{lens_id}",
-            get(read::<R, D, A>).put(update::<R, D, A>),
-        )
-        .public_route(
-            "/lens/{lens_id}/runs",
+        .admin_route(&authentication, "/watch-all", post(watch_all::<R, D, A>))
+        .public_route("/lens/{lens_id}", get(read::<R, D, A>))
+        .admin_route(&authentication, "/{lens_id}", put(update::<R, D, A>))
+        .admin_route(
+            &authentication,
+            "/{lens_id}/runs",
             get(runs::<R, D, A>).post(run::<R, D, A>),
         )
-        .public_route("/lens/{lens_id}/runs/{job_id}", get(read_run::<R, D, A>))
-        .public_route(
-            "/lens/{lens_id}/runs/{job_id}/reviews",
+        .admin_route(
+            &authentication,
+            "/{lens_id}/runs/{job_id}",
+            get(read_run::<R, D, A>),
+        )
+        .admin_route(
+            &authentication,
+            "/{lens_id}/runs/{job_id}/reviews",
             get(reviews::<R, D, A>),
         )
-        .public_route("/lens/{lens_id}/cancel", post(cancel::<R, D, A>))
+        .admin_route(
+            &authentication,
+            "/{lens_id}/cancel",
+            post(cancel::<R, D, A>),
+        )
         .public_route(
             "/lens/{lens_id}/findings/import",
             post(import::<R, D, A>).layer(DefaultBodyLimit::max(64 * 1024)),
         )
-        .public_route(
-            "/lens/{lens_id}/findings/{finding_id}",
+        .admin_route(
+            &authentication,
+            "/{lens_id}/findings/{finding_id}",
             patch(feedback::<R, D, A>),
         )
         .layer(DefaultBodyLimit::max(crate::routing::MAX_REQUEST_BYTES))
