@@ -166,11 +166,11 @@ const CODING_AGENTS: Record<
     traceName: "opencode",
     gatewayHint:
       "the baseURL and apiKey of the provider in opencode.json or ~/.config/opencode/opencode.json",
-    install: `Merge ${OPENCODE_CONFIG} into this project's opencode.json, or ~/.config/opencode/opencode.json to cover every project, keeping everything already there. Then make these environment variables present wherever opencode is started, for example in my shell profile. If OTEL_EXPORTER_OTLP_TRACES_ENDPOINT is set and points somewhere else, unset it, because that address would receive the key:`,
+    install: `Run opencode --version first. On OpenCode 1.x, merge ${OPENCODE_CONFIG} into this project's opencode.json, or ~/.config/opencode/opencode.json to cover every project, keeping everything already there. OpenCode 2 ignores that setting and needs no config change. Then, on either version, make these environment variables present wherever opencode is started, for example in my shell profile. If OTEL_EXPORTER_OTLP_TRACES_ENDPOINT is set and points somewhere else, unset it, because that address would receive the key:`,
     keyNote:
       "Where the key already sits in an environment variable, reference that variable in OTEL_EXPORTER_OTLP_HEADERS instead of copying the key.",
     caveat:
-      "Lens then shows each model call with the messages sent and the reply, and each tool step with its input and output. OpenCode does not flush telemetry on exit, so the last model call of a one-shot run can be missing, and it also sends internal spans that carry no content.",
+      "With OpenCode 1.x, Lens then shows each model call with the messages sent and the reply, and each tool step with its input and output. OpenCode 2 sends each model call with its model, tokens and cost and each tool call by name, but not the messages, replies or tool input and output, so those stay blank. OpenCode 1.x does not flush telemetry on exit, so the last model call of a one-shot run can be missing, and both versions also send internal spans that carry no content.",
     run: 'opencode run "Run the date command, then tell me what it printed."',
   },
 };

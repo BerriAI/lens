@@ -332,6 +332,10 @@ describe("agent setup prompt", () => {
     expect(prompt("opencode")).toContain(
       '{ "experimental": { "openTelemetry": true } }',
     );
+    expect(prompt("opencode")).toContain("opencode --version");
+    expect(prompt("opencode")).toContain(
+      "OpenCode 2 ignores that setting and needs no config change",
+    );
     expect(prompt("opencode")).toContain("OTEL_BSP_SCHEDULE_DELAY=1000");
     expect(prompt("opencode")).toContain("unset it");
   });
