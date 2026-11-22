@@ -2632,9 +2632,6 @@ fn session_capture_joins_native_logs_and_traces_across_turns_without_changing_sp
     "gen_ai.conversation.id",
     true,
 )]
-#[case::other_sender_opting_in("google.adk", &[("lens.session.capture", "true")], "session.id", true)]
-#[case::other_sender("google.adk", &[], "session.id", false)]
-#[case::other_sender_opting_out("google.adk", &[("lens.session.capture", "false")], "session.id", false)]
 #[case::gateway_call_naming_no_session(
     "litellm",
     &[("lens.session.attribute", "gen_ai.conversation.id")],

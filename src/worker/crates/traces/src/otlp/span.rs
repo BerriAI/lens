@@ -14,7 +14,7 @@ use super::{
 };
 use crate::{
     Error, Shared,
-    normalize::{CLAUDE_CODE_EVENTS_SCOPE, CLAUDE_CODE_SCOPE, SpanContext, normalize},
+    normalize::{SpanContext, normalize},
 };
 
 pub(super) fn flatten(
@@ -403,17 +403,9 @@ fn decoded_span(
         .get("lens.session.attribute")
         .filter(|value| !value.is_empty())
         .map_or("session.id", String::as_str);
-    let groups_by_session = matches!(
-        scope_name.as_str(),
-        CLAUDE_CODE_SCOPE | CLAUDE_CODE_EVENTS_SCOPE | "opencode"
-    ) || resource_attributes.contains_key("lens.session.attribute")
-        || resource_attributes
-            .get("lens.session.capture")
-            .is_some_and(|value| value == "true");
-    let trace_id = if groups_by_session
-        && let Some(session) = span_attributes
-            .get(session_attribute)
-            .filter(|value| !value.is_empty())
+    let trace_id = if let Some(session) = span_attributes
+        .get(session_attribute)
+        .filter(|value| !value.is_empty())
     {
         let trace_id = hex_bytes(&session_trace_id(session));
         let actor = span_attributes.get("agent_id").unwrap_or(session).clone();

@@ -620,11 +620,21 @@ async fn captured_sdk_exports_round_trip_through_clickhouse(
     #[case] export: &[u8],
 ) -> TestResult {
     let fixture = migrated_database?;
-    let decoded = insert_export(&fixture, export, "team-a", "key-a").await?;
+    let exported = insert_export(&fixture, export, "team-a", "key-a").await?;
+    let run = exported
+        .iter()
+        .find(|span| span.parent_span_id.is_empty())
+        .ok_or("missing root span")?
+        .trace_id
+        .clone();
+    let decoded = exported
+        .into_iter()
+        .filter(|span| span.trace_id == run)
+        .collect::<Vec<_>>();
     let reader = Connection::reader(&fixture.database.url, DATABASE)?;
     let params = TraceSpansParams {
         access: admin_access?,
-        trace_id: decoded[0].trace_id.clone(),
+        trace_id: run.clone(),
         trace_ref: String::new(),
     };
     let stored = fetch::<TraceSpans>(&fixture.database.client, &reader, &params).await?;
@@ -639,7 +649,11 @@ async fn captured_sdk_exports_round_trip_through_clickhouse(
         cursor_trace_id: String::new(),
         limit: 10,
     });
-    let traces = fetch::<ListTraces>(&fixture.database.client, &reader, &list_params).await?;
+    let traces = fetch::<ListTraces>(&fixture.database.client, &reader, &list_params)
+        .await?
+        .into_iter()
+        .filter(|trace| trace.0.trace_id == run)
+        .collect::<Vec<_>>();
     assert_eq!(traces.len(), 1);
     let roots = decoded
         .iter()
