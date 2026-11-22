@@ -597,7 +597,7 @@ async fn projection_advances_past_fresh_pages_and_revisits_late_updates(
         std::time::Duration::from_secs(10)).await?;
     litellm_storage_clickhouse::execute_statement(client, config.storage().writer(),
         "INSERT INTO trace_test.lens_trace_summaries (TeamId, ApiKeyHash, TraceId, TraceRef, ScopeUserId, SourceSpanCount, StartTs, ComputedAt, ResolutionVersion, SpendKeys, Summary)
-         SELECT TeamId, ApiKeyHash, TraceId, hex(SHA256(concat(TeamId, char(0), ApiKeyHash, char(0), TraceId))), '', 1, now64(3), 1, 1, [], '{}' FROM trace_test.agent_traces_by_key",
+         SELECT TeamId, ApiKeyHash, TraceId, hex(SHA256(concat(TeamId, char(0), ApiKeyHash, char(0), TraceId))), '', 1, now64(3), 1, 2, [], '{}' FROM trace_test.agent_traces_by_key",
         std::time::Duration::from_secs(10)).await?;
     let last = span("owner", "last")
         .into_iter()
