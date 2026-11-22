@@ -1393,6 +1393,91 @@ fn another_senders_internal_root_span_keeps_no_agent_name(span: Span) {
 }
 
 #[rstest]
+fn opencode_v2_model_step_is_counted_once(span: Span) {
+    let step = Span {
+        name: "SessionStep.attempt".to_owned(),
+        ..span.clone()
+    };
+    let decoded = decode_with_resource(
+        step,
+        "effect",
+        Some(&[("service.name", "opencode")]),
+        &[
+            ("gen_ai.request.model", "gpt-6.2-sol"),
+            ("gen_ai.usage.input_tokens", "11"),
+            ("gen_ai.usage.output_tokens", "4"),
+        ],
+        vec![],
+    )
+    .unwrap();
+    let step = Span {
+        name: "LLM.stream".to_owned(),
+        ..span
+    };
+    let stream = decode_with_resource(
+        step,
+        "effect",
+        Some(&[("service.name", "opencode")]),
+        &[("gen_ai.request.model", "gpt-6.2-sol")],
+        vec![],
+    )
+    .unwrap();
+
+    assert_eq!(decoded.name, "SessionStep.attempt");
+    assert_eq!(decoded.normalized.framework, Some(Integration::Opencode));
+    assert_eq!(decoded.normalized.observation_type, ObservationType::Llm);
+    assert_eq!(decoded.normalized.model.as_deref(), Some("gpt-6.2-sol"));
+    assert_eq!(decoded.normalized.input_tokens, 11);
+    assert_eq!(decoded.normalized.output_tokens, 4);
+    assert_eq!(stream.normalized.observation_type, ObservationType::Chain);
+}
+
+#[rstest]
+fn opencode_v2_tool_step_keeps_the_tool_name_and_call_id(span: Span) {
+    let step = Span {
+        name: "Tool.execute".to_owned(),
+        ..span
+    };
+    let decoded = decode_with_resource(
+        step,
+        "effect",
+        Some(&[("service.name", "opencode")]),
+        &[
+            ("gen_ai.tool.name", "shell"),
+            ("gen_ai.tool.call.id", "call_123"),
+            ("gen_ai.agent.name", "build"),
+        ],
+        vec![],
+    )
+    .unwrap();
+
+    assert_eq!(decoded.name, "shell");
+    assert_eq!(decoded.normalized.framework, Some(Integration::Opencode));
+    assert_eq!(decoded.normalized.observation_type, ObservationType::Tool);
+    assert_eq!(decoded.normalized.agent_name.as_deref(), Some("build"));
+    assert_eq!(decoded.normalized.tool_call_id.as_deref(), Some("call_123"));
+}
+
+#[rstest]
+fn effect_span_from_another_service_is_not_opencode(span: Span) {
+    let step = Span {
+        name: "SessionStep.attempt".to_owned(),
+        ..span
+    };
+    let decoded = decode_with_resource(
+        step,
+        "effect",
+        Some(&[("service.name", "other")]),
+        &[("gen_ai.request.model", "gpt-6.2-sol")],
+        vec![],
+    )
+    .unwrap();
+
+    assert_eq!(decoded.normalized.framework, None);
+    assert_eq!(decoded.normalized.observation_type, ObservationType::Chain);
+}
+
+#[rstest]
 #[case::session_title(
     r#"{"messages":[{"role":"system","content":"You are a title generator. You output ONLY a thread title."},{"role":"user","content":"Generate a title for this conversation:"}]}"#,
     ""

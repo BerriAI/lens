@@ -326,3 +326,42 @@ fn malformed_call_keys_are_rejected_at_the_boundary(#[case] encoded: &str) {
 fn call_keys_reject_non_string_json(#[case] value: Value) {
     assert!(serde_json::from_value::<litellm_traces::CallKey>(value).is_err());
 }
+
+#[rstest]
+fn opencode_v2_capture_counts_one_model_and_one_tool() {
+    let spans = decode_otlp(
+        include_bytes!("fixtures/opencode_v2.json"),
+        Some("application/json"),
+    )
+    .expect("captured OTLP export");
+    let model = spans
+        .iter()
+        .find(|span| span.attributes.contains_key("gen_ai.usage.input_tokens"))
+        .expect("model step");
+    let stream = spans
+        .iter()
+        .find(|span| {
+            span.attributes.contains_key("gen_ai.request.model")
+                && !span.attributes.contains_key("gen_ai.usage.input_tokens")
+        })
+        .expect("stream step");
+    let tool = spans
+        .iter()
+        .find(|span| span.attributes.contains_key("gen_ai.tool.name"))
+        .expect("tool step");
+
+    assert_eq!(model.normalized.observation_type, ObservationType::Llm);
+    assert_eq!(model.normalized.framework, Some(Integration::Opencode));
+    assert_eq!(model.normalized.model.as_deref(), Some("gpt-6.2-sol"));
+    assert_eq!(model.normalized.input_tokens, 7782);
+    assert_eq!(model.normalized.output_tokens, 17);
+    assert_eq!(stream.normalized.observation_type, ObservationType::Chain);
+    assert_eq!(tool.normalized.observation_type, ObservationType::Tool);
+    assert_eq!(tool.name, "shell");
+    assert!(
+        tool.normalized
+            .tool_call_id
+            .as_deref()
+            .is_some_and(|id| !id.is_empty())
+    );
+}

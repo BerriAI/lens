@@ -135,7 +135,9 @@ impl Format for GenAi {
                 tool_call_id: present(attributes, &["gen_ai.tool.call.id"]),
                 ..SpanFacts::default()
             },
-            display_name: None,
+            display_name: (!context.attributes.contains_key("gen_ai.operation.name"))
+                .then(|| present(attributes, &["gen_ai.tool.name"]))
+                .flatten(),
             consumed_attributes: [input.consumed, output.consumed]
                 .into_iter()
                 .flatten()

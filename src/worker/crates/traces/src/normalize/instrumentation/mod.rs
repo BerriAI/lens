@@ -90,11 +90,12 @@ impl Rule for OpenInference {
     }
 }
 
-const RULES: [&dyn Rule; 12] = [
+const RULES: [&dyn Rule; 13] = [
     &claude_code::ClaudeCode,
     &openai_codex::OpenaiCodex,
     &litellm_gateway::LitellmGateway,
     &opencode::Opencode,
+    &opencode::OpencodeV2,
     &hermes::Hermes,
     &OpenInference,
     &http_client::HttpClient,
