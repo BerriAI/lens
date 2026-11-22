@@ -274,6 +274,13 @@ describe("AgentTracesTable last activity column", () => {
     expect(cellUnder("Time")).toHaveTextContent(":00:00");
   });
 
+  it("puts Last Activity right after Time", () => {
+    renderRun(template, "start");
+    const headers = screen.getAllByRole("columnheader").map((cell) => cell.textContent ?? "");
+    const time = headers.findIndex((header) => header.startsWith("Time"));
+    expect(headers[time + 1]).toMatch(/^Last Activity/);
+  });
+
   it("leaves the cell blank for a summary without the field", () => {
     const { last_activity_time: _, ...run } = { ...template, last_activity_time: "" };
     renderRun(run, "start");

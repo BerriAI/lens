@@ -335,6 +335,17 @@ const RUN_COLUMNS: ColumnDef<TraceSummary>[] = [
     },
   },
   {
+    id: "lastActivity",
+    size: 170,
+    header: () => <SortHeader sort="last_activity" label="Last Activity" />,
+    cell: ({ row }) => <LastActivityCell run={row.original} />,
+    meta: {
+      title: "Last Activity",
+      className: "font-mono tabular-nums text-muted-foreground",
+      renderSkeleton: () => <Skeleton className="h-3 w-24" />,
+    },
+  },
+  {
     id: "agent",
     size: 160,
     enableHiding: false,
@@ -364,17 +375,6 @@ const RUN_COLUMNS: ColumnDef<TraceSummary>[] = [
     header: "Cost",
     cell: ({ row }) => <CostCell run={row.original} />,
     meta: { numeric: true, className: NUM },
-  },
-  {
-    id: "lastActivity",
-    size: 170,
-    header: () => <SortHeader sort="last_activity" label="Last Activity" />,
-    cell: ({ row }) => <LastActivityCell run={row.original} />,
-    meta: {
-      title: "Last Activity",
-      className: "font-mono tabular-nums text-muted-foreground",
-      renderSkeleton: () => <Skeleton className="h-3 w-24" />,
-    },
   },
   {
     id: "duration",
