@@ -107,8 +107,11 @@ impl Application {
         models.refresh().await;
         self.optimizations.configure(&models)?;
         let signals = crate::signals::SignalsWorker {
-            repository: litellm_storage_clickhouse::signals::Signals(
-                self.authentication.sessions.0.clone(),
+            repository: crate::signals::CachedSignals::new(
+                litellm_storage_clickhouse::signals::Signals(
+                    self.authentication.sessions.0.clone(),
+                ),
+                state.wake.clone(),
             ),
             sources: crate::SourceReader(state.clone()),
             models: models.clone(),
@@ -142,13 +145,29 @@ impl Application {
             token_hash,
         )
         .with_investigator_environment();
+        let wake = control.wake.clone();
         self.router = self
             .router
-            .merge(lens_server::investigations::router(
-                self.authentication.clone(),
-                control.repository.clone(),
-                Arc::new(control.clone()),
-            ))
+            .merge(
+                lens_server::investigations::router(
+                    self.authentication.clone(),
+                    control.repository.clone(),
+                    Arc::new(control.clone()),
+                )
+                .layer(axum::middleware::from_fn(
+                    move |request: axum::extract::Request, next: axum::middleware::Next| {
+                        let wake = wake.clone();
+                        async move {
+                            let write = !request.method().is_safe();
+                            let response = next.run(request).await;
+                            if write && response.status().is_success() {
+                                wake.notify();
+                            }
+                            response
+                        }
+                    },
+                )),
+            )
             .merge(lens_server::activity::router(
                 self.authentication.clone(),
                 control.repository.clone(),
@@ -160,7 +179,7 @@ impl Application {
             ))
             .merge(lens_server::signals::with_catalog(
                 self.authentication.clone(),
-                signals.repository.clone(),
+                signals.repository.uncached(),
                 models,
             ));
         self.local_worker = Some(control);

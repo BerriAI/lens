@@ -21,6 +21,19 @@ const DUE: &str = "SELECT s.key AS key, s.revision AS revision, s.digest AS dige
         (parseDateTime64BestEffort({after_time:String}, 6, 'UTC'), {after_id:String}))
     ORDER BY s.due_at, s.id LIMIT {limit:UInt32} FORMAT JSONEachRow";
 
+const NEXT_DUE: &str = "SELECT formatDateTime(min(due), '%Y-%m-%dT%H:%i:%S.%fZ', 'UTC') AS due_at
+    FROM (SELECT tupleElement(argMax(tuple(due_at), revision), 1) AS due FROM lens_schedule
+        WHERE {all_teams:Bool}=1 OR (all_teams=0 AND team_id={team_id:String}
+            AND ({team_id:String} != '' OR api_key_hash={api_key_hash:String}))
+        GROUP BY key)
+    WHERE due > parseDateTime64BestEffort({after:String}, 6, 'UTC')
+    HAVING count() > 0 FORMAT JSONEachRow";
+
+#[derive(Deserialize)]
+struct NextDue {
+    due_at: DateTime<Utc>,
+}
+
 #[derive(Deserialize)]
 struct DueHead {
     #[serde(flatten)]
@@ -78,6 +91,35 @@ impl ScheduleRepository for Investigations {
                 })
             })
             .collect()
+    }
+
+    async fn next_due(
+        &self,
+        scope: &Scope,
+        after: &DateTime<Utc>,
+    ) -> Result<Option<DateTime<Utc>>, RepositoryError> {
+        let body = self
+            .0
+            .command(
+                NEXT_DUE,
+                &[
+                    ("after", after.to_rfc3339()),
+                    ("all_teams", u8::from(scope.all_teams).to_string()),
+                    ("team_id", scope.team_id.clone()),
+                    ("api_key_hash", scope.api_key_hash.clone()),
+                ],
+                String::new(),
+            )
+            .await
+            .map_err(failure)?;
+        body.lines()
+            .next()
+            .map(|line| {
+                serde_json::from_str::<NextDue>(line)
+                    .map(|row| row.due_at)
+                    .map_err(|error| RepositoryError::Unavailable(Box::new(error)))
+            })
+            .transpose()
     }
 
     async fn sync_due(&self, lens: &Lens) -> Result<(), RepositoryError> {
