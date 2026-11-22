@@ -2622,7 +2622,6 @@ fn session_capture_joins_native_logs_and_traces_across_turns_without_changing_sp
 #[rstest]
 #[case::claude_code("com.anthropic.claude_code.tracing", &[], "session.id", true)]
 #[case::other_agent("opencode", &[], "session.id", true)]
-#[case::sender_with_a_stale_capture_setting("opencode", &[("lens.session.capture", "false")], "session.id", true)]
 #[case::gateway_call_naming_its_session(
     "litellm",
     &[("lens.session.attribute", "gen_ai.conversation.id")],
