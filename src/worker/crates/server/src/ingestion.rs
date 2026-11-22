@@ -160,7 +160,11 @@ where
             "/tracing/keys",
             get(list::<R, I, P>).post(create::<R, I, P>),
         )
-        .admin_route(&authentication, "/tracing/keys/{key_id}", delete(revoke::<R, I, P>))
+        .admin_route(
+            &authentication,
+            "/tracing/keys/{key_id}",
+            delete(revoke::<R, I, P>),
+        )
         .layer(DefaultBodyLimit::max(crate::routing::MAX_REQUEST_BYTES))
         .layer(axum::middleware::from_fn(
             crate::routing::redirect_trailing_slash,

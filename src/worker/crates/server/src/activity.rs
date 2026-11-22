@@ -70,10 +70,18 @@ where
     S: ActivityReader + 'static,
 {
     Router::new()
-        .admin_route(&authentication, "/activity/available", get(available::<R, D, S>))
+        .admin_route(
+            &authentication,
+            "/activity/available",
+            get(available::<R, D, S>),
+        )
         .admin_route(&authentication, "/agents", get(agents::<R, D, S>))
         .admin_route(&authentication, "/preview/sample", post(preview::<R, D, S>))
-        .admin_route(&authentication, "/traces/findings", post(findings::<R, D, S>))
+        .admin_route(
+            &authentication,
+            "/traces/findings",
+            post(findings::<R, D, S>),
+        )
         .admin_route(
             &authentication,
             "/{lens_id}/executions/{execution_id}",

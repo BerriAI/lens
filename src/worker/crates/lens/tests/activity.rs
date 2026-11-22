@@ -286,7 +286,12 @@ async fn an_unconfigured_model_catalog_is_empty_and_authorized(
 #[case::anonymous_refresh(None, "POST", "/lens/admin/gateway/refresh", 401)]
 #[case::team_read(Some(Role::InternalUser), "GET", "/lens/admin/gateway", 403)]
 #[case::viewer_read(Some(Role::ProxyAdminViewer), "GET", "/lens/admin/gateway", 200)]
-#[case::viewer_refresh(Some(Role::ProxyAdminViewer), "POST", "/lens/admin/gateway/refresh", 403)]
+#[case::viewer_refresh(
+    Some(Role::ProxyAdminViewer),
+    "POST",
+    "/lens/admin/gateway/refresh",
+    403
+)]
 #[case::admin_refresh(Some(Role::ProxyAdmin), "POST", "/lens/admin/gateway/refresh", 200)]
 #[tokio::test]
 async fn gateway_discovery_is_admin_only_and_status_is_viewer_readable(
