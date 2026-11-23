@@ -249,6 +249,7 @@ export function SpanHoverCard({ facts, traceStartMs, children }: SpanHoverCardPr
         align="start"
         sideOffset={0}
         alignOffset={0}
+        collisionAvoidance={{ side: "shift", align: "shift", fallbackAxisSide: "none" }}
         data-testid="span-hover-card"
         className="max-h-[min(520px,calc(100vh-16px))] w-auto max-w-[420px] overflow-y-auto rounded-md border border-trace-border bg-trace-surface p-3 text-sm leading-tight text-trace-text shadow-trace-md ring-0 transition-opacity duration-150 ease-[cubic-bezier(0,0,0.2,1)] data-closed:animate-none data-ending-style:opacity-0 data-open:animate-none motion-reduce:transition-none"
       >
