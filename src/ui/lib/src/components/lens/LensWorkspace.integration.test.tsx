@@ -77,10 +77,51 @@ it("connects gateway models on the first embedded visit before opening Settings"
     { searchParams: "?tab=traces" },
   );
   await waitFor(() => expect(connect).toHaveBeenCalledExactlyOnceWith({}));
+  expect(screen.queryByRole("region", { name: "Model gateway" })).not.toBeInTheDocument();
   fireEvent.click(screen.getByRole("tab", { name: "Settings" }));
   expect(await screen.findByText("Connected to LiteLLM")).toBeVisible();
   expect(screen.getByText("1 analysis models · 0 evaluation models")).toBeVisible();
   expect(screen.queryByRole("button", { name: "Use this LiteLLM gateway" })).not.toBeInTheDocument();
+});
+
+it("keeps a failed automatic connection in Settings and shares its retry state", async () => {
+  const user = userEvent.setup();
+  const connect = vi.fn();
+  let configured = false;
+  network.mockImplementation(async (input, init) => {
+    const request = await readRequest(input, init);
+    if (request.path === "/lens/admin/gateway/connect") {
+      connect();
+      if (connect.mock.calls.length === 1)
+        return Response.json({ detail: "The gateway could not create the Lens key" }, { status: 503 });
+      configured = true;
+    }
+    if (request.path.startsWith("/lens/admin/gateway")) return Response.json({
+      configured,
+      connected: configured,
+      supports_gateway_connect: true,
+      analysis_models: configured ? 1 : 0,
+      evaluation_models: 0,
+    });
+    if (request.path === "/lens") return Response.json({ lenses: [], workers: [], tracing_enabled: true });
+    if (request.path === "/v1/traces/agents") return Response.json({ agents: [] });
+    return defaultResponse(request.path, true);
+  });
+  renderWithProviders(
+    <LensHostProvider host={{ surface: "embedded" }}>
+      <LensWorkspace accessToken="live-token" userRole="Admin" readOnly={false} />
+    </LensHostProvider>,
+    { searchParams: "?tab=traces" },
+  );
+  await waitFor(() => expect(connect).toHaveBeenCalledOnce());
+  expect(screen.queryByRole("region", { name: "Model gateway" })).not.toBeInTheDocument();
+  await user.click(screen.getByRole("tab", { name: "Settings" }));
+  const gateway = await screen.findByRole("region", { name: "Model gateway" });
+  expect(await within(gateway).findByRole("alert")).toHaveTextContent("The gateway could not create the Lens key");
+  await user.click(within(gateway).getByRole("button", { name: "Use this LiteLLM gateway" }));
+  expect(await within(gateway).findByText("Connected to LiteLLM")).toBeVisible();
+  expect(within(gateway).queryByRole("alert")).not.toBeInTheDocument();
+  expect(connect).toHaveBeenCalledTimes(2);
 });
 
 it("opens the evidence step from an Alerts match without an overview excerpt", async () => {

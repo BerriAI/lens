@@ -4,6 +4,7 @@ import { useEffect, useRef } from "react";
 import {
   useIsMutating,
   useMutation,
+  useMutationState,
   useQuery,
   useQueryClient,
 } from "@tanstack/react-query";
@@ -45,9 +46,18 @@ export function GatewayConnection({ automatic = false }: { automatic?: boolean }
       ]);
     },
   });
+  const mutations = useMutationState({
+    filters: { mutationKey: lensKeys.gateway(api.scope), exact: true },
+    select: (mutation) => ({
+      pending: mutation.state.status === "pending",
+      connecting: mutation.state.variables === true,
+      error: mutation.state.error,
+    }),
+  });
+  const latest = mutations.at(-1);
   const status = gateway.data;
   const error =
-    refresh.error?.message ??
+    latest?.error?.message ??
     gateway.error?.message ??
     (status?.connected ? null : status?.error);
   const warning = status?.connected ? status.error : null;
@@ -66,10 +76,7 @@ export function GatewayConnection({ automatic = false }: { automatic?: boolean }
     mutate(true);
   }, [automatic, canConnect, busy, mutate]);
 
-  if (
-    automatic &&
-    (!enabled || status?.connected || (!error && !canConnect && !refresh.isPending))
-  ) return null;
+  if (automatic) return null;
 
   return (
     <SettingsSection
@@ -86,7 +93,7 @@ export function GatewayConnection({ automatic = false }: { automatic?: boolean }
             <StatusDot
               state={error ? "error" : status?.connected ? "ok" : "off"}
             />
-            {automatic && refresh.isPending
+            {latest?.pending && latest.connecting
               ? "Connecting models from this gateway…"
               : gateway.isPending
                 ? "Checking gateway…"
@@ -113,7 +120,7 @@ export function GatewayConnection({ automatic = false }: { automatic?: boolean }
                 aria-hidden="true"
                 className={`size-3.5 ${busy ? "animate-spin" : ""}`}
               />
-              {refresh.isPending ? "Refreshing…" : "Refresh models"}
+              {latest?.pending ? "Refreshing…" : "Refresh models"}
             </Button>
           )}
           {canConnect && (
@@ -122,7 +129,7 @@ export function GatewayConnection({ automatic = false }: { automatic?: boolean }
               disabled={busy}
               onClick={() => refresh.mutate(true)}
             >
-              {refresh.isPending ? "Connecting…" : "Use this LiteLLM gateway"}
+              {latest?.pending ? "Connecting…" : "Use this LiteLLM gateway"}
             </Button>
           )}
           {gateway.isError && !status && (
@@ -178,7 +185,9 @@ export function GatewayConnection({ automatic = false }: { automatic?: boolean }
               </p>
             )}
             <p className="text-xs text-muted-foreground">
-              Gateway credentials stay on the Lens server.
+              Manage model access, budgets, and rate limits in LiteLLM Virtual
+              Keys. Refresh here after adding models. Gateway credentials stay
+              on the Lens server.
             </p>
           </>
         ) : canConnect ? (
