@@ -1,6 +1,12 @@
 "use client";
 
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { useEffect, useRef } from "react";
+import {
+  useIsMutating,
+  useMutation,
+  useQuery,
+  useQueryClient,
+} from "@tanstack/react-query";
 import { Network, RefreshCw } from "lucide-react";
 import { useLensHost } from "../../../host/LensHost";
 import { hostedApiRoot } from "../../../lib/http/resolveApiBase";
@@ -11,7 +17,7 @@ import { lensKeys, lensQueries } from "../data/queries";
 import { useOnboarding } from "../onboarding/OnboardingContext";
 import { SettingsCard, SettingsSection } from "./SettingsSection";
 
-export function GatewayConnection() {
+export function GatewayConnection({ automatic = false }: { automatic?: boolean }) {
   const api = useLensApi();
   const queryClient = useQueryClient();
   const { readOnly, canInvestigate } = useOnboarding();
@@ -20,8 +26,13 @@ export function GatewayConnection() {
     host.surface === "embedded" ||
     (typeof window !== "undefined" &&
       hostedApiRoot(window.location.pathname) !== null);
-  const gateway = useQuery(lensQueries.gateway(api));
+  const enabled = !automatic || (embedded && !readOnly && canInvestigate);
+  const attempted = useRef(false);
+  const gateway = useQuery({ ...lensQueries.gateway(api), enabled });
+  const pending = useIsMutating({ mutationKey: lensKeys.gateway(api.scope) });
   const refresh = useMutation({
+    mutationKey: lensKeys.gateway(api.scope),
+    retry: false,
     mutationFn: (connect: boolean) =>
       connect ? api.connectGateway() : api.refreshGateway(),
     onSuccess: async (status) => {
@@ -40,13 +51,25 @@ export function GatewayConnection() {
     gateway.error?.message ??
     (status?.connected ? null : status?.error);
   const warning = status?.connected ? status.error : null;
-  const busy = gateway.isFetching || refresh.isPending;
+  const busy = gateway.isFetching || pending > 0;
   const canConnect =
     embedded &&
     status?.supports_gateway_connect &&
     !status.configured &&
     !readOnly &&
     canInvestigate;
+  const { mutate } = refresh;
+
+  useEffect(() => {
+    if (!automatic || !canConnect || attempted.current || busy) return;
+    attempted.current = true;
+    mutate(true);
+  }, [automatic, canConnect, busy, mutate]);
+
+  if (
+    automatic &&
+    (!enabled || status?.connected || (!error && !canConnect && !refresh.isPending))
+  ) return null;
 
   return (
     <SettingsSection
@@ -63,19 +86,21 @@ export function GatewayConnection() {
             <StatusDot
               state={error ? "error" : status?.connected ? "ok" : "off"}
             />
-            {gateway.isPending
-              ? "Checking gateway…"
-              : error
-                ? "Gateway connection unavailable"
-                : status?.connected
-                  ? "Connected to LiteLLM"
-                  : status?.configured
-                    ? "Gateway is not connected"
-                    : canConnect
-                      ? "Connect models from this gateway"
-                      : status?.login_connected
-                        ? "Connected for login, add a key for models"
-                        : "No model gateway configured"}
+            {automatic && refresh.isPending
+              ? "Connecting models from this gateway…"
+              : gateway.isPending
+                ? "Checking gateway…"
+                : error
+                  ? "Gateway connection unavailable"
+                  : status?.connected
+                    ? "Connected to LiteLLM"
+                    : status?.configured
+                      ? "Gateway is not connected"
+                      : canConnect
+                        ? "Connect models from this gateway"
+                        : status?.login_connected
+                          ? "Connected for login, add a key for models"
+                          : "No model gateway configured"}
           </p>
           {status?.configured && !readOnly && canInvestigate && (
             <Button

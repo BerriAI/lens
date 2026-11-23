@@ -48,6 +48,41 @@ beforeEach(() => {
   });
 });
 
+it("connects gateway models on the first embedded visit before opening Settings", async () => {
+  let connected = false;
+  const connect = vi.fn();
+  network.mockImplementation(async (input, init) => {
+    const request = await readRequest(input, init);
+    if (request.path === "/lens/admin/gateway/connect") {
+      connect(request.body);
+      connected = true;
+    }
+    if (request.path.startsWith("/lens/admin/gateway")) return Response.json({
+      configured: connected,
+      connected,
+      supports_gateway_connect: true,
+      api_base: connected ? "https://gateway.test/v1" : null,
+      analysis_models: connected ? 1 : 0,
+      evaluation_models: 0,
+      error: null,
+    });
+    if (request.path === "/lens") return Response.json({ lenses: [], workers: [], tracing_enabled: true });
+    if (request.path === "/v1/traces/agents") return Response.json({ agents: [] });
+    return defaultResponse(request.path, true);
+  });
+  renderWithProviders(
+    <LensHostProvider host={{ surface: "embedded" }}>
+      <LensWorkspace accessToken="live-token" userRole="Admin" readOnly={false} />
+    </LensHostProvider>,
+    { searchParams: "?tab=traces" },
+  );
+  await waitFor(() => expect(connect).toHaveBeenCalledExactlyOnceWith({}));
+  fireEvent.click(screen.getByRole("tab", { name: "Settings" }));
+  expect(await screen.findByText("Connected to LiteLLM")).toBeVisible();
+  expect(screen.getByText("1 analysis models · 0 evaluation models")).toBeVisible();
+  expect(screen.queryByRole("button", { name: "Use this LiteLLM gateway" })).not.toBeInTheDocument();
+});
+
 it("opens the evidence step from an Alerts match without an overview excerpt", async () => {
   const user = userEvent.setup();
   const { trace } = createLensDemoData().runs[0];

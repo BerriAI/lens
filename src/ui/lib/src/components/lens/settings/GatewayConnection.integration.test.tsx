@@ -6,6 +6,7 @@ import {
   within,
 } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
+import { StrictMode } from "react";
 import { beforeEach, describe, expect, it } from "vitest";
 import { renderWithLens, stubGateway } from "../../../../tests/lens-test-utils";
 import { testQueryClient } from "../../../../tests/test-utils";
@@ -399,6 +400,104 @@ describe("Gateway connection", () => {
     expect(
       screen.getByRole("button", { name: "Use this LiteLLM gateway" }),
     ).toBeEnabled();
+  });
+
+  it("should connect automatically once and update the shared model catalogue", async () => {
+    const gateway = stubGateway();
+    gateway.get.mockReturnValue({
+      ...connected,
+      configured: false,
+      connected: false,
+      supports_gateway_connect: true,
+    });
+    gateway.post.mockReturnValue(connected);
+    testQueryClient.setQueryData(lensKeys.models("test"), { data: [] });
+    testQueryClient.setQueryData(lensKeys.modelDetails("test"), { data: [] });
+    renderWithLens(
+      <StrictMode>
+        <LensHostProvider host={{ surface: "embedded" }}>
+          <GatewayConnection automatic />
+          <GatewayConnection />
+        </LensHostProvider>
+      </StrictMode>,
+    );
+
+    expect(await screen.findByText("Connected to LiteLLM")).toBeVisible();
+    expect(screen.getByText("2 analysis models · 0 evaluation models")).toBeVisible();
+    expect(gateway.post).toHaveBeenCalledTimes(1);
+    expect(gateway.post).toHaveBeenCalledWith(
+      "/lens/admin/gateway/connect",
+      expect.objectContaining({ body: {} }),
+    );
+    expect(testQueryClient.getQueryState(lensKeys.models("test"))?.isInvalidated).toBe(true);
+    expect(testQueryClient.getQueryState(lensKeys.modelDetails("test"))?.isInvalidated).toBe(true);
+  });
+
+  it("should stop automatic retries after a failure and let the administrator retry", async () => {
+    const gateway = stubGateway();
+    gateway.get.mockReturnValue({
+      ...connected,
+      configured: false,
+      connected: false,
+      supports_gateway_connect: true,
+    });
+    gateway.post.mockRejectedValueOnce(new Error("Add a model before connecting Lens"));
+    const content = (
+      <LensHostProvider host={{ surface: "embedded" }}>
+        <GatewayConnection automatic />
+        <GatewayConnection />
+      </LensHostProvider>
+    );
+    const view = renderWithLens(content);
+    expect(await screen.findByRole("alert")).toHaveTextContent("Add a model before connecting Lens");
+    view.rerender(content);
+    expect(gateway.post).toHaveBeenCalledTimes(1);
+    gateway.post.mockReturnValue(connected);
+    fireEvent.click(
+      within(screen.getAllByRole("region", { name: "Model gateway" }).at(-1)!)
+        .getByRole("button", { name: "Use this LiteLLM gateway" }),
+    );
+    expect(await screen.findByText("Connected to LiteLLM")).toBeVisible();
+    expect(screen.queryByRole("alert")).not.toBeInTheDocument();
+    expect(gateway.post).toHaveBeenCalledTimes(2);
+    expect(testQueryClient.getQueryData(lensKeys.gateway("test"))).toEqual(connected);
+  });
+
+  it.each([
+    { surface: "standalone" as const, onboarding: {} },
+    { surface: "embedded" as const, onboarding: { readOnly: true } },
+    { surface: "embedded" as const, onboarding: { canInvestigate: false } },
+  ])("should leave setup manual for %j", async ({ surface, onboarding }) => {
+    const gateway = stubGateway();
+    gateway.get.mockReturnValue({
+      ...connected,
+      configured: false,
+      connected: false,
+      supports_gateway_connect: true,
+    });
+    renderWithLens(
+      <LensHostProvider host={{ surface }}>
+        <GatewayConnection automatic />
+        <GatewayConnection />
+      </LensHostProvider>,
+      { onboarding },
+    );
+    expect(await screen.findByText("No model gateway configured")).toBeVisible();
+    expect(gateway.post).not.toHaveBeenCalled();
+  });
+
+  it("should preserve an existing gateway connection when automatic setup mounts", async () => {
+    const gateway = stubGateway();
+    gateway.get.mockReturnValue({ ...connected, supports_gateway_connect: true });
+    renderWithLens(
+      <LensHostProvider host={{ surface: "embedded" }}>
+        <GatewayConnection automatic />
+        <GatewayConnection />
+      </LensHostProvider>,
+    );
+    expect(await screen.findByText("Connected to LiteLLM")).toBeVisible();
+    expect(screen.getByText(connected.api_base!)).toBeVisible();
+    expect(gateway.post).not.toHaveBeenCalled();
   });
 
   it.each([{ readOnly: true }, { canInvestigate: false }])(
