@@ -60,9 +60,10 @@ describe("Deployment analysis setup", () => {
       expect(await screen.findByRole("heading", { name: "Analysis", exact: true })).toBeVisible();
       expect(await screen.findByRole("button", { name: "New investigation" })).toBeVisible();
       expect(screen.getByRole("list", { name: "Analysis models" })).toHaveTextContent("analysis · openai");
+      expect(await screen.findByText("No model gateway configured")).toBeVisible();
       expect(gateway.get.mock.calls.map(([path]) => path).sort()).toEqual([
         "/lens",
-        ...(host.surface === "standalone" ? ["/lens/admin/gateway"] : []),
+        "/lens/admin/gateway",
         "/lens/admin/model_group/info",
       ]);
       expect(gateway.post).not.toHaveBeenCalled();
