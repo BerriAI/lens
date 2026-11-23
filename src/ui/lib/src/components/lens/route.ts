@@ -101,11 +101,7 @@ const RESULT_PARSERS = {
 };
 
 /** A dialog opened from a list row names its investigation in `target`; inside a detail view it acts on `lens`. */
-const DIALOG_PARSERS = {
-  dialog: parseAsStringLiteral(LENS_DIALOGS),
-  target: parseAsString,
-  investigation_signal: parseAsString,
-};
+const DIALOG_PARSERS = { dialog: parseAsStringLiteral(LENS_DIALOGS), target: parseAsString };
 const PROFILE_ROUTE_PARSERS = {
   ...PROFILE_PARSERS,
   agent: RUN_FILTER_PARSERS.agent,
@@ -114,7 +110,6 @@ const PROFILE_ROUTE_PARSERS = {
   ...DIALOG_PARSERS,
   lens: LENS_PARSERS.lens,
 };
-const ALERT_ROUTE_PARSERS = { ...ALERT_PARSERS, ...PROFILE_ROUTE_PARSERS };
 
 const SESSION_PARSERS = {
   ...LENS_PARSERS,
@@ -294,17 +289,13 @@ export function useListSearchRoute(): [string, (search: string) => void] {
 }
 
 export function useDialogRoute() {
-  const [{ dialog, target, investigation_signal }, setParams] = useQueryStates(DIALOG_PARSERS, { history: "push" });
+  const [{ dialog, target }, setParams] = useQueryStates(DIALOG_PARSERS, { history: "push" });
   const openDialog = useCallback(
-    (next: LensDialog, targetId: string | null = null) =>
-      void setParams({ dialog: next, target: targetId, investigation_signal: null }),
+    (next: LensDialog, targetId: string | null = null) => void setParams({ dialog: next, target: targetId }),
     [setParams],
   );
-  const closeDialog = useCallback(
-    () => void setParams({ dialog: null, target: null, investigation_signal: null }),
-    [setParams],
-  );
-  return { dialog, target, initialSignal: investigation_signal, openDialog, closeDialog };
+  const closeDialog = useCallback(() => void setParams({ dialog: null, target: null }), [setParams]);
+  return { dialog, target, openDialog, closeDialog };
 }
 
 export function useProfileRoute() {
@@ -325,7 +316,6 @@ export function useProfileRoute() {
         dialog: "new",
         target: null,
         lens: null,
-        investigation_signal: null,
       }),
   };
 }
@@ -410,8 +400,7 @@ export function useInboxFilters() {
 }
 
 export function useAlertsRoute() {
-  const [{ alert_settings, alert_signal, alert_search, alert_hour }, setParams] =
-    useQueryStates(ALERT_ROUTE_PARSERS);
+  const [{ alert_settings, alert_signal, alert_search, alert_hour }, setParams] = useQueryStates(ALERT_PARSERS);
   return {
     settings: alert_settings,
     signal: alert_signal,
@@ -422,17 +411,6 @@ export function useAlertsRoute() {
     setSearch: (search: string) => void setParams({ alert_search: search }),
     setHour: (hour: number | null) => void setParams({ alert_hour: hour }),
     clearFilters: () => void setParams({ alert_signal: null, alert_search: null, alert_hour: null }),
-    investigateSignal: (signal: string) =>
-      void setParams({
-        investigation_signal: signal,
-        profile: null,
-        agent: null,
-        hours: 24,
-        tab: "findings",
-        dialog: "new",
-        target: null,
-        lens: null,
-      }, { history: "push" }),
   };
 }
 

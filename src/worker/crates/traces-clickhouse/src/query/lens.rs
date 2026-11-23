@@ -168,6 +168,21 @@ impl Query for TraceAgents {
 
 pub struct LensSample;
 
+impl LensSample {
+    pub fn filtered_sql(predicate: &'static str) -> String {
+        const CANDIDATES: &str = concat!(
+            include_str!("../../query/lens_eval_spend.sql"),
+            include_str!("../../query/profile_sample_candidates.sql"),
+            include_str!("../../query/trace_profiles.sql"),
+            include_str!("../../query/lens_sample.sql")
+        );
+        format!(
+            "{CANDIDATES} selected_candidates AS (SELECT * FROM sample_candidates WHERE {predicate}) {}",
+            include_str!("../../query/lens_sample_page.sql")
+        )
+    }
+}
+
 #[macro_rules_attribute::apply(crate::wire_type)]
 #[derive(Debug)]
 #[serde(deny_unknown_fields)]
@@ -261,7 +276,9 @@ impl Query for LensSample {
         include_str!("../../query/lens_eval_spend.sql"),
         include_str!("../../query/profile_sample_candidates.sql"),
         include_str!("../../query/trace_profiles.sql"),
-        include_str!("../../query/lens_sample.sql")
+        include_str!("../../query/lens_sample.sql"),
+        "selected_candidates AS (SELECT * FROM sample_candidates)",
+        include_str!("../../query/lens_sample_page.sql")
     );
 }
 
@@ -279,6 +296,8 @@ impl Query for LensSignalSample {
         include_str!("../../query/profile_sample_candidates.sql"),
         include_str!("../../query/trace_profiles.sql"),
         include_str!("../../query/lens_sample.sql"),
+        "selected_candidates AS (SELECT * FROM sample_candidates)",
+        include_str!("../../query/lens_sample_page.sql"),
         ")"
     );
 }
@@ -299,6 +318,8 @@ impl Query for LensSampleEligibility {
         include_str!("../../query/profile_sample_candidates.sql"),
         include_str!("../../query/trace_profiles.sql"),
         include_str!("../../query/lens_sample.sql"),
+        "selected_candidates AS (SELECT * FROM sample_candidates)",
+        include_str!("../../query/lens_sample_page.sql"),
         ")"
     );
 }

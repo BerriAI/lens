@@ -12,7 +12,6 @@ import {
   ComboboxEmpty,
 } from "../../../ui/combobox";
 import { Input } from "../../../ui/input";
-import { Badge } from "../../../ui/badge";
 import { SearchSelect } from "../../../shared/SearchSelect";
 import { useLensApi } from "../../data/LensServices";
 import { lensQueries } from "../../data/queries";
@@ -23,19 +22,15 @@ import { MetadataFilters } from "./MetadataFilters";
 import { ProfileField } from "./ProfileField";
 
 export function ScopeFields({ names, agentsLoading, agentsError, retryAgents, attributes, keys }: ScopeOptions) {
-  const { control, register, setValue } = useFormContext<InvestigationInput>();
+  const { control, register } = useFormContext<InvestigationInput>();
   const api = useLensApi();
   const signals = useQuery(lensQueries.signalConfig(api));
   const selection = useWatch({ control, name: "selection" });
   const configuredSignals = signals.data?.signals ?? [];
   const selectedSignal = configuredSignals.find((signal) => signal.id === selection.signal_id);
-  const signalItems = [
-    ...configuredSignals.map((signal) => ({ value: signal.id, label: signal.name })),
-    ...(selection.signal_id && !selectedSignal
-      ? [{ value: selection.signal_id, label: `${selection.signal_id} (unavailable)` }]
-      : []),
-  ];
+  const signalItems = configuredSignals.map((signal) => ({ value: signal.id, label: signal.name }));
   const filters = selection.filters ?? [];
+  const filterCount = filters.length + Number(!!selection.signal_id);
   const hasOptionalScope = !!selection.team_id || !!selection.service;
   const showAdvancedByDefault = !!selection.filters.length || hasOptionalScope || !!selection.signal_id;
   const [advanced, setAdvanced] = useState(showAdvancedByDefault);
@@ -78,18 +73,6 @@ export function ScopeFields({ names, agentsLoading, agentsError, retryAgents, at
         />
       </label>
       <ProfileField />
-      {selection.signal_id && (
-        <Badge variant="secondary" className="w-fit gap-2">
-          Signal: {selectedSignal?.name ?? selection.signal_id}
-          <button
-            type="button"
-            aria-label="Clear signal filter"
-            onClick={() => setValue("selection.signal_id", null, { shouldDirty: true })}
-          >
-            ×
-          </button>
-        </Badge>
-      )}
       {agentsError && (
         <p role="alert" className="text-sm text-destructive">
           Could not load agents.{" "}
@@ -100,7 +83,7 @@ export function ScopeFields({ names, agentsLoading, agentsError, retryAgents, at
       )}
       <details open={advanced} onToggle={(event) => setAdvanced(event.currentTarget.open)} className="group">
         <summary className="cursor-pointer text-sm font-medium">
-          Advanced filters{filters.length ? ` (${filters.length})` : ""}
+          Advanced filters{filterCount ? ` (${filterCount})` : ""}
         </summary>
         <div className="mt-4 space-y-4">
           <label className="grid gap-2 text-sm font-medium">

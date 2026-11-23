@@ -19,6 +19,8 @@ use litellm_storage_clickhouse::signals::Signals;
 use rstest::{fixture, rstest};
 use serde_json::json;
 
+const MATCH_TRACE: &str = "match 雪/'\"\\\n\0";
+
 struct Classified {
     database: Database,
     config: SignalConfig,
@@ -103,7 +105,14 @@ async fn classified(#[future(awt)] database: Database) -> Classified {
     let repository = Signals(database.sessions.clone());
     repository.save_config(&config).await.unwrap();
     let ids = [
-        "match", "second", "low", "failed", "error", "stale", "pending", "missing",
+        MATCH_TRACE,
+        "second",
+        "low",
+        "failed",
+        "error",
+        "stale",
+        "pending",
+        "missing",
     ];
     let rows = ids.into_iter().map(|id| json!({
         "Timestamp": at.to_rfc3339_opts(chrono::SecondsFormat::Nanos, true),
@@ -126,7 +135,7 @@ async fn classified(#[future(awt)] database: Database) -> Classified {
     .unwrap();
     database
         .trace_with_agent(
-            "match",
+            MATCH_TRACE,
             "beta",
             at.timestamp_nanos_opt().unwrap(),
             "support",
@@ -204,7 +213,7 @@ async fn saved_signals_filter_before_sampling_and_pagination(
     assert_eq!((first.eligible, first.selected), (2, selected));
     assert_eq!(first.executions.len(), 1);
     assert_eq!(first.executions[0].team_id, "alpha");
-    assert!(["match", "second"].contains(&first.executions[0].trace_id.as_str()));
+    assert!([MATCH_TRACE, "second"].contains(&first.executions[0].trace_id.as_str()));
     let second = classified
         .sample(&selection, preview, first.next_cursor.as_deref().unwrap())
         .await;

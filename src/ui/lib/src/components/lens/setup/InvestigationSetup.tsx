@@ -31,7 +31,7 @@ import { FINDING_PANEL_WIDTH_KEY } from "../storage";
 import type { Execution } from "./useMatchingActivity";
 import { durationLabel } from "../model/format";
 import { type Settings } from "../model/types";
-import { useDialogRoute, useProfileRoute } from "../route";
+import { useProfileRoute } from "../route";
 
 type SetupMode = "new" | "edit" | "duplicate";
 
@@ -71,16 +71,14 @@ interface SetupProps {
 export function InvestigationSetup(props: SetupProps) {
   const { initial, mode } = props;
   const profile = useProfileRoute();
-  const { initialSignal } = useDialogRoute();
   const defaults = investigationDefaults(initial, mode);
   const form = useZodForm(investigationSchema, {
-    defaultValues: mode === "new" && (profile.profile || initialSignal) ? {
+    defaultValues: mode === "new" && profile.profile ? {
       ...defaults,
       selection: {
         ...defaults.selection,
         source: "traces",
         profile: profile.profile,
-        signal_id: initialSignal,
         agent_name: profile.agent,
         lookback_hours: profile.hours,
       },

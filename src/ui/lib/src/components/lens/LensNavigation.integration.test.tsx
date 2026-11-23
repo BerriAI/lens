@@ -243,34 +243,6 @@ describe("Lens navigation", () => {
     );
   });
 
-  it("opens an investigation with the selected model signal from Alerts", async () => {
-    const user = userEvent.setup();
-    const onUrlUpdate = vi.fn();
-    const original = vi.mocked(fetch).getMockImplementation()!;
-    vi.mocked(fetch).mockImplementation((input, init) =>
-      requestPath(input) === "/lens/admin/signals/overview"
-        ? Promise.resolve(Response.json({
-            since: new Date().toISOString(), limit: 500, truncated: false,
-            evaluated: 1, failed: 0, partial: 0,
-            matches: [{
-              trace_id: "run", trace_ref: "ref", classified_at: new Date().toISOString(),
-              flags: [{ signal_id: "custom_task_failed", name: "Task not completed", score: 0.9 }],
-            }],
-          }))
-        : original(input, init),
-    );
-    renderWithProviders(<LensWorkspace {...admin} />, {
-      searchParams: "?tab=alerts&alert_signal=custom_task_failed&profile=old-profile&agent=old-agent",
-      onUrlUpdate,
-    });
-    await user.click(await screen.findByRole("button", { name: "Investigate signal" }));
-    await waitFor(() => expect(Object.fromEntries(onUrlUpdate.mock.lastCall?.[0].searchParams)).toMatchObject({
-      tab: "findings", dialog: "new", investigation_signal: "custom_task_failed",
-    }));
-    expect(onUrlUpdate.mock.lastCall?.[0].searchParams.has("profile")).toBe(false);
-    expect(onUrlUpdate.mock.lastCall?.[0].searchParams.has("agent")).toBe(false);
-  });
-
   it("opens rule configuration directly from a link", async () => {
     renderWithProviders(<LensWorkspace {...admin} />, {
       searchParams: "?tab=alerts&alert_settings=rules",

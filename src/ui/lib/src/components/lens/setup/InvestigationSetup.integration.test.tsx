@@ -89,11 +89,10 @@ describe("Investigation setup", () => {
     await user.click(screen.getByRole("button", { name: "Clear", exact: true }));
     expect(await screen.findByText("47 matching runs")).toBeVisible();
     expect(signal).toHaveValue("");
-    expect(screen.queryByText("Signal: Task not completed")).not.toBeInTheDocument();
     await chooseSelectOption(user, signal, "Task not completed");
     expect(await screen.findByText("8 matching runs")).toBeVisible();
-    await user.click(screen.getByText("Advanced filters"));
-    expect(screen.getByText("Signal: Task not completed")).toBeVisible();
+    await user.click(screen.getByText("Advanced filters (1)"));
+    expect(screen.getByText("Advanced filters (1)")).toBeVisible();
     await user.click(screen.getByRole("button", { name: "Continue" }));
     await user.click(screen.getByRole("button", { name: "Continue" }));
     await waitFor(() => expect(screen.getByRole("button", { name: "Save changes" })).toBeEnabled());
@@ -101,30 +100,6 @@ describe("Investigation setup", () => {
     expect(save).toHaveBeenCalledWith(expect.objectContaining({
       signal_id: "custom_task_failed", profile: undefined, filters: [], checks: settings.checks,
     }));
-  });
-
-  it("prefills a signal from Alerts and lets the active chip clear the filter", async () => {
-    const user = userEvent.setup();
-    proxy.get.mockImplementation(async (path) =>
-      path === "/lens/admin/signals"
-        ? { model: "judge", threshold: 0.8, signals: [{ id: "custom_task_failed", name: "Task not completed", question: "Was the task incomplete?" }] }
-        : gatewayResponse(path, {}),
-    );
-    proxy.post.mockImplementation(async (path, options) => {
-      if (path === "/v1/traces/query") return { data: [] };
-      const body = options.body as { selection: Settings };
-      const count = body.selection.signal_id ? 8 : 47;
-      return { eligible: count, selected: count, executions: [] };
-    });
-    renderWithProviders(<InvestigationSetup mode="new" onClose={vi.fn()} onSave={vi.fn()} />, {
-      searchParams: "?dialog=new&investigation_signal=custom_task_failed",
-    });
-    expect(await screen.findByText("8 matching runs")).toBeVisible();
-    expect(screen.getByRole("combobox", { name: "Signal result (optional)" })).toHaveValue("Task not completed");
-    await user.click(screen.getByText("Advanced filters"));
-    await user.click(screen.getByRole("button", { name: "Clear signal filter" }));
-    expect(await screen.findByText("47 matching runs")).toBeVisible();
-    expect(screen.queryByText("Signal: Task not completed")).not.toBeInTheDocument();
   });
 
   it.each(["Coding", "Unclassified"])("previews and saves the selected %s profile without converting it to metadata conditions", async (category) => {
