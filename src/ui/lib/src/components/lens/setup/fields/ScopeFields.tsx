@@ -13,7 +13,7 @@ import {
 } from "../../../ui/combobox";
 import { Input } from "../../../ui/input";
 import { Badge } from "../../../ui/badge";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "../../../ui/select";
+import { SearchSelect } from "../../../shared/SearchSelect";
 import { useLensApi } from "../../data/LensServices";
 import { lensQueries } from "../../data/queries";
 import type { InvestigationInput } from "../investigationSchema";
@@ -30,7 +30,6 @@ export function ScopeFields({ names, agentsLoading, agentsError, retryAgents, at
   const configuredSignals = signals.data?.signals ?? [];
   const selectedSignal = configuredSignals.find((signal) => signal.id === selection.signal_id);
   const signalItems = [
-    { value: "", label: "All runs" },
     ...configuredSignals.map((signal) => ({ value: signal.id, label: signal.name })),
     ...(selection.signal_id && !selectedSignal
       ? [{ value: selection.signal_id, label: `${selection.signal_id} (unavailable)` }]
@@ -105,25 +104,20 @@ export function ScopeFields({ names, agentsLoading, agentsError, retryAgents, at
         </summary>
         <div className="mt-4 space-y-4">
           <label className="grid gap-2 text-sm font-medium">
-            Signal result
+            Signal result (optional)
             <Controller
               control={control}
               name="selection.signal_id"
               render={({ field }) => (
-                <Select
-                  items={signalItems}
-                  value={field.value ?? ""}
-                  onValueChange={(value: string | null) => field.onChange(value || null)}
-                >
-                  <SelectTrigger aria-label="Signal result" className="w-full bg-background">
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {signalItems.map((item) => (
-                      <SelectItem key={item.value} value={item.value}>{item.label}</SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+                <SearchSelect
+                  aria-label="Signal result (optional)"
+                  options={signalItems}
+                  value={field.value}
+                  onValueChange={field.onChange}
+                  placeholder="All runs"
+                  emptyText={signals.isPending ? "Loading signals…" : "No matching signals"}
+                  className="h-9"
+                />
               )}
             />
             <span className="text-xs font-normal text-muted-foreground">
@@ -132,9 +126,11 @@ export function ScopeFields({ names, agentsLoading, agentsError, retryAgents, at
                 : signals.error
                   ? "Could not load signals from Alerts. Your selected filter is preserved."
                   : selection.signal_id && !selectedSignal
-                    ? "This signal is no longer configured in Alerts. Choose another signal or all runs."
+                    ? "This signal is no longer configured in Alerts. Choose another signal or clear the filter."
                     : configuredSignals.length
-                      ? "Uses saved results for signals configured in Alerts, at the current alert threshold."
+                      ? selection.signal_id
+                        ? "Uses saved results for signals configured in Alerts, at the current alert threshold."
+                        : "Leave empty to include all runs in your selected scope."
                       : "Configure model signals in Alerts to filter runs by their saved results."}
             </span>
           </label>

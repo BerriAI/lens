@@ -81,7 +81,16 @@ describe("Investigation setup", () => {
     renderWithProviders(<InvestigationSetup mode="edit" initial={settings} onClose={vi.fn()} onSave={save} />);
     expect(await screen.findByText("47 matching runs")).toBeVisible();
     await user.click(screen.getByText("Advanced filters"));
-    await chooseSelectOption(user, screen.getByRole("combobox", { name: "Signal result" }), "Task not completed");
+    const signal = screen.getByRole("combobox", { name: "Signal result (optional)" });
+    expect(signal).toHaveValue("");
+    expect(signal).toHaveAttribute("placeholder", "All runs");
+    await chooseSelectOption(user, signal, "Task not completed");
+    expect(await screen.findByText("8 matching runs")).toBeVisible();
+    await user.click(screen.getByRole("button", { name: "Clear", exact: true }));
+    expect(await screen.findByText("47 matching runs")).toBeVisible();
+    expect(signal).toHaveValue("");
+    expect(screen.queryByText("Signal: Task not completed")).not.toBeInTheDocument();
+    await chooseSelectOption(user, signal, "Task not completed");
     expect(await screen.findByText("8 matching runs")).toBeVisible();
     await user.click(screen.getByText("Advanced filters"));
     expect(screen.getByText("Signal: Task not completed")).toBeVisible();
@@ -111,7 +120,7 @@ describe("Investigation setup", () => {
       searchParams: "?dialog=new&investigation_signal=custom_task_failed",
     });
     expect(await screen.findByText("8 matching runs")).toBeVisible();
-    expect(screen.getByRole("combobox", { name: "Signal result" })).toHaveTextContent("Task not completed");
+    expect(screen.getByRole("combobox", { name: "Signal result (optional)" })).toHaveValue("Task not completed");
     await user.click(screen.getByText("Advanced filters"));
     await user.click(screen.getByRole("button", { name: "Clear signal filter" }));
     expect(await screen.findByText("47 matching runs")).toBeVisible();
