@@ -13,10 +13,11 @@ export function McpConnection() {
   const embedded = useLensHost().surface !== "standalone";
   const [guide, setGuide] = useState<ReturnType<typeof mcpConnectionGuide> | null>(null);
   useEffect(() => {
+    const base = getRequestBaseUrl();
     setGuide(
       mcpConnectionGuide(
-        getRequestBaseUrl() || window.location.origin,
-        hostedApiRoot(window.location.pathname),
+        /^https?:\/\//.test(base) ? base : `${window.location.origin}${base}`,
+        embedded ? null : hostedApiRoot(window.location.pathname),
         embedded,
       ),
     );
