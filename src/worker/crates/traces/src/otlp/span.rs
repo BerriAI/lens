@@ -46,7 +46,7 @@ pub(super) fn flatten_with_existing_budget(
 }
 
 fn append_resource(
-    resource: ResourceSpans,
+    mut resource: ResourceSpans,
     budget: &mut Budget,
     spans: &mut Vec<DecodedSpan>,
 ) -> Result<(), Error> {
@@ -57,6 +57,7 @@ fn append_resource(
             .unwrap_or_default(),
         budget,
     )?);
+    stamp_openai_agents_sessions(&mut resource.scope_spans);
     for scope in resource.scope_spans {
         append_scope(scope, &attributes, budget, spans)?;
     }
@@ -132,6 +133,8 @@ fn has_attr(span: &Span, key: &str) -> bool {
     span.attributes.iter().any(|entry| entry.key == key)
 }
 
+const OPENAI_AGENTS_SCOPE: &str = "openinference.instrumentation.openai_agents";
+const SESSION: &str = "session.id";
 const CODEX_SPAN_SCOPES: [&str; 3] = ["codex_cli_rs", "codex-app-server", "codex_exec"];
 const CODEX_LOG_SCOPE: &str = "codex_otel.log_only";
 const CODEX_CONVERSATION: &str = "conversation.id";
@@ -167,6 +170,37 @@ fn stamp_codex_conversations(spans: &mut [Span]) {
         {
             span.attributes
                 .push(string_attr(CODEX_CONVERSATION, conversation.clone()));
+        }
+    }
+}
+
+/// The OpenAI Agents SDK's `group_id` reaches only the root span of a run, and the HTTP client
+/// spans below a model call never name a session, so every span of a run takes the session its
+/// trace recorded.
+fn stamp_openai_agents_sessions(scopes: &mut [ScopeSpans]) {
+    let sessions: BTreeMap<Vec<u8>, String> = scopes
+        .iter()
+        .filter(|scope| {
+            scope
+                .scope
+                .as_ref()
+                .is_some_and(|scope| scope.name == OPENAI_AGENTS_SCOPE)
+        })
+        .flat_map(|scope| scope.spans.iter().rev())
+        .filter_map(|span| {
+            raw_attr(span, SESSION)
+                .filter(|session| !session.is_empty())
+                .map(|session| (span.trace_id.clone(), session.to_owned()))
+        })
+        .collect();
+    if sessions.is_empty() {
+        return;
+    }
+    for span in scopes.iter_mut().flat_map(|scope| scope.spans.iter_mut()) {
+        if !has_attr(span, SESSION)
+            && let Some(session) = sessions.get(&span.trace_id)
+        {
+            span.attributes.push(string_attr(SESSION, session.clone()));
         }
     }
 }
