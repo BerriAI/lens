@@ -16,7 +16,8 @@ export function McpConnection() {
     setGuide(
       mcpConnectionGuide(
         getRequestBaseUrl() || window.location.origin,
-        embedded || hostedApiRoot(window.location.pathname) !== null,
+        hostedApiRoot(window.location.pathname),
+        embedded,
       ),
     );
   }, [embedded]);

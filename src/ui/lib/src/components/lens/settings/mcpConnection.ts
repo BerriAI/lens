@@ -1,3 +1,5 @@
+import { hostedApiPath } from "../../../lib/http/resolveApiBase";
+
 export const MCP_DOCS_URL = "https://docs.litellm.ai/docs/proxy/lens/mcp";
 
 export interface McpConnectionGuide {
@@ -7,8 +9,10 @@ export interface McpConnectionGuide {
   readonly codex: string;
 }
 
-export function mcpConnectionGuide(origin: string, throughGateway: boolean): McpConnectionGuide {
-  const url = `${origin.replace(/\/+$/, "")}/lens/mcp`;
+export function mcpConnectionGuide(origin: string, hostedRoot: string | null, embedded: boolean): McpConnectionGuide {
+  const throughGateway = embedded || hostedRoot !== null;
+  const path = hostedRoot === null ? "/lens/mcp" : hostedApiPath(hostedRoot, "/lens/mcp");
+  const url = `${origin.replace(/\/+$/, "")}${path}`;
   const variable = throughGateway ? "LITELLM_API_KEY" : "LENS_ADMIN_TOKEN";
   return {
     url,
