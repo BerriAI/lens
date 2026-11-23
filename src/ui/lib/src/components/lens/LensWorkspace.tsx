@@ -20,6 +20,7 @@ import { browserDemoStorage } from "./data/demo/storage";
 import { ModelOptimizations } from "./optimizations/ModelOptimizations";
 import { lensQueries } from "./data/queries";
 import { LensSidebar } from "./LensSidebar";
+import { GatewayFrameNavigation } from "./GatewayFrameNavigation";
 import { FindingsView } from "./investigations/FindingsView";
 import { InvestigationsView } from "./investigations/InvestigationsView";
 import { investigationActivity, listPollInterval } from "./model/status";
@@ -214,13 +215,24 @@ function LensContent({ userRole, readOnly }: Omit<WorkspaceProps, "accessToken">
             onValueChange={(value) => navigate(value as LensTab)}
             className="@container/lens-frame flex min-h-0 min-w-0 flex-1 gap-0"
           >
-            <LensSidebar
-              agents={agents}
-              activity={activity}
-              workers={workers}
-              canViewAlerts={canViewAlerts}
-              onNavigate={navigate}
-            />
+            {host.gatewayFrameNavigation ? (
+              <GatewayFrameNavigation
+                activeTab={activeTab}
+                agents={agents}
+                activity={activity}
+                workers={workers}
+                canViewAlerts={canViewAlerts}
+                onNavigate={navigate}
+              />
+            ) : (
+              <LensSidebar
+                agents={agents}
+                activity={activity}
+                workers={workers}
+                canViewAlerts={canViewAlerts}
+                onNavigate={navigate}
+              />
+            )}
             <div className={cn("flex min-h-0 min-w-0 flex-1 flex-col", !embedded && "lens-workspace-paper")}>
               {embedded ? (
                 <header

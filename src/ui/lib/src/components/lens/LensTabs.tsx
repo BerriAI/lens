@@ -28,7 +28,7 @@ interface LensTabsProps {
   readonly canViewAlerts: boolean;
 }
 
-const NAVIGATION_ITEMS = [
+export const NAVIGATION_ITEMS = [
   { value: "home", label: "Home", icon: House },
   { value: "agents", label: "Agents", icon: Bot },
   { value: "traces", label: "Traces", icon: Activity },

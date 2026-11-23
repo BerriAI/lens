@@ -2,6 +2,7 @@
 
 import { useEffect, useState, type FormEvent } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { useTheme } from "next-themes";
 import { parseAsBoolean, useQueryState } from "nuqs";
 import { z } from "zod";
 import {
@@ -185,10 +186,16 @@ function Surface({
   readOnly: boolean;
   user?: LensHost["user"];
 }) {
+  const { forcedTheme } = useTheme();
   return (
     <div className="flex h-dvh min-h-0 flex-col">
       <LensHostProvider
-        host={{ analysis: "deployment", surface: "standalone", user }}
+        host={{
+          analysis: "deployment",
+          surface: "standalone",
+          gatewayFrameNavigation: Boolean(forcedTheme),
+          user,
+        }}
       >
         <LensWorkspace accessToken="" userRole={userRole} readOnly={readOnly} />
       </LensHostProvider>
