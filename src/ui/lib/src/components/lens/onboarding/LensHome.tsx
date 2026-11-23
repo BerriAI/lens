@@ -64,7 +64,7 @@ const PATHS: readonly {
 
 const MANUAL_TARGET: Record<SetupAgent, string> = {
   "claude-code":
-    "Export these in the terminal where you run claude, or add each one as a string entry in the env object in ~/.claude/settings.json.",
+    "Run these in a terminal where ANTHROPIC_AUTH_TOKEN holds your LiteLLM key. They install the Lens plugin for Claude Code, which records each session after its next turn.",
   codex:
     "Run these in a terminal where LITELLM_API_KEY holds your LiteLLM key. They install the Lens plugin for Codex and start recording.",
   opencode:
@@ -428,7 +428,7 @@ export function LensHome({
                               gatewayUrl || "<your LiteLLM gateway address>",
                               agent === "codex"
                                 ? "LITELLM_API_KEY"
-                                : "<your LiteLLM key>",
+                                : "ANTHROPIC_AUTH_TOKEN",
                               "shell",
                             )
                       }

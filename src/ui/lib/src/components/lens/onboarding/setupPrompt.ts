@@ -73,21 +73,6 @@ export const SETUP_AGENTS: readonly {
   { id: "opencode", label: "OpenCode" },
 ];
 
-const CLAUDE_CODE_TELEMETRY: readonly string[] = [
-  "CLAUDE_CODE_ENABLE_TELEMETRY=1",
-  "CLAUDE_CODE_ENHANCED_TELEMETRY_BETA=1",
-  "CLAUDE_CODE_PROPAGATE_TRACEPARENT=1",
-  "OTEL_TRACES_EXPORTER=otlp",
-  "OTEL_LOGS_EXPORTER=otlp",
-  "OTEL_EXPORTER_OTLP_PROTOCOL=http/protobuf",
-  "OTEL_LOG_USER_PROMPTS=1",
-  "OTEL_LOG_ASSISTANT_RESPONSES=1",
-  "OTEL_LOG_TOOL_DETAILS=1",
-  "OTEL_LOG_TOOL_CONTENT=1",
-  "OTEL_LOG_RAW_API_BODIES=1",
-  "CLAUDE_CODE_OTEL_CONTENT_MAX_LENGTH=16777216",
-];
-
 export function agentTelemetrySettings(
   agent: SetupAgent,
   address: string,
@@ -101,14 +86,17 @@ export function agentTelemetrySettings(
       `bash "$(ls -d "\${CODEX_HOME:-$HOME/.codex}"/plugins/cache/berriai-lens/litellm-lens/*/ | tail -1)scripts/run.sh" setup --url ${address} --key-env ${key} --agent-name codex-cli`,
     ].join("\n");
   }
+  if (agent === "claude-code") {
+    return [
+      "claude plugin marketplace add BerriAI/litellm-lens-plugins",
+      `claude plugin install litellm-lens@berriai-lens --config lens_url=${address} --config lens_key="$${key}"`,
+    ].join("\n");
+  }
   const exporter = [
     `OTEL_EXPORTER_OTLP_ENDPOINT=${address}`,
     `OTEL_EXPORTER_OTLP_HEADERS=Authorization=Bearer ${key}`,
   ];
-  const settings =
-    agent === "claude-code"
-      ? [...CLAUDE_CODE_TELEMETRY, ...exporter]
-      : [...exporter, "OTEL_BSP_SCHEDULE_DELAY=1000"];
+  const settings = [...exporter, "OTEL_BSP_SCHEDULE_DELAY=1000"];
   if (format === "list") return settings.join("\n");
   return settings
     .map((setting) => {
@@ -151,11 +139,11 @@ const CODING_AGENTS: Record<
     gatewayHint:
       "ANTHROPIC_BASE_URL and ANTHROPIC_AUTH_TOKEN in the shell or in the env object of ~/.claude/settings.json",
     install:
-      "Add these as string entries to the env object in my user-level ~/.claude/settings.json, keeping everything already there:",
+      "Install the LiteLLM Lens plugin for Claude Code by running these two commands in order. If the plugin litellm-lens@berriai-lens is already installed, run claude plugin uninstall litellm-lens@berriai-lens first, because installing again does not change its saved address and key. The plugin sends nothing while CLAUDE_CODE_ENABLE_TELEMETRY and CLAUDE_CODE_ENHANCED_TELEMETRY_BETA are both set, so that a session is never recorded twice. If both are set in the shell or in the env object of ~/.claude/settings.json, tell me that the plugin stays off until they are removed and ask whether to remove them; change nothing there without my answer:",
     keyNote:
-      "settings.json does not expand variables, so write the key's actual value into OTEL_EXPORTER_OTLP_HEADERS and never a ${...} reference. Do not add or change any other entry.",
+      "The second command reads the key from an environment variable, so the key itself is never typed or printed. If the key is not in that variable, set it for that one command only. The plugin needs python3 on the PATH and macOS or Linux. If one of these is missing, stop and tell me instead of configuring something else.",
     caveat:
-      "Lens then shows each turn, each tool step with its arguments and output, and each model call with its request and reply.",
+      "Lens then shows one trace per Claude Code session, with each turn's prompt and reply, each tool step with its arguments and output, including failed tools, and each model call with its tokens and reply. A model call shows its cost when Claude Code's model calls go through the LiteLLM gateway, and never its full request. The plugin sends in the background after each turn and prints nothing; if no trace arrives, read last_error.txt in ~/.claude/plugins/data/litellm-lens-berriai-lens.",
     run: 'claude -p "Reply with exactly: Lens telemetry check."',
   },
   codex: {
@@ -220,7 +208,7 @@ export function agentTracingPrompt({
       ? `Connect ${label} on this machine to Lens through my LiteLLM gateway, so its sessions are recorded as traces.`
       : `Connect ${label} on this machine to standalone Lens, so its sessions are recorded as traces.`,
     gateway
-      ? `${label}'s model calls go through a LiteLLM gateway that is connected to Lens. ${label} sends its telemetry to that same gateway with the same LiteLLM key it already uses for model calls, and the gateway forwards it to Lens. Do not create or use a Lens tracing key, and do not send telemetry to Lens directly.`
+      ? `${label}'s model calls go through a LiteLLM gateway that is connected to Lens. ${agent === "opencode" ? `${label} sends its telemetry` : `The Lens plugin for ${label} sends each session`} to that same gateway with the same LiteLLM key it already uses for model calls, and the gateway forwards it to Lens. Do not create or use a Lens tracing key, and do not send telemetry to Lens directly.`
       : `${label} sends its telemetry straight to Lens with a dedicated Lens tracing key. Do not add or change a LiteLLM gateway. Leave its model provider, model credentials and login as they are.`,
     gateway
       ? `${address ? `LiteLLM gateway address: ${JSON.stringify(address)}. Confirm ${label}'s model calls already use it` : `Find the LiteLLM gateway address ${label} already uses for model calls`}: look at ${gatewayHint}. If its model calls do not go through a LiteLLM gateway, stop and tell me to choose Standalone Lens on Lens Home instead.`
@@ -250,11 +238,13 @@ export function agentTracingPrompt({
       agentTelemetrySettings(
         agent,
         address ?? `<${addressName}>`,
-        agent !== "codex"
+        agent === "opencode"
           ? `<${keyName}>`
-          : gateway
-            ? "<the variable that holds the LiteLLM key>"
-            : "LITELLM_TRACING_KEY",
+          : !gateway
+            ? "LITELLM_TRACING_KEY"
+            : agent === "codex"
+              ? "<the variable that holds the LiteLLM key>"
+              : "ANTHROPIC_AUTH_TOKEN",
       ),
       keyNote,
     ].join("\n\n"),
