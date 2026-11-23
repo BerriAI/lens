@@ -4,11 +4,11 @@ This chart installs the complete Lens API, UI and investigation runtime with Cli
 
 For optional help from your coding agent, use [Set it up for me](../../docs/setup-with-agent.md). Include that this deployment uses Helm; there are separate prompts for an existing gateway and external ClickHouse
 
-Install the public Lens 0.3.0 chart. It pulls the release image by digest without a source checkout or build. Your cluster needs a default StorageClass, or set `clickhouse.storageClassName` explicitly. On EKS, install the [EBS CSI driver add-on](https://docs.aws.amazon.com/eks/latest/userguide/ebs-csi.html) and configure a StorageClass first
+Install the public Lens 0.4.0 chart. It pulls the release image by digest without a source checkout or build. Your cluster needs a default StorageClass, or set `clickhouse.storageClassName` explicitly. On EKS, install the [EBS CSI driver add-on](https://docs.aws.amazon.com/eks/latest/userguide/ebs-csi.html) and configure a StorageClass first
 
 ```sh
 helm upgrade --install lens oci://ghcr.io/berriai/charts/lens \
-  --version 0.3.0 --namespace lens --create-namespace --wait --timeout 10m
+  --version 0.4.0 --namespace lens --create-namespace --wait --timeout 10m
 kubectl --namespace lens port-forward service/lens 4318:4318
 ```
 

@@ -2,7 +2,7 @@ name: lens
 
 services:
   credentials:
-    image: ${LENS_IMAGE:-ghcr.io/berriai/lens:0.3.0}
+    image: ${LENS_IMAGE:-ghcr.io/berriai/lens:0.4.0}
     user: "0:0"
     entrypoint:
       - sh
@@ -35,7 +35,7 @@ services:
     restart: "no"
 
   lens:
-    image: ${LENS_IMAGE:-ghcr.io/berriai/lens:0.3.0}
+    image: ${LENS_IMAGE:-ghcr.io/berriai/lens:0.4.0}
     env_file:
       - path: .env
         required: false
