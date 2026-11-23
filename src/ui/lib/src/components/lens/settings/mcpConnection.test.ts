@@ -1,30 +1,35 @@
 import { describe, expect, it } from "vitest";
-import { mcpConnectionGuide } from "./mcpConnection";
+import { mcpConnectionGuides } from "./mcpConnection";
 
-describe("mcpConnectionGuide", () => {
-  it("should point both agents at the gateway with a LiteLLM key when Lens is served through it", () => {
-    const guide = mcpConnectionGuide("https://gateway.example.test/", null, true);
+describe("mcpConnectionGuides", () => {
+  it("should lead with the gateway address and a LiteLLM key when Lens is served through it", () => {
+    const [gateway, direct] = mcpConnectionGuides("https://gateway.example.test/", null, true);
 
-    expect(guide.url).toBe("https://gateway.example.test/lens/mcp");
-    expect(guide.claudeCode).toContain(`lens ${guide.url}`);
-    expect(guide.claudeCode).toContain('"Authorization: Bearer $LITELLM_API_KEY"');
-    expect(guide.codex).toBe(`codex mcp add lens --url ${guide.url} --bearer-token-env-var LITELLM_API_KEY`);
-    expect(guide.credential).toContain("LiteLLM key");
+    expect(gateway.id).toBe("gateway");
+    expect(gateway.url).toBe("https://gateway.example.test/lens/mcp");
+    expect(gateway.claudeCode).toContain(`lens ${gateway.url}`);
+    expect(gateway.claudeCode).toContain('"Authorization: Bearer $LITELLM_API_KEY"');
+    expect(gateway.codex).toBe(`codex mcp add lens --url ${gateway.url} --bearer-token-env-var LITELLM_API_KEY`);
+    expect(gateway.credential).toContain("no admin token");
+    expect(direct.id).toBe("direct");
+    expect(direct.url).toBe("https://<your-lens-address>/lens/mcp");
+    expect(direct.codex).toContain("--bearer-token-env-var LENS_ADMIN_TOKEN");
   });
 
-  it("should use the Lens admin token when Lens is opened directly", () => {
-    const guide = mcpConnectionGuide("http://localhost:4318", null, false);
+  it("should lead with the Lens address and the admin token when Lens is opened directly", () => {
+    const [direct, gateway] = mcpConnectionGuides("http://localhost:4318", null, false);
 
-    expect(guide.url).toBe("http://localhost:4318/lens/mcp");
-    expect(guide.claudeCode).toContain('"Authorization: Bearer $LENS_ADMIN_TOKEN"');
-    expect(guide.codex).toContain("--bearer-token-env-var LENS_ADMIN_TOKEN");
-    expect(guide.credential).toContain("LENS_ADMIN_TOKEN");
+    expect(direct.id).toBe("direct");
+    expect(direct.url).toBe("http://localhost:4318/lens/mcp");
+    expect(direct.claudeCode).toContain('"Authorization: Bearer $LENS_ADMIN_TOKEN"');
+    expect(gateway.url).toBe("https://<your-litellm-gateway>/lens/mcp");
+    expect(gateway.codex).toContain("--bearer-token-env-var LITELLM_API_KEY");
   });
 
   it("should keep the gateway's root path when it serves Lens under one", () => {
-    const guide = mcpConnectionGuide("https://gateway.example.test", "/litellm/lens", false);
+    const [gateway] = mcpConnectionGuides("https://gateway.example.test", "/litellm/lens", false);
 
-    expect(guide.url).toBe("https://gateway.example.test/litellm/lens/mcp");
-    expect(guide.codex).toContain("--bearer-token-env-var LITELLM_API_KEY");
+    expect(gateway.id).toBe("gateway");
+    expect(gateway.url).toBe("https://gateway.example.test/litellm/lens/mcp");
   });
 });

@@ -6,16 +6,16 @@ import { useLensHost } from "../../../host/LensHost";
 import { hostedApiRoot } from "../../../lib/http/resolveApiBase";
 import { getRequestBaseUrl } from "../../../lib/http/runtime";
 import { CodeBlock } from "../onboarding/tracing/TracingSetupCard";
-import { MCP_DOCS_URL, mcpConnectionGuide } from "./mcpConnection";
+import { MCP_DOCS_URL, type McpConnectionGuide, mcpConnectionGuides } from "./mcpConnection";
 import { SettingsCard, SettingsSection } from "./SettingsSection";
 
 export function McpConnection() {
   const embedded = useLensHost().surface !== "standalone";
-  const [guide, setGuide] = useState<ReturnType<typeof mcpConnectionGuide> | null>(null);
+  const [guides, setGuides] = useState<readonly McpConnectionGuide[]>([]);
   useEffect(() => {
     const base = getRequestBaseUrl();
-    setGuide(
-      mcpConnectionGuide(
+    setGuides(
+      mcpConnectionGuides(
         /^https?:\/\//.test(base) ? base : `${window.location.origin}${base}`,
         embedded ? null : hostedApiRoot(window.location.pathname),
         embedded,
@@ -42,16 +42,17 @@ export function McpConnection() {
             <ArrowUpRight aria-hidden="true" className="size-3" />
           </a>
         </div>
-        {guide && (
-          <>
+        {guides.map((guide) => (
+          <section key={guide.id} aria-label={guide.heading} className="space-y-3 border-t pt-3">
+            <h3 className="text-sm font-medium">{guide.heading}</h3>
             <p className="break-all font-mono text-xs text-muted-foreground">{guide.url}</p>
             <p className="text-xs text-muted-foreground">{guide.credential}</p>
-            <h3 className="text-xs font-medium">Claude Code</h3>
-            <CodeBlock code={guide.claudeCode} copyLabel="Copy Claude Code command" />
-            <h3 className="text-xs font-medium">Codex</h3>
-            <CodeBlock code={guide.codex} copyLabel="Copy Codex command" />
-          </>
-        )}
+            <h4 className="text-xs font-medium">Claude Code</h4>
+            <CodeBlock code={guide.claudeCode} copyLabel={`Copy Claude Code command, ${guide.heading}`} />
+            <h4 className="text-xs font-medium">Codex</h4>
+            <CodeBlock code={guide.codex} copyLabel={`Copy Codex command, ${guide.heading}`} />
+          </section>
+        ))}
       </SettingsCard>
     </SettingsSection>
   );
