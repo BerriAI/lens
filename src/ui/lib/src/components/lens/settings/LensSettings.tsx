@@ -10,6 +10,7 @@ import { STANDALONE_DOCS_URL, useLensHost } from "../../../host/LensHost";
 import { DeploymentAnalysis } from "./worker/DeploymentAnalysis";
 import { LensPageHeader } from "../ui/LensPageHeader";
 import { GatewayConnection } from "./GatewayConnection";
+import { McpConnection } from "./McpConnection";
 import { TracingKeysDialog } from "../onboarding/tracing/TracingKeysDialog";
 import { useTracesLive } from "../traces/api";
 
@@ -111,6 +112,7 @@ export function LensSettings({
           onConnectProject={onConnectProject}
           onSetup={onSetup}
         />
+        <McpConnection />
         {standalone && <GatewayConnection />}
         {onOpenAlerts && (
           <SettingsSection heading="Signals" description="Signal questions and Slack delivery are configured in Alerts.">
