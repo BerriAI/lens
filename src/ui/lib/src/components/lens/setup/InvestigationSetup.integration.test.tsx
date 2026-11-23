@@ -9,6 +9,7 @@ import { InvestigationSetup } from "./InvestigationSetup";
 import { initialWatches, watchChecks } from "../model/watches";
 import { runTime } from "../model/format";
 import { type AnalysisModelInfo, type Settings } from "../model/types";
+import { lensKeys } from "../data/queries";
 
 let proxy = stubGateway();
 
@@ -786,4 +787,27 @@ it("waits for model capabilities before allowing a new investigation", async () 
   expect(screen.getByRole("button", { name: "Run and monitor" })).toBeDisabled();
   await user.click(screen.getByRole("combobox", { name: "Analysis model" }));
   expect(screen.queryByRole("option", { name: /analysis/ })).not.toBeInTheDocument();
+});
+
+it("keeps a cached empty catalog loading until newly connected models arrive", async () => {
+  const user = userEvent.setup();
+  const catalog = Promise.withResolvers<{ data: { id: string }[] }>();
+  testQueryClient.setQueryData(lensKeys.models("test"), { data: [] });
+  proxy.get.mockImplementation((path) =>
+    path === "/lens/admin/models" ? catalog.promise : gatewayResponse(path, {}),
+  );
+  renderWithProviders(<InvestigationSetup mode="new" onClose={vi.fn()} onSave={vi.fn()} />);
+  act(() => {
+    void testQueryClient.invalidateQueries({ queryKey: lensKeys.models("test") });
+  });
+  await user.click(screen.getByRole("button", { name: "Continue" }));
+  await user.click(screen.getByRole("button", { name: "Continue" }));
+  const picker = screen.getByRole("combobox", { name: "Analysis model" });
+  expect(picker).toBeDisabled();
+  expect(picker).toHaveAttribute("placeholder", "Loading models…");
+  expect(screen.queryByRole("button", { name: "Open Settings" })).not.toBeInTheDocument();
+  await act(async () => catalog.resolve({ data: [{ id: "analysis" }] }));
+  await waitFor(() => expect(picker).toBeEnabled());
+  expect(picker).toHaveValue("analysis");
+  expect(screen.getByRole("button", { name: "Run and monitor" })).toBeEnabled();
 });
