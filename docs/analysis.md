@@ -12,6 +12,8 @@ When you open Lens inside LiteLLM, an administrator can choose **Settings > Mode
 
 Both services must support this setup, and the gateway address must be reachable from Lens. LiteLLM uses its `PROXY_BASE_URL` when configured. Existing model gateway settings are preserved. Standalone Lens and older deployments can use the environment configuration below
 
+The key follows LiteLLM's key-generation policy, including `default_key_generate_params` for `max_budget`, `budget_duration`, `rpm_limit` and `tpm_limit`. Set those defaults before connecting, or edit the dedicated key in **Virtual Keys**. Reconnecting does not restore a deleted or rotated key. To replace a revoked key, configure a new gateway key in the Lens deployment below
+
 Set the gateway URL and a gateway virtual key on the Lens service, then restart it:
 
 ```dotenv
