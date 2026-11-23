@@ -406,7 +406,7 @@ describe("agent setup prompt", () => {
         "opencode plugin add github:BerriAI/litellm-lens-plugins",
         'export LITELLM_LENS_OPENCODE_URL="https://gateway.example"',
         'export LITELLM_LENS_OPENCODE_API_KEY="<key>"',
-        "opencode service stop",
+        "opencode service restart",
       ].join("\n"),
     );
   });

@@ -115,7 +115,7 @@ export function opencodePluginSettings(address: string, key: string): string {
     `opencode plugin add ${OPENCODE_PLUGIN}`,
     `export LITELLM_LENS_OPENCODE_URL="${address}"`,
     `export LITELLM_LENS_OPENCODE_API_KEY="${key}"`,
-    "opencode service stop",
+    "opencode service restart",
   ].join("\n");
 }
 
@@ -164,7 +164,7 @@ const CODING_AGENTS: Record<
     traceName: "opencode",
     gatewayHint:
       "the baseURL and apiKey of the provider in opencode.json or ~/.config/opencode/opencode.json",
-    install: `Run opencode --version first, because the setup depends on it. On OpenCode 2.3.2 or later, Lens records sessions through its OpenCode plugin: run the commands in the first block wherever opencode is started, and add the two exports to my shell profile so they persist. On OpenCode 1.x, use the second block instead and do not install the plugin: merge ${OPENCODE_CONFIG} into this project's opencode.json, or ~/.config/opencode/opencode.json to cover every project, keeping everything already there, then make those environment variables present wherever opencode is started. If OTEL_EXPORTER_OTLP_TRACES_ENDPOINT is set and points somewhere else, unset it, because that address would receive the key:`,
+    install: `Run opencode --version first, because the setup depends on it. On OpenCode 2.3.2 or later, Lens records sessions through its OpenCode plugin: add the two exports to my shell profile so they persist, then run the commands in the first block in a shell where both are set. The plugin reads them from OpenCode's background service, not from the terminal, so opencode service restart must run last in that shell; a service started without them records nothing. On OpenCode 1.x, use the second block instead and do not install the plugin: merge ${OPENCODE_CONFIG} into this project's opencode.json, or ~/.config/opencode/opencode.json to cover every project, keeping everything already there, then make those environment variables present wherever opencode is started. If OTEL_EXPORTER_OTLP_TRACES_ENDPOINT is set and points somewhere else, unset it, because that address would receive the key:`,
     keyNote:
       "Where the key already sits in an environment variable, reference that variable instead of copying the key.",
     caveat:

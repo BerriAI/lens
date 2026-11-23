@@ -6,16 +6,18 @@ Both store what you type, what the model replies, the files OpenCode reads and t
 
 ## OpenCode 2.3.2 and later: the Lens plugin
 
-OpenCode 2 sends no prompts, replies or tool content in its telemetry, so Lens records it with [a plugin](https://github.com/BerriAI/litellm-lens-plugins/tree/main/opencode) instead. Install it, tell it where to send traces, and restart OpenCode's background service so it loads the settings:
+OpenCode 2 sends no prompts, replies or tool content in its telemetry, so Lens records it with [a plugin](https://github.com/BerriAI/litellm-lens-plugins/tree/main/opencode) instead. Install it, tell it where to send traces, and restart OpenCode's background service from that same terminal so it starts with the settings:
 
 ```sh
 opencode plugin add github:BerriAI/litellm-lens-plugins
 export LITELLM_LENS_OPENCODE_URL="<address>"
 export LITELLM_LENS_OPENCODE_API_KEY="<key>"
-opencode service stop
+opencode service restart
 
 opencode run "Run the date command, then tell me what it printed."
 ```
+
+OpenCode runs sessions in a background service that keeps running after OpenCode closes, and the plugin reads the two variables from that service, not from the terminal you type in. Add both exports to your shell profile, and whenever no trace arrives, run `opencode service restart` from a terminal where both are set. A service started without them records nothing, and the plugin writes the reason to `~/.local/state/litellm-lens/opencode.log`
 
 The plugin stays off until both variables are set. Use the address and key from the [table below](#address-and-key). Leave `experimental.openTelemetry` and the `OTEL_EXPORTER_OTLP_*` variables unset on OpenCode 2, because the plugin replaces them
 
