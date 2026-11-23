@@ -10,6 +10,7 @@ import { useNow } from "../../../hooks/useNow";
 import { agoLabel } from "../model/format";
 import type { AlertRuleOverview, SignalOverview } from "../model/types";
 import { useAlertsRoute } from "../route";
+import { useOnboarding } from "../onboarding/OnboardingContext";
 import type { OpenTraceRouting } from "../traces/routing";
 import { alertActivity, ruleDetail, type AlertActivity } from "./alertActivity";
 import { AlertEvidence } from "./AlertEvidence";
@@ -113,6 +114,7 @@ export function AlertDashboard({
   onRefresh: () => void;
 }) {
   const route = useAlertsRoute();
+  const { canInvestigate } = useOnboarding();
   const [selected, setSelected] = useState<AlertActivity["hits"][number] | null>(null);
   const now = useNow(30_000);
   const activity = useMemo(() => alertActivity(data, rules), [data, rules]);
@@ -273,6 +275,17 @@ export function AlertDashboard({
                 ))}
               </SelectContent>
             </Select>
+            {canInvestigate && data.matches.some((trace) => trace.flags?.some((flag) => flag.signal_id === route.signal)) && (
+              <Button
+                variant="outline"
+                size="sm"
+                title="Start an investigation of runs from the last 24 hours with this saved signal"
+                onClick={() => route.investigateSignal(route.signal)}
+              >
+                Investigate signal
+                <ArrowRight aria-hidden="true" />
+              </Button>
+            )}
             {hour && (
               <Button variant="outline" size="sm" onClick={() => route.setHour(null)}>
                 {period(hour)}

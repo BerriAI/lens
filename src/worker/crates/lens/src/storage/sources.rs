@@ -21,6 +21,8 @@ use litellm_traces_clickhouse::query::profiles::ProfileTaxonomyParams;
 
 use crate::{Error, State, wait_for_read_slot};
 
+mod saved_signal;
+
 #[derive(Clone)]
 pub struct SourceReader(pub Arc<State>);
 
@@ -137,7 +139,10 @@ impl SourceReader {
 
     pub async fn sample(&self, scope: &Scope, request: SampleRequest<'_>) -> Result<Sample, Error> {
         let parameters = self.sample_parameters(scope, &request).await?;
-        let rows = self.read::<LensSample>(&parameters).await?;
+        let rows = match &request.selection.signal_id {
+            Some(signal) => self.saved_signal_sample(parameters, signal).await?,
+            None => self.read::<LensSample>(&parameters).await?,
+        };
         sample_page(rows, &request)
     }
 
@@ -156,6 +161,19 @@ impl SourceReader {
         scope: &Scope,
         request: SampleRequest<'_>,
     ) -> Result<u64, Error> {
+        if request.selection.signal_id.is_some() {
+            let sample = self
+                .sample(
+                    scope,
+                    SampleRequest {
+                        page_size: 1,
+                        preview: true,
+                        ..request
+                    },
+                )
+                .await?;
+            return u64::try_from(sample.eligible).map_err(|_| Error::Unavailable);
+        }
         let parameters = self.sample_parameters(scope, &request).await?;
         let rows = self.read::<LensSampleEligibility>(&parameters).await?;
         Ok(rows.first().map_or(0, |row| row.eligible))

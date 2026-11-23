@@ -10,7 +10,7 @@ import {
 } from "./investigationSchema";
 import { watchChecks } from "../model/watches";
 
-const defaults = investigationDefaults(undefined, "new", "traces");
+const defaults = investigationDefaults(undefined, "new");
 
 function parse(
   patch: Partial<Omit<InvestigationInput, "selection">> & { selection?: Partial<InvestigationInput["selection"]> } = {},
@@ -170,6 +170,15 @@ describe("investigation validation", () => {
       concurrency: 3,
       interval_minutes: 15,
       enabled: false,
+    });
+  });
+
+  it.each(["edit", "duplicate"] as const)("preserves the saved signal and profile in %s", (mode) => {
+    const saved = investigationSettings(investigationSchema.parse(defaults), undefined, "analysis");
+    const initial = { ...saved, signal_id: "custom_task_failed", profile: "Coding" };
+    const draft = investigationDefaults(initial, mode);
+    expect(investigationSettings(investigationSchema.parse(draft), initial, "analysis")).toMatchObject({
+      signal_id: "custom_task_failed", profile: "Coding",
     });
   });
 });

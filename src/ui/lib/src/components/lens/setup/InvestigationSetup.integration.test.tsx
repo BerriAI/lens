@@ -48,6 +48,7 @@ function gatewayResponse(path: string, gateway: Gateway): unknown {
   if (path === "/lens/admin/models") return { data: models.map((id) => ({ id })) };
   if (path === "/lens/admin/model_group/info") return { data: modelDetails };
   if (path === "/lens/admin/agents") return agents;
+  if (path === "/lens/admin/signals") return { signals: [], threshold: 0.95, model: "" };
   return [];
 }
 
@@ -63,6 +64,60 @@ beforeEach(() => {
   proxy.post.mockResolvedValue({ eligible: 1, selected: 1, executions: [] });
 });
 describe("Investigation setup", () => {
+  it("uses custom signals from Alerts to narrow the preview and save the same scope", async () => {
+    const user = userEvent.setup();
+    const save = vi.fn().mockResolvedValue(undefined);
+    proxy.get.mockImplementation(async (path) =>
+      path === "/lens/admin/signals"
+        ? { model: "judge", threshold: 0.8, signals: [{ id: "custom_task_failed", name: "Task not completed", question: "Was the task incomplete?" }] }
+        : gatewayResponse(path, {}),
+    );
+    proxy.post.mockImplementation(async (path, options) => {
+      if (path === "/v1/traces/query") return { data: [] };
+      const body = options.body as { selection: Settings };
+      const count = body.selection.signal_id === "custom_task_failed" ? 8 : 47;
+      return { eligible: count, selected: count, executions: [] };
+    });
+    renderWithProviders(<InvestigationSetup mode="edit" initial={settings} onClose={vi.fn()} onSave={save} />);
+    expect(await screen.findByText("47 matching runs")).toBeVisible();
+    await user.click(screen.getByText("Advanced filters"));
+    await chooseSelectOption(user, screen.getByRole("combobox", { name: "Signal result" }), "Task not completed");
+    expect(await screen.findByText("8 matching runs")).toBeVisible();
+    await user.click(screen.getByText("Advanced filters"));
+    expect(screen.getByText("Signal: Task not completed")).toBeVisible();
+    await user.click(screen.getByRole("button", { name: "Continue" }));
+    await user.click(screen.getByRole("button", { name: "Continue" }));
+    await waitFor(() => expect(screen.getByRole("button", { name: "Save changes" })).toBeEnabled());
+    await user.click(screen.getByRole("button", { name: "Save changes" }));
+    expect(save).toHaveBeenCalledWith(expect.objectContaining({
+      signal_id: "custom_task_failed", profile: undefined, filters: [], checks: settings.checks,
+    }));
+  });
+
+  it("prefills a signal from Alerts and lets the active chip clear the filter", async () => {
+    const user = userEvent.setup();
+    proxy.get.mockImplementation(async (path) =>
+      path === "/lens/admin/signals"
+        ? { model: "judge", threshold: 0.8, signals: [{ id: "custom_task_failed", name: "Task not completed", question: "Was the task incomplete?" }] }
+        : gatewayResponse(path, {}),
+    );
+    proxy.post.mockImplementation(async (path, options) => {
+      if (path === "/v1/traces/query") return { data: [] };
+      const body = options.body as { selection: Settings };
+      const count = body.selection.signal_id ? 8 : 47;
+      return { eligible: count, selected: count, executions: [] };
+    });
+    renderWithProviders(<InvestigationSetup mode="new" onClose={vi.fn()} onSave={vi.fn()} />, {
+      searchParams: "?dialog=new&investigation_signal=custom_task_failed",
+    });
+    expect(await screen.findByText("8 matching runs")).toBeVisible();
+    expect(screen.getByRole("combobox", { name: "Signal result" })).toHaveTextContent("Task not completed");
+    await user.click(screen.getByText("Advanced filters"));
+    await user.click(screen.getByRole("button", { name: "Clear signal filter" }));
+    expect(await screen.findByText("47 matching runs")).toBeVisible();
+    expect(screen.queryByText("Signal: Task not completed")).not.toBeInTheDocument();
+  });
+
   it.each(["Coding", "Unclassified"])("previews and saves the selected %s profile without converting it to metadata conditions", async (category) => {
     const user = userEvent.setup();
     const save = vi.fn().mockResolvedValue(undefined);

@@ -371,12 +371,15 @@ async fn rejected_execution_dependencies_do_not_create_lenses(
 }
 
 #[rstest]
+#[case::all_runs(None)]
+#[case::saved_signal(Some("custom_task_failed"))]
 #[tokio::test]
 async fn create_run_cancel_and_restart_preserve_frozen_settings_and_public_defaults(
     #[future(awt)] database: Database,
+    #[case] signal_id: Option<&str>,
 ) {
     let server = serve(&database, true, true).await;
-    let response=server.client.post(server.url.join("/lens").unwrap()).bearer_auth(ADMIN).json(&json!({"name":"Research","model":"analysis","context":"Find failed retries","enabled":false})).send().await.unwrap();
+    let response=server.client.post(server.url.join("/lens").unwrap()).bearer_auth(ADMIN).json(&json!({"name":"Research","model":"analysis","context":"Find failed retries","enabled":false,"signal_id":signal_id})).send().await.unwrap();
     assert_eq!(response.status(), 200);
     let created: Value = response.json().await.unwrap();
     let lens: Lens = serde_json::from_value(created.clone()).unwrap();
@@ -388,6 +391,11 @@ async fn create_run_cancel_and_restart_preserve_frozen_settings_and_public_defau
     assert_eq!(created["jobs"][0]["status"], "queued");
     assert_eq!(created["settings"]["filters"], json!([]));
     assert_eq!(created["settings"]["sample_size"], Value::Null);
+    assert_eq!(created["settings"]["signal_id"].as_str(), signal_id);
+    assert_eq!(
+        created["jobs"][0]["settings"]["signal_id"].as_str(),
+        signal_id
+    );
     let response = server
         .client
         .post(
@@ -424,6 +432,10 @@ async fn create_run_cancel_and_restart_preserve_frozen_settings_and_public_defau
     assert_eq!(running["jobs"][0]["trigger"], "manual");
     assert_eq!(running["jobs"][0]["status"], "queued");
     assert_eq!(running["jobs"][0]["sample"], Value::Null);
+    assert_eq!(
+        running["jobs"][0]["settings"]["signal_id"].as_str(),
+        signal_id
+    );
     let response = server
         .client
         .post(

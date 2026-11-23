@@ -25762,6 +25762,7 @@ export interface components {
         };
         /** ActivitySelection */
         ActivitySelection: {
+            signal_id?: string | null;
             /**
              * Agent Name
              * @default
@@ -34664,6 +34665,7 @@ export interface components {
         };
         /** LensSettings */
         LensSettings: {
+            signal_id?: string | null;
             /**
              * Agent Name
              * @default

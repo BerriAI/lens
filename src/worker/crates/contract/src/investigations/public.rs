@@ -78,6 +78,7 @@ macro_rules! public_record {
 
 public_record!(LensSettings {
     profile => optional,
+    signal_id => optional,
     source,
     service,
     agent_name,

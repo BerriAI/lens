@@ -17,6 +17,7 @@ bounded_string!(IssueBriefWhatHappened, 3, None);
 bounded_string!(LensSettingsModel, 1, None);
 bounded_string!(LensSettingsName, 1, None);
 bounded_string!(UsageProfile, 1, None);
+bounded_string!(SavedSignalId, 1, Some(64));
 bounded_string!(MetadataFilterKey, 1, None);
 bounded_string!(MetadataFilterValue, 1, None);
 bounded_string!(ModelRequestPrompt, 1, None);

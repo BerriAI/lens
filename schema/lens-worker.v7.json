@@ -1803,6 +1803,18 @@
           "default": "",
           "type": "string"
         },
+        "signal_id": {
+          "anyOf": [
+            {
+              "maxLength": 64,
+              "minLength": 1,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
         "source": {
           "default": "traces",
           "enum": [

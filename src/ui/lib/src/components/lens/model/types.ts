@@ -3,7 +3,7 @@ import type { components } from "../../../lib/http/schema";
 
 export type Lens = components["schemas"]["Lens"];
 
-export type Settings = components["schemas"]["LensSettings"] & Pick<Wire.LensSettings, "profile">;
+export type Settings = components["schemas"]["LensSettings"] & Pick<Wire.LensSettings, "profile" | "signal_id">;
 
 export type LensList = components["schemas"]["LensList"] & {
   investigator?: Wire.InvestigatorStatus | null;
@@ -34,6 +34,7 @@ export type ActivitySelection = Pick<Settings, "source"> &
       | "service"
       | "agent_name"
       | "profile"
+      | "signal_id"
       | "filters"
       | "lookback_hours"
       | "sample_percent"

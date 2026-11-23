@@ -36,6 +36,11 @@ impl Model {
                 ("agent_name", false, STRING),
                 ("profile", false, Kind::Optional(&Kind::String(1, None))),
                 (
+                    "signal_id",
+                    false,
+                    Kind::Optional(&Kind::String(1, Some(64))),
+                ),
+                (
                     "filters",
                     false,
                     Kind::Tuple(

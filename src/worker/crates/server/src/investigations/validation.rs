@@ -43,6 +43,11 @@ impl Model {
                 ("service", false, STRING),
                 ("agent_name", false, STRING),
                 (
+                    "signal_id",
+                    false,
+                    FieldKind::Optional(&FieldKind::String(1, Some(64))),
+                ),
+                (
                     "profile",
                     false,
                     FieldKind::Optional(&FieldKind::String(1, None)),

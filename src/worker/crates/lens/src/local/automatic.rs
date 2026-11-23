@@ -27,6 +27,7 @@ fn new_analysis(
 ) -> Result<Lens, Error> {
     let settings = LensSettings {
         profile: None,
+        signal_id: None,
         agent_name: agent.into(),
         name: "Automatic analysis".try_into().map_err(|_| Error::InvalidRequest)?,
         model: model.try_into().map_err(|_| Error::InvalidRequest)?,
