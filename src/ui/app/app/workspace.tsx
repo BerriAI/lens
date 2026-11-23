@@ -426,7 +426,7 @@ function SignIn({ linkRejected }: { linkRejected: boolean }) {
             {settingUp && <ConnectGateway />}
             <details className="group">
               <summary className="flex cursor-pointer list-none items-center justify-center gap-1 text-xs text-muted-foreground hover:text-foreground [&::-webkit-details-marker]:hidden">
-                Legacy admin token
+                Admin token
                 <svg
                   aria-hidden="true"
                   viewBox="0 0 16 16"
