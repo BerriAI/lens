@@ -13,6 +13,59 @@ use wiremock::{
 
 #[rstest]
 #[tokio::test]
+async fn embedded_setup_discovers_models_immediately_and_survives_restart(
+    #[future(awt)] database: Database,
+) {
+    let gateway = MockServer::start().await;
+    Mock::given(method("GET"))
+        .and(path("/model_group/info"))
+        .and(wiremock::matchers::header(
+            "authorization",
+            "Bearer sk-private-model-key",
+        ))
+        .respond_with(ResponseTemplate::new(200).set_body_json(json!({"data":[{
+            "model_group":"gateway-chat","mode":"chat",
+            "input_cost_per_token":0.000001,"output_cost_per_token":0.000002,
+            "max_output_tokens":4096
+        }]})))
+        .mount(&gateway)
+        .await;
+    let registry = Models::new(vec![], vec![], None, None).unwrap();
+    let server = database.serve_registry(true, registry.clone()).await;
+    let client = reqwest::Client::new();
+    let now = chrono::Utc::now().timestamp();
+    let token = jsonwebtoken::encode(
+        &jsonwebtoken::Header::default(),
+        &json!({
+            "iss":"litellm","aud":"litellm-lens","sub":"admin","iat":now,"exp":now+30,
+            "identity":{"user_role":"proxy_admin","user_id":"admin","team_id":null,"org_id":null,"token":null}
+        }),
+        &jsonwebtoken::EncodingKey::from_secret(datasets::support::GATEWAY.as_bytes()),
+    ).unwrap();
+    let status: Value = client
+        .post(format!("{}/lens/admin/gateway/connect", server.url))
+        .bearer_auth(token)
+        .json(&json!({"gateway_url":gateway.uri(),"api_key":"sk-private-model-key"}))
+        .send()
+        .await
+        .unwrap()
+        .error_for_status()
+        .unwrap()
+        .json()
+        .await
+        .unwrap();
+    assert_eq!(status["connected"], true);
+    assert_eq!(status["analysis_models"], 1);
+    assert!(!status.to_string().contains("sk-private-model-key"));
+    assert_eq!(registry.analysis().models(), vec!["gateway-chat"]);
+    drop(server);
+    let restored = Models::new(vec![], vec![], None, None).unwrap();
+    let _restarted = database.serve_registry(true, restored.clone()).await;
+    assert_eq!(restored.analysis().models(), vec!["gateway-chat"]);
+}
+
+#[rstest]
+#[tokio::test]
 async fn signals_validate_against_refreshed_models_without_a_restart(
     #[future(awt)] database: Database,
 ) {

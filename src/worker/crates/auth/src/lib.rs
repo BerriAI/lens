@@ -195,10 +195,14 @@ impl Settings {
     }
 
     pub fn connected_model_gateway(&self) -> Option<(String, String)> {
-        if self.gateway_secret.is_some() {
+        let gateway = self.connected()?;
+        if self
+            .gateway_secret
+            .as_ref()
+            .is_some_and(|secret| !bool::from(secret.as_bytes().ct_eq(gateway.secret.as_bytes())))
+        {
             return None;
         }
-        let gateway = self.connected()?;
         Some((gateway.url, gateway.api_key?))
     }
 
@@ -315,6 +319,56 @@ impl<R: SessionRepository> Authentication<R> {
         Ok(())
     }
 
+    pub async fn connect_model_gateway(
+        &self,
+        token: &str,
+        url: String,
+        api_key: String,
+        now: DateTime<Utc>,
+    ) -> Result<(), Error> {
+        let secret = self
+            .secret_for(|secret| gateway::identity(token, secret, now).is_ok())
+            .await
+            .ok_or(Error::Unauthorized(
+                "Use a gateway administrator credential",
+            ))?;
+        let identity = gateway::identity(token, &secret, now)?;
+        if identity.user_role != Role::ProxyAdmin {
+            return Err(Error::Unauthorized(
+                "Use a gateway administrator credential",
+            ));
+        }
+        if login_url(&url).is_err()
+            || api_key.trim().is_empty()
+            || api_key.len() > 512
+            || api_key.bytes().any(|byte| byte.is_ascii_whitespace())
+        {
+            return Err(Error::InvalidGateway);
+        }
+        let _writing = self.settings.gateway_writes.lock().await;
+        let previous = self
+            .sessions
+            .gateway()
+            .await?
+            .filter(|gateway| bool::from(secret.as_bytes().ct_eq(gateway.secret.as_bytes())));
+        if previous
+            .as_ref()
+            .is_some_and(|gateway| gateway.api_key.is_some())
+        {
+            self.settings.connect(previous);
+            return Ok(());
+        }
+        let gateway = GatewayConnection {
+            url,
+            secret,
+            api_key: Some(api_key),
+            service_token: previous.and_then(|gateway| gateway.service_token),
+        };
+        self.sessions.save_gateway(&gateway).await?;
+        self.settings.connect(Some(gateway));
+        Ok(())
+    }
+
     async fn secret_for(&self, accepts: impl Fn(&str) -> bool) -> Option<String> {
         let secret = self.settings.secret();
         if self.settings.gateway_set_by_environment()
@@ -327,9 +381,6 @@ impl<R: SessionRepository> Authentication<R> {
     }
 
     pub async fn refresh_gateway(&self) -> Result<(), Error> {
-        if self.settings.gateway_set_by_environment() {
-            return Ok(());
-        }
         let _writing = self.settings.gateway_writes.lock().await;
         let gateway = self.sessions.gateway().await?;
         self.settings.connect(gateway);

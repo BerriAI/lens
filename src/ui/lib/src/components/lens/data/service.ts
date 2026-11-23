@@ -45,6 +45,7 @@ export interface LensApi {
   modelDetails(): Promise<{ data: AnalysisModelInfo[] }>;
   gateway(): Promise<GatewayStatus>;
   refreshGateway(): Promise<GatewayStatus>;
+  connectGateway(): Promise<GatewayStatus>;
   saveLens(id: string | undefined, settings: Settings): Promise<Lens>;
   startRun(lensId: string, request?: RunWindow): Promise<void>;
   watchAll(): Promise<components["schemas"]["WatchAllResult"]>;
@@ -137,6 +138,7 @@ export function liveLensApi(client: LensClient, apiClient: ApiClient, accessToke
     modelDetails: () => apiClient.get("/lens/admin/model_group/info", { accessToken }),
     gateway: () => apiClient.get("/lens/admin/gateway", { accessToken }),
     refreshGateway: () => apiClient.post("/lens/admin/gateway/refresh", { accessToken }),
+    connectGateway: () => apiClient.post("/lens/admin/gateway/connect", { accessToken, body: {} }),
     saveLens: (id, settings) =>
       required(
         id

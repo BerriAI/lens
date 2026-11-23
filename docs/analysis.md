@@ -8,6 +8,10 @@ Investigations send selected trace content to the provider you choose. Each inve
 
 ## Connect a LiteLLM gateway
 
+When you open Lens inside LiteLLM, an administrator can choose **Settings > Model gateway > Use this LiteLLM gateway**. LiteLLM creates a dedicated virtual key for its current models and sends the gateway address and key directly to Lens. The models appear without a Lens restart. The key permits model discovery, chat completions, embeddings and decisions, and can be managed or revoked under LiteLLM **Virtual Keys**
+
+Both services must support this setup, and the gateway address must be reachable from Lens. LiteLLM uses its `PROXY_BASE_URL` when configured. Existing model gateway settings are preserved. Standalone Lens and older deployments can use the environment configuration below
+
 Set the gateway URL and a gateway virtual key on the Lens service, then restart it:
 
 ```dotenv

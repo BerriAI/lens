@@ -91,6 +91,7 @@ function demoLensApi(data: LensDemoData, storage?: DemoStorage): LensApi {
     }),
     gateway: async () => gateway(),
     refreshGateway: async () => gateway(),
+    connectGateway: async () => gateway(),
     saveLens: async (id, settings) => {
       const current = data.lenses.find((lens) => lens.id === id) ?? data.lenses[0];
       const saved = {
