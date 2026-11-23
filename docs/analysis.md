@@ -8,13 +8,13 @@ Investigations send selected trace content to the provider you choose. Each inve
 
 ## Connect a LiteLLM gateway
 
-When an administrator first opens Lens inside LiteLLM, Lens automatically connects to that gateway for models. LiteLLM creates a dedicated virtual key for its current models and sends the gateway address and key directly to Lens. The models appear without a Lens restart or a separate Settings step. The key permits model discovery, chat completions, embeddings and decisions, and can be managed or revoked under LiteLLM **Virtual Keys**
+When an administrator first opens Lens inside LiteLLM, Lens automatically connects to that gateway for models. LiteLLM creates a dedicated virtual key with **All Proxy Models** access and sends the gateway address and key directly to Lens. The models appear without a Lens restart or a separate Settings step. The key includes models added to the gateway later. Refresh models in Lens Settings to discover them without replacing the key. The key permits model discovery, chat completions, embeddings and decisions, and can be managed or revoked under LiteLLM **Virtual Keys**
 
 This follows deployment of Lens and configuration of its connection to LiteLLM. It does not deploy Lens or configure an agent's tracing. If the model connection fails, Lens shows the error and offers a retry. **Settings > Model gateway** also shows the connection and lets administrators retry or refresh models. Read-only users and demo sessions do not create model keys
 
 Both services must support this setup, and the gateway address must be reachable from Lens. LiteLLM uses its `PROXY_BASE_URL` when configured. Existing model gateway settings are preserved. Standalone Lens and older deployments can use the environment configuration below
 
-The key follows LiteLLM's key-generation policy, including `default_key_generate_params` for `max_budget`, `budget_duration`, `rpm_limit` and `tpm_limit`. Set those defaults before connecting, or edit the dedicated key in **Virtual Keys**. Reconnecting does not restore a deleted or rotated key. To replace a revoked key, configure a new gateway key in the Lens deployment below
+The key follows LiteLLM's key-generation policy, including `default_key_generate_params` for `max_budget`, `budget_duration`, `rpm_limit` and `tpm_limit`. Set those defaults before connecting, or edit the dedicated key in **Virtual Keys**. You can restrict its model access there, and reconnecting preserves those restrictions. Existing connections keep their current key permissions. Reconnecting does not restore a deleted or rotated key. To replace a revoked key, configure a new gateway key in the Lens deployment below
 
 Set the gateway URL and a gateway virtual key on the Lens service, then restart it:
 

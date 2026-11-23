@@ -183,8 +183,8 @@ export function GatewayConnection({ automatic = false }: { automatic?: boolean }
           </>
         ) : canConnect ? (
           <p className="text-xs text-muted-foreground">
-            Connect the gateway you are using now. LiteLLM creates a key for its
-            current models and sends it directly to Lens. You can manage the key
+            Connect the gateway you are using now. LiteLLM creates a key for all
+            gateway models and sends it directly to Lens. You can manage the key
             in LiteLLM Virtual Keys.
           </p>
         ) : !gateway.isPending && !error ? (
