@@ -3708,3 +3708,90 @@ fn codex_batch_without_conversation_attribute_joins_by_its_trace(
         (grouped, grouped)
     );
 }
+
+const OPENAI_AGENTS_GROUP_ID: &[u8] = include_bytes!("fixtures/openai_agents_group_id.json");
+
+fn sessions_by_original_trace(
+    spans: &[litellm_traces::DecodedSpan],
+) -> std::collections::BTreeMap<&str, std::collections::BTreeSet<Option<&str>>> {
+    spans.iter().fold(Default::default(), |mut sessions, span| {
+        let original = span
+            .attributes
+            .get("lens.original_trace_id")
+            .unwrap_or(&span.trace_id);
+        sessions
+            .entry(original.as_str())
+            .or_default()
+            .insert(span.attributes.get("session.id").map(String::as_str));
+        sessions
+    })
+}
+
+#[rstest]
+fn openai_agents_run_exported_with_its_root_joins_the_root_session() {
+    let document: serde_json::Value = serde_json::from_slice(OPENAI_AGENTS_GROUP_ID).unwrap();
+    let last_export = serde_json::json!({"resourceSpans": [document["resourceSpans"][1]]});
+    let spans = decode_otlp(
+        &serde_json::to_vec(&last_export).unwrap(),
+        Some("application/json"),
+    )
+    .unwrap();
+    let transport: Vec<_> = spans
+        .iter()
+        .filter(|span| span.scope_name.as_str() == "opentelemetry.instrumentation.httpx")
+        .collect();
+    assert_eq!(transport.len(), 3);
+    let traces: std::collections::BTreeSet<&str> =
+        spans.iter().map(|span| span.trace_id.as_str()).collect();
+    assert_eq!(traces.len(), 2);
+    assert!(
+        sessions_by_original_trace(&spans)
+            .values()
+            .all(|sessions| sessions.len() == 1 && !sessions.contains(&None))
+    );
+}
+
+#[rstest]
+fn spans_outside_an_openai_agents_run_keep_their_trace(span: Span) {
+    use opentelemetry_proto::tonic::common::v1::{
+        AnyValue, InstrumentationScope, KeyValue, any_value::Value,
+    };
+    let scoped = |name: &str, span: Span| opentelemetry_proto::tonic::trace::v1::ScopeSpans {
+        scope: Some(InstrumentationScope {
+            name: name.to_owned(),
+            ..Default::default()
+        }),
+        spans: vec![span],
+        ..Default::default()
+    };
+    let mut request = request_with(Span {
+        attributes: vec![KeyValue {
+            key: "session.id".to_owned(),
+            value: Some(AnyValue {
+                value: Some(Value::StringValue("session-one".to_owned())),
+            }),
+            ..Default::default()
+        }],
+        ..span.clone()
+    });
+    request.resource_spans[0].scope_spans = vec![
+        scoped(
+            "other.instrumentation",
+            request.resource_spans[0].scope_spans[0].spans[0].clone(),
+        ),
+        scoped(
+            "opentelemetry.instrumentation.httpx",
+            Span {
+                span_id: vec![3; 8],
+                ..span
+            },
+        ),
+    ];
+    let spans = decode_otlp(
+        &serde_json::to_vec(&request).unwrap(),
+        Some("application/json"),
+    )
+    .unwrap();
+    assert_ne!(spans[0].trace_id, spans[1].trace_id);
+    assert_eq!(spans[1].trace_id, "01".repeat(16));
+}

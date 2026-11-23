@@ -19,6 +19,7 @@ pub(super) mod http_client;
 pub(super) mod langchain;
 pub(super) mod litellm_gateway;
 pub(super) mod llama_index;
+pub(super) mod openai_agents;
 pub(super) mod openai_codex;
 pub(super) mod opencode;
 pub(super) mod pydantic_ai;
@@ -85,6 +86,9 @@ impl Rule for OpenInference {
             }
             Some(Integration::ClaudeAgentSdk) => extraction.map_facts(claude_agent_sdk::adjust),
             Some(Integration::GoogleAdk) => extraction.map_facts(google_adk::adjust),
+            Some(Integration::OpenaiAgents) => {
+                extraction.map_facts(|facts| openai_agents::adjust(context, facts))
+            }
             _ => extraction,
         }
     }

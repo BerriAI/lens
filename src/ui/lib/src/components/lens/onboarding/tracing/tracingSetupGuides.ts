@@ -134,17 +134,21 @@ from opentelemetry.instrumentation.auto_instrumentation import initialize
 
 initialize()
 
-from agents import Agent, Runner
+from agents import Agent, Runner, SQLiteSession
 
 from agents import OpenAIChatCompletionsModel
 from openai import AsyncOpenAI
+from openinference.instrumentation import using_session
 
 client = AsyncOpenAI(base_url={BASE_URL}, api_key=os.environ["LITELLM_API_KEY"])
 model = OpenAIChatCompletionsModel(model={MODEL}, openai_client=client)
 
 agent = Agent(name=AGENT_NAME, model=model)
-result = Runner.run_sync(agent, "What is an agent trace?")
+session = SQLiteSession("conversation-1")
+with using_session(session.session_id):
+    result = Runner.run_sync(agent, "What is an agent trace?", session=session)
 print(result.final_output)`,
+    note: "Runs that share a session id show as one trace. Wrap each run of a conversation in using_session with the same id.",
     fileName: "agent.py",
   },
   {

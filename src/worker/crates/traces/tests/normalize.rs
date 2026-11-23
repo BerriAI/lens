@@ -164,6 +164,7 @@ fn array<'a>(value: &'a Value, key: &str) -> &'a [Value] {
 #[case::llamaindex_swarm(include_bytes!("fixtures/llamaindex_swarm.json"))]
 #[case::openai_agents_simple(include_bytes!("fixtures/openai_agents_simple.json"))]
 #[case::openai_agents_swarm(include_bytes!("fixtures/openai_agents_swarm.json"))]
+#[case::openai_agents_group_id(include_bytes!("fixtures/openai_agents_group_id.json"))]
 #[case::opentelemetry_simple(include_bytes!("fixtures/opentelemetry_simple.json"))]
 #[case::opentelemetry_swarm(include_bytes!("fixtures/opentelemetry_swarm.json"))]
 #[case::pydantic_ai_simple(include_bytes!("fixtures/pydantic_ai_simple.json"))]
@@ -255,6 +256,30 @@ fn fixture_sdk_roles(
             span.span_id
         );
     }
+}
+
+#[rstest]
+#[case::simple(include_bytes!("fixtures/openai_agents_simple.json"))]
+#[case::swarm(include_bytes!("fixtures/openai_agents_swarm.json"))]
+#[case::group_id(include_bytes!("fixtures/openai_agents_group_id.json"))]
+fn openai_agents_workflow_root_only_wraps_its_agents(#[case] body: &[u8]) {
+    let spans = decode_otlp(body, Some("application/json")).expect("captured OTLP export");
+    let agents: Vec<_> = spans
+        .iter()
+        .filter(|span| {
+            span.scope_name.as_str() == "openinference.instrumentation.openai_agents"
+                && span.normalized.observation_type == ObservationType::Agent
+        })
+        .map(|span| {
+            (
+                span.attributes.contains_key("agent.name"),
+                span.normalized.wrapper_candidate,
+            )
+        })
+        .collect();
+    assert!(agents.contains(&(false, true)));
+    assert!(agents.contains(&(true, false)));
+    assert!(agents.iter().all(|(named, wrapper)| named != wrapper));
 }
 
 #[rstest]
