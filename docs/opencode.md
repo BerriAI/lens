@@ -19,11 +19,11 @@ opencode run "Run the date command, then tell me what it printed."
 
 The plugin stays off until both variables are set. Use the address and key from the [table below](#address-and-key). Leave `experimental.openTelemetry` and the `OTEL_EXPORTER_OTLP_*` variables unset on OpenCode 2, because the plugin replaces them
 
-Each prompt you send is one trace, and the traces of a session are grouped by OpenCode's session id. The trace opens with an `invoke_agent opencode` step that shows what you asked and the final reply. Under it, each model call is a `chat <model>` step with the system prompt, the messages sent, the reply and its tokens, and each tool call is an `execute_tool <name>` step with its input and output. The call OpenCode makes to name a session is listed as a model call without content. Through a LiteLLM gateway, each model call also shows the cost the gateway billed, and the trace belongs to the key, user and team of the LiteLLM key that sent it
+A session is one trace, and each prompt you send is a turn in it that shows what you asked and the final reply. Inside a turn, each model call is a `chat <model>` step with the system prompt, the messages added since the previous reply, the reply and its tokens, and each tool call is an `execute_tool <name>` step with its input and output. Earlier messages stay on the earlier model calls, so the thread reads top to bottom without repeats. A subagent's steps sit under the tool call that started it, in the same trace. The call OpenCode makes to name a session is listed as a model call without content. Through a LiteLLM gateway, each model call also shows the cost the gateway billed, and the trace belongs to the key, user and team of the LiteLLM key that sent it
 
-The trace is sent when the turn ends. To stop recording, unset the two variables or run `opencode plugin remove github:BerriAI/litellm-lens-plugins`
+Each turn is sent when it ends. To stop recording, unset the two variables or run `opencode plugin remove github:BerriAI/litellm-lens-plugins`
 
-Verified with OpenCode 2.3.2 through a LiteLLM gateway
+Verified with OpenCode 2.3.2 and plugin 0.1.2 through a LiteLLM gateway
 
 ## Address and key
 
