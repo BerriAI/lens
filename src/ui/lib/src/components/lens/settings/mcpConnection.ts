@@ -38,14 +38,14 @@ export function mcpConnectionGuides(
   const gateway = guide(
     "gateway",
     "Through LiteLLM",
-    throughGateway ? here : "https://<your-litellm-gateway>/lens/mcp",
+    throughGateway ? here : "https://YOUR_LITELLM_GATEWAY/lens/mcp",
     "LITELLM_API_KEY",
     "Use your own LiteLLM key, no admin token needed. It reads only the traces you and your teams may see.",
   );
   const direct = guide(
     "direct",
     "Directly to Lens",
-    throughGateway ? "https://<your-lens-address>/lens/mcp" : here,
+    throughGateway ? "https://YOUR_LENS_ADDRESS/lens/mcp" : here,
     "LENS_ADMIN_TOKEN",
     "Use LENS_ADMIN_TOKEN from the Lens deployment. It reads every trace. A tracing key is rejected.",
   );
