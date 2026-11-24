@@ -105,6 +105,12 @@ export function Workspace() {
       });
       return;
     }
+    await client.cancelQueries({
+      predicate: (query) => query.queryKey[0] !== sessionKey[0],
+    });
+    client.removeQueries({
+      predicate: (query) => query.queryKey[0] !== sessionKey[0],
+    });
     await client.resetQueries({ queryKey: sessionKey });
   };
   if (demo) return <Surface userRole="proxy_admin_viewer" readOnly />;
@@ -117,6 +123,7 @@ export function Workspace() {
   if (session.data)
     return (
       <Surface
+        cacheScope={session.data.user_id}
         userRole={session.data.user_role}
         readOnly={session.data.user_role === "proxy_admin_viewer"}
         user={
@@ -181,9 +188,11 @@ function Surface({
   userRole,
   readOnly,
   user,
+  cacheScope,
 }: {
   userRole: string;
   readOnly: boolean;
+  cacheScope?: string;
   user?: LensHost["user"];
 }) {
   const { forcedTheme } = useTheme();
@@ -197,7 +206,12 @@ function Surface({
           user,
         }}
       >
-        <LensWorkspace accessToken="" userRole={userRole} readOnly={readOnly} />
+        <LensWorkspace
+          cacheScope={cacheScope}
+          accessToken=""
+          userRole={userRole}
+          readOnly={readOnly}
+        />
       </LensHostProvider>
     </div>
   );
@@ -302,8 +316,7 @@ function ConnectGateway() {
         className="rounded-md border px-3 py-2"
       />
       <p className="text-xs text-muted-foreground">
-        With a key, Lens also uses the gateway&apos;s models for signals and
-        findings.
+        Agents use the dedicated workspace key configured by your administrator.
       </p>
       <label htmlFor="connect-token" className="text-sm font-medium">
         Admin token
@@ -344,8 +357,11 @@ function SignIn({ linkRejected }: { linkRejected: boolean }) {
       sessionSchema.parse(
         await api.post("/auth/session", { body: { token: value } }),
       ),
-    onSuccess: (session) => {
+    onSuccess: async (session) => {
       setToken("");
+      await client.cancelQueries({
+        predicate: (query) => query.queryKey[0] !== sessionKey[0],
+      });
       client.removeQueries({
         predicate: (query) => query.queryKey[0] !== sessionKey[0],
       });

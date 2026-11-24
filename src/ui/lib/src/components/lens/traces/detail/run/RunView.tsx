@@ -32,6 +32,7 @@ import type { Trace } from "../../types";
 import { PagingBanner } from "./PagingBanner";
 import { RunBody } from "./RunBody";
 import { RunHeader } from "./RunHeader";
+import { TraceResults } from "../../../workspace/Results";
 import { FeedbackPanel } from "../feedback/FeedbackPanel";
 import {
   flaggedSignals,
@@ -52,6 +53,7 @@ interface RunViewProps {
   /** Rendered inside the side drawer: the drawer owns closing and sizing. */
   embedded?: boolean;
   showSignals?: boolean;
+  agentWorkspace?: boolean;
   logRange?: { startMs: number; endMs: number };
 }
 
@@ -142,6 +144,7 @@ function LoadedRun({
   onBack,
   embedded = false,
   showSignals = false,
+  agentWorkspace = false,
   logRange,
   switching,
 }: RunViewProps & { switching: boolean }) {
@@ -293,6 +296,7 @@ function LoadedRun({
     >
       <RunHeader
         trace={trace}
+        agentWorkspace={agentWorkspace}
         handoff={traces.handoff(
           trace.summary.trace_id,
           null,
@@ -314,7 +318,7 @@ function LoadedRun({
           model context.
         </p>
       )}
-      <FeedbackPanel summary={trace.summary} accessToken={accessToken} />
+      <>{agentWorkspace ? <TraceResults accessToken={accessToken} traceId={traceId} traceRef={trace.summary.trace_ref ?? traceRef ?? ""} /> : <FeedbackPanel summary={trace.summary} accessToken={accessToken} />}</>
       {evidenceMissing && (
         <SignalEvidence
           name={selectedSignal?.name ?? "Signal evidence"}

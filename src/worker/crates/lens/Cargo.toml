@@ -6,6 +6,7 @@ license.workspace = true
 repository.workspace = true
 
 [dependencies]
+lens-agents = { path = "../agents" }
 axum = { workspace = true, features = ["json"] }
 base64.workspace = true
 ring = "0.17.14"

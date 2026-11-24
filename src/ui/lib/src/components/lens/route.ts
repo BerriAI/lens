@@ -8,6 +8,8 @@ import { isRangeHours } from "../shared/timeRange/timeRange";
 
 export const LENS_TABS = {
   home: "Home",
+  new_session: "New Session",
+  bots: "Bots",
   agents: "Agents",
   traces: "Traces",
   alerts: "Alerts",

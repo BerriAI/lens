@@ -22,7 +22,7 @@ use serde::Serialize;
 
 pub use crate::error::TraceReadError;
 use crate::{auth, error::TraceHttpError};
-mod mcp;
+pub mod mcp;
 mod validation;
 
 #[derive(Clone, Debug, Serialize)]

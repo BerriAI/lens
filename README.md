@@ -1,128 +1,36 @@
-<div align="center">
-  <a href="https://github.com/BerriAI/lens">
-    <picture>
-      <source media="(prefers-color-scheme: dark)" srcset="assets/lens-logo-dark.png">
-      <source media="(prefers-color-scheme: light)" srcset="assets/lens-logo-light.png">
-      <img alt="LiteLLM Lens" src="assets/lens-logo-light.png" width="35%">
-    </picture>
-  </a>
+# Lens agent-first experiment
 
-<h3>Self-improving agents, on your infrastructure.</h3>
+Talk to Lens about your traces, or give a persistent bot an ongoing task. Home opens with a chat composer and a feed of reports, charts and evidence. The sidebar contains Home, New Session, Bots and Traces
 
-**[Start locally](#run-locally)** with Git and Docker, or **[Set it up for me](docs/setup-with-agent.md)** with your coding agent
+This branch is an isolated experiment using native [Deep Agents](https://github.com/langchain-ai/deepagents) for ordinary sessions, [Hermes](https://github.com/NousResearch/hermes-agent) for persistent bots, and [AgentChat](https://github.com/BerriAI/agentchat) for Slack. All model calls and connected MCP tools go through LiteLLM
 
-<details>
-<summary>Copy a setup prompt</summary>
-
-```text
-Set up Lens for this project using https://github.com/BerriAI/lens/blob/main/docs/setup-with-agent.md. Inspect the existing project and deployment first. Reuse a working Lens installation if one exists; otherwise start standalone Lens with ClickHouse using the documented quickstart. Ask only for consequential missing choices. Preserve configuration, data, secrets, and my agent's model connection. Connect this project's instrumentation and verify a real run by its trace ID, including its input, output, and tool calls. Report the Lens URL, changes made, and verification results without exposing credentials.
-```
-
-</details>
-
-<br>
-
-<img src="assets/lens-hero.gif" alt="Agent swarms flow through the LiteLLM gateway into one trace per run, and Lens loops what it learns back into your agents" width="100%">
-
-<br><br>
-
-**Your agents run. Lens watches every run, finds what went wrong, and feeds it back.**<br>
-**The next run is better.**
-
-<br>
-
-[Early access](https://forms.gle/3GC1Ner4vjthGWi18) &nbsp;&nbsp;·&nbsp;&nbsp; [Docs](deploy/lens/README.md) &nbsp;&nbsp;·&nbsp;&nbsp; [Contributing](CONTRIBUTING.md) &nbsp;&nbsp;·&nbsp;&nbsp; [Launch post](https://docs.litellm.ai/blog/litellm-lens-launch) &nbsp;&nbsp;·&nbsp;&nbsp; [4K film](assets/lens-hero-4k.mp4)
-
-<br><br>
-
-<h3>Lens CLI</h3>
-
-**Evaluate models, harnesses, and custom agents on your own tasks**
-
-<img src="assets/lens-cli-results.webp" alt="Lens CLI ranks twelve model and harness configurations by pass rate and estimated cost" width="100%">
-
-Saved sample run: 24 synthetic tasks across 12 configurations, with token-based cost estimates
-
-<br>
-
-<img src="assets/lens-cli-cost-quality.webp" alt="Lens CLI cost-versus-quality chart compares pass rates and estimated total costs for the same twelve configurations" width="100%">
-
-Compare pass rate and estimated cost before choosing a model and harness
-
-[Try the CLI preview](https://docs.litellm.ai/docs/proxy/lens/cli)
-
-<br><br>
-
-<img src="assets/lens-traces.png" alt="Lens traces" width="100%">
-
-<br><br>
-
-<img src="assets/lens-finding.png" alt="Lens finding" width="100%">
-
-<br><br>
-
-<img src="assets/lens-dataset.png" alt="Lens dataset" width="100%">
-
-<br><br>
-
-<img src="assets/lens-mark.svg" alt="" width="72">
-
-<br>
-
-**Run Lens on its own or open it inside LiteLLM.** Your traces stay in your own ClickHouse.<br>
-Point Claude Code, [Codex](docs/codex-cli.md) or [OpenCode](docs/opencode.md) at them and let your agents improve your agents.
-
-<br>
-
-**Using Claude Code?** Its telemetry is off by default and Lens needs it to record your turns.<br>
-[Turn on the required Claude Code settings](docs/claude-code.md) before your first session. There is one setup for Lens with a LiteLLM gateway and one for standalone Lens.
-
-<br>
-
-[Get started](deploy/lens/README.md)
-
-</div>
+Traces remain immutable. Agents write typed annotations, reports and attachments in shared storage so the main agent can answer questions such as “Which failed runs did Request reviewer find?” Bots discover and reuse shared definitions, and can create new ones for new tasks
 
 ## Run locally
 
-Install Docker with Docker Compose 2.24 or newer and make sure Docker is running. Then run this from a checkout of this repository:
+Use Docker with Compose 2.24 or newer. Export `LITELLM_PROXY_API_BASE` and `LITELLM_PROXY_API_KEY` through your shell or secret manager, using a dedicated key with the chosen model and MCP permissions. From this checkout:
 
 ```sh
-docker compose up --wait
-docker compose logs -n1 credentials
+./deploy/lens/start --build
 ```
 
-The first command starts Lens and ClickHouse. The second prints the address to open and the setup token to paste there:
+Open [Lens](http://localhost:4318/ui/) and sign in with the generated `LENS_ADMIN_TOKEN` in `deploy/lens/.env`. See [Run the experiment](deploy/lens/README.md) for connecting traces, creating bots, Slack, deployment settings and restart verification
 
-```
-credentials-1  | Open http://localhost:4318/ui/ and paste this setup token: <your token>
-```
+Use separate state volumes for this experiment. Published Lens releases and existing Helm charts still describe the earlier product. This branch requires both the Lens core image and native agent image built from the same source revision
 
-The token is also saved as `LENS_ADMIN_TOKEN` in `deploy/lens/.env`. `docker compose down` stops Lens and keeps its data, and adding `--volumes` deletes the stored traces
+## Development
 
-See [Run Lens](deploy/lens/README.md) for recording your first trace and configuring a deployment
-
-## Connect a local LiteLLM gateway
-
-Lens and the gateway share two secrets. Generate them once in `deploy/lens/.env` and restart Lens to load them:
+The application backend is Rust in `src/worker`. The UI is in `src/ui/lib` and `src/ui/app`. The upstream agent runtimes are pinned external dependencies, with no custom Python backend
 
 ```sh
-printf 'LITELLM_LENS_SERVICE_TOKEN=%s\nLENS_GATEWAY_SECRET=%s\n' \
-  "$(openssl rand -hex 32)" "$(openssl rand -hex 32)" >> deploy/lens/.env
-docker compose up -d --wait
+cargo test --manifest-path src/worker/Cargo.toml -p lens-agents
+npm run typecheck:ui
+npm exec --workspace @litellm/lens-ui -- vitest run \
+  src/components/lens/LensWorkspace.integration.test.tsx \
+  src/components/lens/LensNavigation.integration.test.tsx \
+  src/components/lens/LensSetup.integration.test.tsx
 ```
 
-Then give the gateway the same two values and the Lens address, and restart it:
+The existing trace storage, ingestion, authentication and trace viewer remain. Specialized analysis, profile, dataset and evaluation routes are not mounted by this experiment's server
 
-```dotenv
-LITELLM_LENS_URL=http://localhost:4318
-LITELLM_LENS_PUBLIC_URL=http://localhost:4318
-LITELLM_LENS_SERVICE_TOKEN=<same value as Lens>
-LENS_GATEWAY_SECRET=<same value as Lens>
-```
-
-`LITELLM_LENS_URL` is the address the gateway calls and `LITELLM_LENS_PUBLIC_URL` is the one your browser and agents use. A gateway running in a container cannot reach Lens at `localhost`. With Docker Desktop, set `LITELLM_LENS_URL=http://host.docker.internal:4318`. On Linux, attach the gateway to the `lens_default` network and use `http://lens:4318`
-
-Setting `LITELLM_LENS_URL` turns the connection on, so the gateway needs no `config.yaml` change. Lens then opens from the LiteLLM sidebar with your LiteLLM login. To also offer Log in with LiteLLM on the Lens sign-in page, set `LENS_GATEWAY_PUBLIC_URL` in `deploy/lens/.env` to the address your browser uses for the gateway, such as `http://localhost:4000`
-
-[Add Lens to LiteLLM](https://docs.litellm.ai/docs/proxy/lens/deployment/litellm) covers Helm, split deployments and the connection check
+See [Contributing](CONTRIBUTING.md) for repository conventions

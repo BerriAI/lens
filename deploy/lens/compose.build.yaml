@@ -5,4 +5,10 @@ services:
       dockerfile: deploy/runtime/Dockerfile
       args:
         LENS_VERSION: ${LENS_VERSION:-0.4.0}
-    image: ${LENS_IMAGE:-lens:local}
+    image: ${LENS_IMAGE:-lens:agent-first}
+  agents:
+    build:
+      context: ../..
+      dockerfile: deploy/runtime/Dockerfile
+      target: agents
+    image: ${LENS_AGENTS_IMAGE:-lens-agents:agent-first}

@@ -3,7 +3,9 @@
  * Do not make direct changes to the file.
  */
 
-export interface paths {
+import type { AgentWorkspacePaths } from "./agentWorkspace";
+
+export interface paths extends AgentWorkspacePaths {
     "/lens/admin/gateway/connect": {
         post: {
             requestBody: {

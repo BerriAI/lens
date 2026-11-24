@@ -2,9 +2,6 @@
 set -euo pipefail
 lens_dir="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
 lens_root="$(cd -- "$lens_dir/../.." && pwd)"
-if [[ -z "${LENS_IMAGE:-}" ]]; then
-  unset LENS_IMAGE
-fi
 lens_build=false
 for lens_argument in "$@"; do
   case "$lens_argument" in
@@ -12,48 +9,25 @@ for lens_argument in "$@"; do
     *) printf '%s\n' "Usage: $0 [--build]" >&2; exit 2 ;;
   esac
 done
+: "${LITELLM_PROXY_API_BASE:?Export the dedicated workspace gateway base}"
+: "${LITELLM_PROXY_API_KEY:?Export the dedicated workspace gateway key}"
+if [[ -n "${LENS_IMAGE:-}" && -z "${LENS_AGENTS_IMAGE:-}" || -z "${LENS_IMAGE:-}" && -n "${LENS_AGENTS_IMAGE:-}" ]]; then
+  printf '%s\n' 'Set both LENS_IMAGE and LENS_AGENTS_IMAGE from the same source revision' >&2
+  exit 2
+fi
 docker info >/dev/null
 docker compose version >/dev/null
-lens_compose=(docker compose --project-directory "$lens_dir" --file "$lens_dir/compose.yaml")
-build_source() {
-  export LENS_IMAGE=lens:local
-  docker build --file "$lens_root/deploy/runtime/Dockerfile" --tag "$LENS_IMAGE" "$lens_root"
-}
-select_image() {
-  if [[ -n "${LENS_IMAGE:-}" ]]; then
-    docker image inspect "$LENS_IMAGE" >/dev/null 2>&1 || docker pull "$LENS_IMAGE"
-    return
+export LENS_IMAGE="${LENS_IMAGE:-lens:agent-first}"
+export LENS_AGENTS_IMAGE="${LENS_AGENTS_IMAGE:-lens-agents:agent-first}"
+if [[ "$lens_build" == true ]] || ! docker image inspect "$LENS_IMAGE" "$LENS_AGENTS_IMAGE" >/dev/null 2>&1; then
+  if [[ "$lens_build" == false && ( "$LENS_IMAGE" != lens:agent-first || "$LENS_AGENTS_IMAGE" != lens-agents:agent-first ) ]]; then
+    docker pull "$LENS_IMAGE"
+    docker pull "$LENS_AGENTS_IMAGE"
+  else
+    docker build --file "$lens_root/deploy/runtime/Dockerfile" --target runtime --tag "$LENS_IMAGE" "$lens_root"
+    docker build --file "$lens_root/deploy/runtime/Dockerfile" --target agents --tag "$LENS_AGENTS_IMAGE" "$lens_root"
   fi
-  if [[ -f "$lens_dir/image" ]]; then
-    export LENS_IMAGE="$(cat "$lens_dir/image")"
-    docker image inspect "$LENS_IMAGE" >/dev/null 2>&1 || docker pull "$LENS_IMAGE"
-    return
-  fi
-  if [[ "$lens_build" == true || -f "$lens_dir/.env" ]]; then
-    build_source
-    return
-  fi
-  lens_published="ghcr.io/berriai/lens:$(tr -d '[:space:]' < "$lens_root/VERSION")"
-  if docker image inspect "$lens_published" >/dev/null 2>&1 || docker pull "$lens_published"; then
-    export LENS_IMAGE="$lens_published"
-    return
-  fi
-  printf '%s\n' "Could not pull $lens_published. Building Lens from this checkout instead." >&2
-  build_source
-}
-prepare() {
-  test ! -L "$lens_dir/.env"
-  if [[ "$lens_build" == false && -z "${LENS_IMAGE:-}" && -f "$lens_dir/.env" ]] && \
-      ! "${lens_compose[@]}" config --images lens | grep -Fxq 'lens:local'; then
-    return
-  fi
-  select_image
-  docker run --rm --user "$(id -u):$(id -g)" --volume "$lens_dir:/setup" "$LENS_IMAGE" init /setup
-  if ! grep -q '^LENS_IMAGE=' "$lens_dir/.env"; then
-    printf '\nLENS_IMAGE=%s\n' "$LENS_IMAGE" >> "$lens_dir/.env"
-  fi
-}
-prepare
-"${lens_compose[@]}" up --detach --wait --wait-timeout 180
-lens_public_url="$("${lens_compose[@]}" exec -T lens sh -c 'printf "%s" "$LENS_PUBLIC_URL"')"
-printf '%s\n' "Lens is ready at ${lens_public_url%/}/ui/" 'Sign in with LENS_ADMIN_TOKEN from deploy/lens/.env. Keep the file private and retain it across restarts.'
+fi
+test ! -L "$lens_dir/.env"
+docker compose --project-directory "$lens_dir" --file "$lens_dir/compose.yaml" up --detach --wait --wait-timeout 180
+printf '%s\n' "Lens is ready at ${LENS_PUBLIC_URL:-http://localhost:4318}/ui/" 'Sign in with LENS_ADMIN_TOKEN from deploy/lens/.env. Keep it private and retain the state volumes across restarts.'

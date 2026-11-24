@@ -11,6 +11,7 @@ export default function AgentTracesPage({
   readOnly = false,
   canMintTracingKey = false,
   canViewFindings = true,
+  agentWorkspace = false,
   onSetUpSignals,
   onConnectAgent,
 }: {
@@ -19,6 +20,7 @@ export default function AgentTracesPage({
   readOnly?: boolean;
   canMintTracingKey?: boolean;
   canViewFindings?: boolean;
+  agentWorkspace?: boolean;
   onSetUpSignals?: () => void;
   onConnectAgent?: () => void;
 }) {
@@ -32,6 +34,7 @@ export default function AgentTracesPage({
         readOnly={readOnly}
         canMintTracingKey={canMintTracingKey}
         canViewFindings={canViewFindings}
+        agentWorkspace={agentWorkspace}
         onSetUpSignals={onSetUpSignals}
         onConnectAgent={onConnectAgent}
         timeControls={time}

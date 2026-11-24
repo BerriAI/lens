@@ -3,6 +3,8 @@ set -euo pipefail
 
 lens_image="${1:?Pass the built Lens image reference}"
 lens_release="${2:?Pass the expected Lens version}"
+lens_agents_image="${3:?Pass the built native agents image reference}"
+lens_agents="lens-native-smoke-$$"
 lens_root="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/../.." && pwd)"
 lens_temp="$(mktemp -d)"
 lens_name="lens-smoke-$$"
@@ -12,7 +14,7 @@ cleanup() {
   if [[ "$lens_status" -ne 0 ]]; then
     docker logs --tail 60 "$lens_name" >&2 || true
   fi
-  docker rm -fv "$lens_name" "$lens_storage" >/dev/null 2>&1 || true
+  docker rm -fv "$lens_name" "$lens_storage" "$lens_agents" >/dev/null 2>&1 || true
   docker network rm "$lens_name" >/dev/null 2>&1 || true
   rm -rf "$lens_temp"
 }
@@ -25,6 +27,15 @@ before="$(shasum -a 256 "$lens_temp/.env")"
 docker run --rm --user "$(id -u):$(id -g)" --volume "$lens_temp:/setup" "$lens_image" init /setup
 test "$before" = "$(shasum -a 256 "$lens_temp/.env")"
 docker network create "$lens_name" >/dev/null
+mkdir -p "$lens_temp/state" "$lens_temp/agents"
+chmod 777 "$lens_temp/state"
+umask 077
+sed -n '/^LENS_RUNTIME_SECRET=/p' "$lens_temp/.env" > "$lens_temp/runtime.env"
+docker run -d --name "$lens_agents" --network "$lens_name" --read-only --cap-drop ALL \
+  --cap-add CHOWN --cap-add FOWNER --cap-add SETUID --cap-add SETGID --cap-add DAC_OVERRIDE --cap-add KILL \
+  --security-opt no-new-privileges --pids-limit 512 --memory 4g --cpus 2 \
+  --tmpfs /tmp:rw,nosuid,size=512m --env-file "$lens_temp/runtime.env" \
+  --volume "$lens_temp/agents:/var/lib/lens-runtime" "$lens_agents_image" >/dev/null
 docker run -d --name "$lens_storage" --network "$lens_name" --env-file "$lens_temp/.env" \
   -e CLICKHOUSE_USER=lens -e CLICKHOUSE_DB=lens -e CLICKHOUSE_DEFAULT_ACCESS_MANAGEMENT=1 \
   --volume "$lens_root/deploy/clickhouse/keeper.xml:/etc/clickhouse-server/config.d/lens-keeper.xml:ro" \
@@ -45,7 +56,10 @@ docker run -d --name "$lens_name" --network "$lens_name" --read-only --cap-drop 
   --security-opt no-new-privileges --pids-limit 128 --memory 2g --cpus 2 \
   --tmpfs /tmp:rw,noexec,nosuid,size=1g --env-file "$lens_temp/.env" \
   -e LENS_MODE=standalone -e CLICKHOUSE_HOST="$lens_storage" -e CLICKHOUSE_USER=lens \
-  -e CLICKHOUSE_DATABASE=lens "$lens_image" >/dev/null
+  -e CLICKHOUSE_DATABASE=lens -e LENS_RUNTIME_URL="http://$lens_agents:4320" \
+  -e LENS_RUNTIME_LENS_URL="http://$lens_name:4318/agent-runtime" \
+  -e LITELLM_PROXY_API_BASE=https://gateway.example/v1 -e LITELLM_PROXY_API_KEY=fixture-key \
+  --volume "$lens_temp/state:/var/lib/lens" "$lens_image" >/dev/null
 wait_ready() {
   for attempt in $(seq 1 60); do
     test "$(docker inspect --format '{{.State.Running}}' "$lens_name")" = true
@@ -60,9 +74,9 @@ wait_ready
 test "$(docker exec "$lens_name" id -u)" = 65532
 docker exec "$lens_name" curl --fail --silent http://127.0.0.1:4318/ui/ > "$lens_temp/ui.html"
 test -s "$lens_temp/ui.html"
-docker exec "$lens_name" sh -c 'curl --fail --silent --header "Authorization: Bearer $LENS_ADMIN_TOKEN" http://127.0.0.1:4318/lens' > "$lens_temp/lenses.json"
-test "$(jq '.lenses | length' "$lens_temp/lenses.json")" = 0
-test "$(docker exec "$lens_name" curl --silent --output /dev/null --write-out '%{http_code}' http://127.0.0.1:4318/lens)" = 401
+docker exec "$lens_name" sh -c 'curl --fail --silent --header "Authorization: Bearer $LENS_ADMIN_TOKEN" http://127.0.0.1:4318/lens/workspace' > "$lens_temp/lenses.json"
+test "$(jq '.agents | length' "$lens_temp/lenses.json")" = 0
+test "$(docker exec "$lens_name" curl --silent --output /dev/null --write-out '%{http_code}' http://127.0.0.1:4318/lens/workspace)" = 401
 docker exec "$lens_name" sh -c 'curl --fail --silent --header "Authorization: Bearer $LENS_ADMIN_TOKEN" --header "Content-Type: application/json" --data '\''{"name":"Container smoke tracing"}'\'' http://127.0.0.1:4318/lens/admin/tracing/keys' > "$lens_temp/key.json"
 jq -er '"Authorization: Bearer " + .key' "$lens_temp/key.json" > "$lens_temp/tracing-header"
 docker exec -i "$lens_name" sh -c 'umask 077; cat > /tmp/lens-smoke-header' < "$lens_temp/tracing-header"
@@ -77,14 +91,19 @@ done
 docker exec "$lens_name" sh -c 'curl --fail --silent --header "Authorization: Bearer $LENS_ADMIN_TOKEN" http://127.0.0.1:4318/v1/traces?include_internal=true' > "$lens_temp/traces.json"
 test "$(jq -r '.data[0].trace_id' "$lens_temp/traces.json")" = 11112222333344445555666677778888
 test "$(jq '.data | length' "$lens_temp/traces.json")" = 1
+docker exec "$lens_name" sh -c 'curl --fail --silent --header "Authorization: Bearer $LENS_ADMIN_TOKEN" --header "Content-Type: application/json" --data '\''{"title":"Retained chat"}'\'' http://127.0.0.1:4318/lens/workspace/conversations' > "$lens_temp/chat.json"
+lens_chat="$(jq -er .id "$lens_temp/chat.json")"
+test "$(docker exec "$lens_name" curl --silent --output /dev/null --write-out '%{http_code}' --request DELETE http://127.0.0.1:4318/v1/traces/11112222333344445555666677778888)" = 405
 docker kill --signal KILL "$lens_storage" >/dev/null
 docker start "$lens_storage" >/dev/null
 wait_storage
 docker restart "$lens_name" >/dev/null
 wait_ready
-docker exec "$lens_name" sh -c 'curl --fail --silent --header "Authorization: Bearer $LENS_ADMIN_TOKEN" http://127.0.0.1:4318/lens' > "$lens_temp/restarted.json"
-test "$(jq '.lenses | length' "$lens_temp/restarted.json")" = 0
+docker exec "$lens_name" sh -c 'curl --fail --silent --header "Authorization: Bearer $LENS_ADMIN_TOKEN" http://127.0.0.1:4318/lens/workspace' > "$lens_temp/restarted.json"
+test "$(jq '.agents | length' "$lens_temp/restarted.json")" = 1
+docker exec "$lens_name" sh -c 'curl --fail --silent --header "Authorization: Bearer $LENS_ADMIN_TOKEN" "http://127.0.0.1:4318/lens/workspace/conversations/$1"' sh "$lens_chat" > "$lens_temp/restarted-chat.json"
+test "$(jq -r .conversation.title "$lens_temp/restarted-chat.json")" = 'Retained chat'
 docker exec "$lens_name" sh -c 'curl --fail --silent --header "Authorization: Bearer $LENS_ADMIN_TOKEN" http://127.0.0.1:4318/v1/traces?include_internal=true' > "$lens_temp/restarted-traces.json"
 test "$(jq -r '.data[0].trace_id' "$lens_temp/restarted-traces.json")" = 11112222333344445555666677778888
 test "$(jq '.data | length' "$lens_temp/restarted-traces.json")" = 1
-printf '%s\n' 'Standalone Lens serves the UI, enforces API access, ingests a trace, and retains it after restarting both services'
+printf '%s\n' 'Agent-first Lens serves the UI, enforces API access, ingests an immutable trace, and retains traces and conversations after restart'

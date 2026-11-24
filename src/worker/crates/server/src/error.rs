@@ -71,7 +71,7 @@ pub enum TraceReadError {
 }
 
 #[derive(Debug, thiserror::Error)]
-pub(crate) enum McpToolError {
+pub enum McpToolError {
     #[error("Unknown tool {0}")]
     UnknownTool(String),
     #[error("Invalid arguments: {0}")]

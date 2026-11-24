@@ -1,478 +1,367 @@
 "use client";
 
-import { useEffect, useId, useState } from "react";
-import { useQuery } from "@tanstack/react-query";
-import { Tabs } from "@base-ui/react/tabs";
-import { ChevronRight, Github, Loader2 } from "lucide-react";
+import { useMemo, useState } from "react";
+import {
+  useInfiniteQuery,
+  useMutation,
+  useQuery,
+  useQueryClient,
+} from "@tanstack/react-query";
+import { Loader2, Pause, Play, Plus } from "lucide-react";
 import { useLensHost } from "../../host/LensHost";
-import AgentTracesPage from "./traces/list/AgentTracesPage";
+import { cn } from "../../lib/cva.config";
 import { Button } from "../ui/button";
-import type { TraceSummary } from "./traces/types";
-import { Switch } from "../ui/switch";
-import { TabsContent } from "../ui/tabs";
-import { LensServicesProvider, useLensAccessToken, useLensApi, useLiveLensServices } from "./data/LensServices";
-import { isProxyAdminRole, isProxyAdminTierRole } from "../../utils/roles";
-import { DatasetsView } from "./datasets/DatasetsView";
-import { EvalsView } from "./evals/EvalsView";
-import { LensSettings } from "./settings/LensSettings";
-import { GatewayConnection } from "./settings/GatewayConnection";
+import { LensServicesProvider, useLiveLensServices } from "./data/LensServices";
 import { createLensDemo } from "./data/demo/createLensDemo";
 import { browserDemoStorage } from "./data/demo/storage";
-import { ModelOptimizations } from "./optimizations/ModelOptimizations";
-import { lensQueries } from "./data/queries";
 import { LensSidebar } from "./LensSidebar";
-import { GatewayFrameNavigation } from "./GatewayFrameNavigation";
-import { FindingsView } from "./investigations/FindingsView";
-import { InvestigationsView } from "./investigations/InvestigationsView";
-import { investigationActivity, listPollInterval } from "./model/status";
-import { cn } from "../../lib/cva.config";
-import {
-  LENS_TABS,
-  useAlertsRoute,
-  useDialogRoute,
-  useGitHubRoute,
-  useIssueRoute,
-  useLensRoute,
-  type LensDialog,
-  type LensTab,
-} from "./route";
-import { LensGettingStarted } from "./onboarding/LensGettingStarted";
-import { useLensReadiness, type LensReadiness } from "./hooks/useLensReadiness";
-import { OnboardingProvider, type Onboarding } from "./onboarding/OnboardingContext";
-import { traceRefOf, useOpenTraceRouting, type TraceRef } from "./traces/routing";
-import { ALL_AGENTS_LABEL } from "./agents/AgentPicker";
-import { useLensAgents } from "./agents/AgentScoped";
-import { AgentsView } from "./agents/AgentsView";
-import { ProfilesView } from "./profiles/ProfilesView";
-import { LensHome } from "./onboarding/LensHome";
-import { AgentGitHubDialog } from "./agents/AgentGitHubDialog";
+import { isProxyAdminRole } from "../../utils/roles";
+import AgentTracesPage from "./traces/list/AgentTracesPage";
 import { LensPageActionsContext } from "./ui/LensPageHeader";
-import { AlertsView } from "./alerts/AlertsView";
+import { workspaceApi } from "./workspace/api";
+import { useAgentWorkspaceRoute } from "./workspace/route";
+import { navigation, WorkspaceNavigation } from "./workspace/Navigation";
+import { Chat } from "./workspace/Chat";
+import { SlackConnection } from "./workspace/Slack";
+import { Bots, CreateBot } from "./workspace/Bots";
+import { ReportFeed, ReportPanel, WorkspaceScope } from "./workspace/Results";
 
 type WorkspaceProps = {
   accessToken: string;
   userRole: string;
   readOnly: boolean;
+  cacheScope?: string;
 };
 
 export function LensWorkspace(props: WorkspaceProps) {
-  const { demo } = useLensRoute();
-  return demo ? <SampleSession /> : <LiveSession {...props} />;
-}
-
-function LiveSession(props: WorkspaceProps) {
-  const services = useLiveLensServices(props.accessToken);
+  const route = useAgentWorkspaceRoute();
+  const live = useLiveLensServices(props.accessToken);
+  const [sample] = useState(() =>
+    route.demo ? createLensDemo(Date.now(), browserDemoStorage()) : null,
+  );
   return (
-    <LensServicesProvider services={services}>
-      <LensContent userRole={props.userRole} readOnly={props.readOnly} />
+    <LensServicesProvider services={route.demo && sample ? sample : live}>
+      <WorkspaceContent {...props} />
     </LensServicesProvider>
   );
 }
 
-function SampleSession() {
-  const [services] = useState(() => createLensDemo(Date.now(), browserDemoStorage()));
-  return (
-    <LensServicesProvider services={services}>
-      <LensContent userRole="proxy_admin" readOnly={false} />
-    </LensServicesProvider>
-  );
-}
-
-function DemoToggle({ demo, onChange }: { demo: boolean; onChange: (demo: boolean) => void }) {
-  const id = useId();
-  return (
-    <div
-      className={cn(
-        "flex items-center gap-2 whitespace-nowrap text-xs",
-        demo ? "font-medium text-info" : "text-muted-foreground",
-      )}
-    >
-      <label htmlFor={id}>Demo data</label>
-      <Switch id={id} size="sm" checked={demo} onCheckedChange={onChange} className="data-checked:bg-info" />
-    </div>
-  );
-}
-
-/** The one always-mounted `/lens` observer; every other reader is a plain cache subscriber. */
-function useLensOverview(enabled: boolean, settingsOpen: boolean) {
-  const api = useLensApi();
-  const { data } = useQuery({
-    ...lensQueries.list(api),
-    enabled,
-    refetchInterval: (query) => listPollInterval(query.state.data, settingsOpen, Date.now()),
-  });
-  return { activity: investigationActivity(data?.lenses ?? []), list: data };
-}
-
-const PANEL =
-  "flex min-h-0 flex-1 flex-col overflow-y-auto animate-in fade-in-0 duration-300 motion-reduce:animate-none";
-
-function LensContent({ userRole, readOnly }: Omit<WorkspaceProps, "accessToken">) {
+function WorkspaceContent({
+  accessToken,
+  userRole,
+  readOnly,
+  cacheScope,
+}: WorkspaceProps) {
+  const route = useAgentWorkspaceRoute();
   const host = useLensHost();
   const embedded = host.surface === "embedded";
+  const client = useQueryClient();
+  const api = useMemo(() => workspaceApi(accessToken), [accessToken]);
   const [pageActions, setPageActions] = useState<HTMLDivElement | null>(null);
-  const accessToken = useLensAccessToken();
-  const { tab, defaultTab: entryTab, lensId, demo, settingUp, setTab, setDemo, setSetup } = useLensRoute();
-  const github = useGitHubRoute();
-  const alerts = useAlertsRoute();
-  const { dialog } = useDialogRoute();
-  const { issueKey } = useIssueRoute();
-  const { trace, openTrace, openSignal } = useOpenTraceRouting();
-  const agents = useLensAgents(accessToken);
-  const canViewInvestigations = isProxyAdminTierRole(userRole);
-  const canViewAlerts = canViewInvestigations;
-  const isAdmin = isProxyAdminRole(userRole);
-  const canConfigure = canViewInvestigations && !readOnly;
-  const connectGitHub =
-    canConfigure && !demo
-      ? (name: string) => {
-          github.open(name);
-        }
+  const [creatingBot, setCreatingBot] = useState(false);
+  const scope = cacheScope ?? accessToken;
+  const baseKey = ["agent-workspace", scope];
+  const state = useQuery({
+    queryKey: [...baseKey, "state"],
+    queryFn: api.state,
+    enabled: !route.demo,
+    refetchInterval: 10000,
+  });
+  const agents = state.data?.agents ?? [];
+  const bots = agents.filter((agent) => agent.runtime === "hermes");
+  const bot =
+    route.tab === "bots"
+      ? bots.find((agent) => agent.id === route.bot)
       : undefined;
-  const defaultTab = embedded && entryTab === "home" ? "traces" : entryTab;
-  const requestedTab =
-    (tab === "settings" && !canConfigure) || (tab === "alerts" && !canViewAlerts) ? defaultTab : (tab ?? defaultTab);
-  const activeTab = requestedTab === "investigations" ? "findings" : requestedTab;
-  useEffect(() => {
-    if (requestedTab === "investigations") setTab("findings");
-  }, [requestedTab, setTab]);
-  const setupState = useLensReadiness(canViewInvestigations);
-  const setupLocation = {
-    tab: activeTab,
-    requested: settingUp,
-    canViewInvestigations,
-    trace,
-    lensId,
-    dialog,
-    issueKey,
-  };
-  const showSetup = !demo && (settingUp || (embedded && needsSetup(setupState, setupLocation)));
-  const traceWorkspace = activeTab === "traces" && !showSetup;
-  const connectProject = !demo
-    ? () => {
-        setSetup(false);
-        setTab("home");
-      }
-    : undefined;
-  const { activity, list } = useLensOverview(
-    canViewInvestigations,
-    (canConfigure && activeTab === "settings") || settingUp,
-  );
-  const workers = canConfigure && list ? list.workers : null;
-  const leaveSetup = () => {
-    setSetup(false);
-  };
-  const startSetup = () => {
-    setSetup(true);
-  };
-  const exitSetup = (to: LensTab) => {
-    leaveSetup();
-    setTab(to);
-  };
-  const showSettings = () => {
-    leaveSetup();
-    setTab("settings");
-  };
-  const showFindings = () => {
-    leaveSetup();
-    setTab("findings");
-  };
-  const showSentTrace = (trace: TraceSummary) => {
-    leaveSetup();
-    if (trace.agent_names?.[0]) agents.select(trace.agent_names[0]);
-    setTab("traces");
-    openTrace(traceRefOf(trace));
-  };
-  const toggleDemo = (next: boolean) => {
-    leaveSetup();
-    setDemo(next);
-  };
-  const onboarding: Onboarding = {
-    readOnly,
-    canViewInvestigations,
-    canInvestigate: isAdmin,
-    canMintTracingKey: isAdmin,
-    connect: showSettings,
-    create: showFindings,
-    openTrace: showSentTrace,
-  };
-  const navigate = (tab: LensTab) => {
-    leaveSetup();
-    setTab(tab);
+  const actor = bot ?? agents.find((agent) => agent.runtime === "deepagents");
+  const writable = !readOnly && !route.demo && state.data?.writable === true;
+  const chats = useQuery({
+    queryKey: [...baseKey, "chats", actor?.id],
+    queryFn: () => api.conversations(actor!.id),
+    enabled: !!actor && !route.demo,
+    refetchInterval: 5000,
+  });
+  const selectedChat =
+    route.chat === "new"
+      ? null
+      : (route.chat ??
+        (bot
+          ? (chats.data?.find((chat) => chat.permanent)?.id ?? null)
+          : null));
+  const reports = useInfiniteQuery({
+    queryKey: [...baseKey, "reports"],
+    queryFn: ({ pageParam }) => api.reports({ before: pageParam }),
+    initialPageParam: undefined as string | undefined,
+    getNextPageParam: (page) =>
+      page.length === 50
+        ? `${page[page.length - 1].updated_at}:${page[page.length - 1].id}`
+        : undefined,
+    enabled: !route.demo,
+    refetchInterval: 15000,
+  });
+  const refresh = () => void client.invalidateQueries({ queryKey: baseKey });
+  const enabled = useMutation({
+    mutationFn: () => api.setEnabled(bot!.id, !bot!.enabled),
+    onSuccess: refresh,
+  });
+  const navigate = (tab: typeof route.tab) => {
+    void route.navigate(tab);
     host.navigation?.onNavigate();
   };
+  const title =
+    bot?.name ??
+    (route.chat
+      ? chats.data?.find((chat) => chat.id === route.chat)?.title
+      : undefined) ??
+    navigation.find((item) => item.tab === route.tab)?.title;
   return (
-    <OnboardingProvider value={onboarding}>
-      <main
-        className={cn(
-          "lens-workspace lens-shell relative flex h-full min-h-0 w-full min-w-0 flex-1 bg-background",
-          embedded && "lens-embedded",
-        )}
-      >
-        <LensPageActionsContext.Provider value={{ target: pageActions, tab: activeTab }}>
-          <Tabs.Root
-            value={activeTab}
-            orientation="vertical"
-            onValueChange={(value) => navigate(value as LensTab)}
-            className="@container/lens-frame flex min-h-0 min-w-0 flex-1 gap-0"
-          >
-            {host.gatewayFrameNavigation ? (
-              <GatewayFrameNavigation
-                activeTab={activeTab}
-                agents={agents}
-                activity={activity}
-                workers={workers}
-                canViewAlerts={canViewAlerts}
-                onNavigate={navigate}
-              />
-            ) : (
-              <LensSidebar
-                agents={agents}
-                activity={activity}
-                workers={workers}
-                canViewAlerts={canViewAlerts}
-                onNavigate={navigate}
-              />
-            )}
-            <div className={cn("flex min-h-0 min-w-0 flex-1 flex-col", !embedded && "lens-workspace-paper")}>
-              {embedded ? (
-                <header
-                  aria-label="Lens actions"
-                  className={cn("lens-embedded-toolbar", !host.navigation && "lens-mobile-navigation")}
-                >
-                  <h1 className={activeTab === "alerts" ? "text-sm font-medium" : "sr-only"}>
-                    {activeTab === "alerts" ? "Alerts" : "Lens"}
-                  </h1>
-                  <div className={cn("ml-auto flex max-w-full flex-wrap items-center gap-2", activeTab === "alerts" && "max-md:contents")}>
-                    <div ref={setPageActions} role="group" aria-label="Page actions" className={cn("contents", activeTab === "alerts" && "max-md:order-3 max-md:flex max-md:w-full max-md:flex-wrap max-md:gap-2")} />
-                    {connectGitHub && agents.agent && activeTab !== "agents" && activeTab !== "home" && (
-                      <Button
-                        variant="outline"
-                        size="icon-sm"
-                        aria-label="Connect GitHub"
-                        title="Connect GitHub"
-                        onClick={() => connectGitHub(agents.agent!)}
-                      >
-                        <Github aria-hidden="true" className="size-4" />
-                      </Button>
-                    )}
-                    <DemoToggle demo={demo} onChange={toggleDemo} />
-                  </div>
-                </header>
-              ) : (
-                <header className="lens-workspace-header flex min-h-14 shrink-0 flex-wrap items-center justify-between gap-3 border-b bg-card py-2 pr-4 pl-14 md:px-6">
-                  <div className="flex min-w-0 items-center gap-2 text-sm">
-                    <span aria-hidden="true" className="lens-breadcrumb-dot mr-1 size-1.5 shrink-0 rounded-full" />
-                    {activeTab === "traces" && (agents.agent || agents.all) && (
-                      <>
-                        <Button
-                          variant="link"
-                          size="sm"
-                          className="h-auto p-0 text-muted-foreground"
-                          onClick={() => navigate("agents")}
-                        >
-                          Agents
-                        </Button>
-                        <ChevronRight aria-hidden="true" className="size-3.5 shrink-0 text-muted-foreground/60" />
-                        <span className="hidden max-w-64 truncate text-muted-foreground sm:inline">
-                          {agents.agent ?? ALL_AGENTS_LABEL}
-                        </span>
-                        <ChevronRight
-                          aria-hidden="true"
-                          className="hidden size-3.5 shrink-0 text-muted-foreground/60 sm:block"
-                        />
-                      </>
-                    )}
-                    <h1 className="truncate font-medium">{LENS_TABS[activeTab]}</h1>
-                  </div>
-                  <div className={cn("ml-auto flex max-w-full flex-wrap items-center gap-2", activeTab === "alerts" && "max-md:contents")}>
-                    <div ref={setPageActions} role="group" aria-label="Page actions" className={cn("contents", activeTab === "alerts" && "max-md:order-3 max-md:flex max-md:w-full max-md:flex-wrap max-md:gap-2")} />
-                    {connectGitHub && agents.agent && activeTab !== "agents" && activeTab !== "home" && (
+    <main
+      className={cn(
+        "lens-workspace lens-shell relative flex h-full min-h-0 w-full min-w-0 flex-1 bg-background",
+        embedded && "lens-embedded",
+      )}
+    >
+      <WorkspaceScope.Provider value={scope}>
+        <LensPageActionsContext.Provider
+          value={{ target: pageActions, tab: route.tab }}
+        >
+          <div className="@container/lens-frame flex min-h-0 min-w-0 flex-1">
+            <LensSidebar onNavigate={navigate}>
+              {(collapsed, close) => (
+                <WorkspaceNavigation
+                  tab={route.tab}
+                  collapsed={collapsed}
+                  bots={bots}
+                  selectedBot={bot?.id ?? null}
+                  conversations={chats.data ?? []}
+                  selectedChat={selectedChat}
+                  writable={writable}
+                  onNavigate={(tab) => {
+                    navigate(tab);
+                    close();
+                  }}
+                  onBot={(id) => {
+                    void route.openBot(id);
+                    close();
+                  }}
+                  onChat={(id) => {
+                    void route.openChat(id, bot?.id ?? null);
+                    close();
+                  }}
+                  onNewChat={() => {
+                    void route.startChat(bot?.id ?? null);
+                    close();
+                  }}
+                />
+              )}
+            </LensSidebar>
+            <div
+              className={cn(
+                "flex min-h-0 min-w-0 flex-1 flex-col",
+                !embedded && "lens-workspace-paper",
+              )}
+            >
+              <header className="lens-workspace-header flex min-h-14 shrink-0 flex-wrap items-center gap-3 border-b bg-card py-2 pr-4 pl-14 md:px-6">
+                <div className="flex min-w-0 flex-1 items-center gap-2 text-sm">
+                  <span
+                    aria-hidden="true"
+                    className="lens-breadcrumb-dot mr-1 size-1.5 shrink-0 rounded-full"
+                  />
+                  <h1 className="truncate font-medium">{title}</h1>
+                </div>
+                <div
+                  ref={setPageActions}
+                  role="group"
+                  aria-label="Page actions"
+                  className="contents"
+                />
+                {selectedChat && writable && state.data?.slack_configured && (
+                  <SlackConnection
+                    key={selectedChat}
+                    api={api}
+                    scope={scope}
+                    chatId={selectedChat}
+                  />
+                )}
+                {route.demo && (
+                  <span className="text-xs text-muted-foreground">
+                    Demo traces
+                  </span>
+                )}
+                {route.tab === "bots" && writable && (
+                  <>
+                    {bot && (
                       <Button
                         variant="outline"
                         size="sm"
-                        aria-label="Connect GitHub"
-                        title="Connect GitHub"
-                        onClick={() => connectGitHub(agents.agent!)}
+                        disabled={enabled.isPending}
+                        onClick={() => enabled.mutate()}
                       >
-                        <Github aria-hidden="true" className="size-4" />{" "}
-                        <span className="hidden sm:inline">Connect GitHub</span>
+                        {bot.enabled ? (
+                          <Pause className="size-3.5" />
+                        ) : (
+                          <Play className="size-3.5" />
+                        )}
+                        {bot.enabled ? "Pause" : "Resume"}
                       </Button>
                     )}
-                    <DemoToggle demo={demo} onChange={toggleDemo} />
-                  </div>
-                </header>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => setCreatingBot(true)}
+                    >
+                      <Plus className="size-3.5" />
+                      Create bot
+                    </Button>
+                  </>
+                )}
+              </header>
+              {state.error && (
+                <div
+                  role="alert"
+                  className="flex items-center gap-3 border-b px-5 py-3 text-sm text-destructive"
+                >
+                  {state.error.message}
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => void state.refetch()}
+                  >
+                    Retry
+                  </Button>
+                </div>
+              )}
+              {chats.error && (
+                <p role="alert" className="px-5 py-3 text-sm text-destructive">
+                  Could not load chats{" "}
+                  <Button variant="link" onClick={() => void chats.refetch()}>
+                    Retry
+                  </Button>
+                </p>
+              )}
+              {enabled.error && (
+                <p role="alert" className="px-5 py-3 text-sm text-destructive">
+                  {enabled.error.message}
+                </p>
               )}
               <div
                 className={cn(
                   "flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden bg-card",
-                  !embedded && !traceWorkspace && "m-2 rounded-xl border md:m-4",
+                  !embedded &&
+                    route.tab !== "traces" &&
+                    "m-2 rounded-xl border md:m-4",
                 )}
               >
-                {!demo && isAdmin && !readOnly && (
-                  <GatewayConnection key={accessToken} automatic />
-                )}
-                {showSetup ? (
-                  <TabsContent value={activeTab} keepMounted className={cn(PANEL, "lens-page-body")}>
-                    {setupState.loading ? (
-                      <p role="status" className="flex items-center gap-2 py-8 text-sm text-muted-foreground">
-                        <Loader2 aria-hidden="true" className="size-4 animate-spin" />
-                        Checking Lens setup…
-                      </p>
-                    ) : (
-                      <LensGettingStarted state={setupState} onStart={startSetup} onExit={exitSetup} />
-                    )}
-                  </TabsContent>
+                {route.tab === "traces" ? (
+                  <AgentTracesPage
+                    accessToken={accessToken}
+                    readOnly={readOnly}
+                    canMintTracingKey={isProxyAdminRole(userRole)}
+                    canViewFindings={false}
+                    agentWorkspace={!route.demo}
+                  />
+                ) : route.tab === "bots" && !bot ? (
+                  <Bots
+                    bots={bots}
+                    writable={writable}
+                    onSelect={route.openBot}
+                    onCreate={() => setCreatingBot(true)}
+                  />
                 ) : (
                   <>
-                    <TabsContent value="home" keepMounted className={PANEL}>
-                      <LensHome
-                        key={accessToken}
-                        agents={agents}
-                        enabled={!demo && activeTab === "home"}
-                        onOpenAgents={() => navigate("agents")}
-                        onSetup={canConfigure ? startSetup : undefined}
-                      />
-                    </TabsContent>
-                    <TabsContent value="agents" className={PANEL}>
-                      <AgentsView
-                        agents={agents}
-                        onOpenAgent={agents.select}
-                        onConnectProject={connectProject}
-                        onConnectGitHub={connectGitHub}
-                      />
-                    </TabsContent>
-                    <TabsContent value="traces" keepMounted className={PANEL}>
-                      <AgentTracesPage
-                        accessToken={accessToken}
-                        isActive={activeTab === "traces"}
-                        readOnly={readOnly}
-                        canMintTracingKey={isAdmin}
-                        canViewFindings={canViewInvestigations}
-                        onSetUpSignals={canConfigure && isAdmin && canViewAlerts ? () => {
-                          navigate("alerts");
-                          alerts.setSettings("signals");
-                        } : undefined}
-                        onConnectAgent={connectProject}
-                      />
-                    </TabsContent>
-                    {canViewAlerts && activeTab === "alerts" && (
-                      <TabsContent value="alerts" className={PANEL}>
-                        <AlertsView
-                          accessToken={accessToken}
-                          canConfigure={canConfigure && isAdmin}
-                          onOpenTrace={(ref, spanId) => {
-                            navigate("traces");
-                            openTrace(ref, spanId);
-                          }}
-                          onOpenSignal={(ref, signal) => {
-                            navigate("traces");
-                            openSignal(ref, signal);
-                          }}
-                        />
-                      </TabsContent>
-                    )}
-                    <TabsContent value="profiles" className={PANEL}>
-                      <ProfilesView agents={agents} canInvestigate={canConfigure && isAdmin} canViewSignals={canViewAlerts} />
-                    </TabsContent>
-                    <TabsContent value="findings" className={PANEL}>
-                      {canViewInvestigations ? (
-                        dialog === "new" && canConfigure && isAdmin ? (
-                          <InvestigationsView readOnly={false} />
-                        ) : (
-                          <FindingsView agent={agents.agent ?? undefined} readOnly={readOnly || !isAdmin} />
-                        )
-                      ) : (
-                        <p className="py-6 text-sm text-muted-foreground">
-                          Findings require proxy administrator access.
+                    {bot && (
+                      <details className="shrink-0 border-b px-5 py-3 text-sm">
+                        <summary className="cursor-pointer text-muted-foreground">
+                          Standing task · {bot.enabled ? "Active" : "Paused"}
+                        </summary>
+                        <p className="mt-3 max-w-3xl whitespace-pre-wrap leading-relaxed">
+                          {bot.instructions}
                         </p>
-                      )}
-                    </TabsContent>
-                    <TabsContent value="datasets" className={PANEL}>
-                      <DatasetsPanel canView={canViewInvestigations} isAdmin={isAdmin} readOnly={readOnly} />
-                    </TabsContent>
-                    <TabsContent value="evals" className={PANEL}>
-                      {canViewInvestigations ? (
-                        <EvalsView />
-                      ) : (
-                        <p className="py-6 text-sm text-muted-foreground">Evals require proxy administrator access.</p>
-                      )}
-                    </TabsContent>
-                    <TabsContent value="optimizations" className={PANEL}>
-                      <ModelOptimizations canView={canViewInvestigations} readOnly={readOnly || !isAdmin} />
-                    </TabsContent>
-                  </>
-                )}
-                {workers && list && (
-                  <TabsContent value="settings" keepMounted className={PANEL}>
-                    <LensSettings
-                      list={list}
-                      workerReadyAction={
-                        list.lenses.length === 0 ? (
-                          <Button className="w-full" onClick={showFindings}>
-                            View automatic analysis
+                      </details>
+                    )}
+                    {state.isLoading || (bot && chats.isLoading) ? (
+                      <p
+                        role="status"
+                        className="flex items-center gap-2 p-6 text-sm text-muted-foreground"
+                      >
+                        <Loader2 className="size-4 animate-spin" />
+                        Loading workspace…
+                      </p>
+                    ) : (
+                      <Chat
+                        key={selectedChat ?? `new-${bot?.id ?? "main"}`}
+                        api={api}
+                        scope={scope}
+                        home={route.tab === "home"}
+                        chatId={selectedChat}
+                        bot={bot}
+                        writable={writable}
+                        onOpened={(id) =>
+                          void route.openChat(id, bot?.id ?? null)
+                        }
+                      >
+                        {route.tab === "home" && (
+                          <ReportFeed
+                            api={api}
+                            reports={reports.data?.pages.flat() ?? []}
+                            agents={agents}
+                            onOpen={route.openReport}
+                            writable={writable}
+                            onChat={(id) => {
+                              refresh();
+                              void route.openChat(id, null);
+                            }}
+                            loading={reports.isLoading && !route.demo}
+                            error={reports.error}
+                            onRetry={() => void reports.refetch()}
+                          />
+                        )}
+                        {route.tab === "home" && reports.hasNextPage && (
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            className="mt-4"
+                            disabled={reports.isFetchingNextPage}
+                            onClick={() => void reports.fetchNextPage()}
+                          >
+                            Load earlier updates
                           </Button>
-                        ) : undefined
-                      }
-                      onConnectProject={connectProject}
-                      onOpenAlerts={canViewAlerts ? () => navigate("alerts") : undefined}
-                      onSetup={canConfigure ? startSetup : undefined}
-                    />
-                  </TabsContent>
+                        )}
+                        {route.demo && (
+                          <p className="mt-4 text-sm text-muted-foreground">
+                            Sign in to chat with Lens and create bots
+                          </p>
+                        )}
+                      </Chat>
+                    )}
+                  </>
                 )}
               </div>
             </div>
-          </Tabs.Root>
+          </div>
+          <CreateBot
+            api={api}
+            open={creatingBot}
+            onOpenChange={setCreatingBot}
+            onCreated={(id) => {
+              refresh();
+              void route.openBot(id);
+            }}
+          />
+          <ReportPanel
+            api={api}
+            scope={scope}
+            writable={writable}
+            onChat={(id) => {
+              refresh();
+              void route.openChat(id, null);
+            }}
+            id={route.report}
+            onClose={() => void route.openReport(null)}
+            agents={agents}
+          />
         </LensPageActionsContext.Provider>
-      </main>
-      {github.agent && connectGitHub && (
-        <AgentGitHubDialog
-          key={github.agent}
-          agent={github.agent}
-          authorizationId={github.authorizationId}
-          onAuthorizationComplete={github.complete}
-          onOpenChange={(open) => {
-            if (!open) github.close();
-          }}
-          onOpenDatasets={() => {
-            github.close();
-            setTab("datasets");
-          }}
-        />
-      )}
-    </OnboardingProvider>
+      </WorkspaceScope.Provider>
+    </main>
   );
-}
-
-function DatasetsPanel({ canView, isAdmin, readOnly }: { canView: boolean; isAdmin: boolean; readOnly: boolean }) {
-  if (!canView)
-    return <p className="py-6 text-sm text-muted-foreground">Datasets require proxy administrator access.</p>;
-  return <DatasetsView readOnly={readOnly || !isAdmin} />;
-}
-
-function needsSetup(
-  state: LensReadiness,
-  location: {
-    tab: LensTab;
-    requested: boolean;
-    canViewInvestigations: boolean;
-    trace: TraceRef | null;
-    lensId: string | null;
-    dialog: LensDialog | null;
-    issueKey: string | null;
-  },
-) {
-  if (
-    location.tab === "settings" ||
-    location.tab === "home" ||
-    location.tab === "datasets" ||
-    location.tab === "evals" ||
-    location.tab === "agents"
-  )
-    return false;
-  if (location.requested) return true;
-  const selected = location.tab === "traces" ? location.trace : location.lensId || location.dialog || location.issueKey;
-  if (!state.missingTraces || selected) return false;
-  if (location.tab === "traces") return true;
-  return false;
 }

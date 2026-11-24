@@ -88,7 +88,7 @@ function RunIcon({ summary }: { summary: Summary }) {
 }
 
 /** "Copy for agent" up front; the link and dataset actions sit behind its chevron. */
-function RunActions({ summary, handoff }: { summary: Summary; handoff: TraceHandoff }) {
+function RunActions({ summary, handoff, agentWorkspace }: { summary: Summary; handoff: TraceHandoff; agentWorkspace: boolean }) {
   const canAddToDataset = useCanAddToDataset();
   const [copied, setCopied] = useState(false);
   const [addingToDataset, setAddingToDataset] = useState(false);
@@ -122,7 +122,7 @@ function RunActions({ summary, handoff }: { summary: Summary; handoff: TraceHand
               <Link />
               Copy link
             </DropdownMenuItem>
-            {canAddToDataset && (
+            {canAddToDataset && !agentWorkspace && (
               <DropdownMenuItem onClick={() => setAddingToDataset(true)}>
                 <DatabaseZap />
                 Add run to dataset
@@ -145,6 +145,7 @@ function RunActions({ summary, handoff }: { summary: Summary; handoff: TraceHand
 interface RunHeaderProps {
   trace: Trace;
   handoff: TraceHandoff;
+  agentWorkspace?: boolean;
   onBack: () => void;
   embedded: boolean;
   refreshing: boolean;
@@ -160,6 +161,7 @@ interface RunHeaderProps {
 export function RunHeader({
   trace,
   handoff,
+  agentWorkspace = false,
   onBack,
   embedded,
   refreshing,
@@ -214,7 +216,7 @@ export function RunHeader({
           >
             <RefreshCw className={cn("size-3.5", refreshing && "animate-spin")} />
           </Button>
-          <RunActions summary={summary} handoff={handoff} />
+          <RunActions summary={summary} handoff={handoff} agentWorkspace={agentWorkspace} />
         </div>
       </div>
       <div className="flex flex-wrap items-center gap-x-3 gap-y-1.5 text-xs text-muted-foreground">

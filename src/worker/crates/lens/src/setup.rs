@@ -14,6 +14,7 @@ pub fn initialize(directory: &Path) -> Result<bool, Error> {
     let mut file = tempfile::NamedTempFile::new_in(directory)?;
     writeln!(file, "LENS_ADMIN_TOKEN={}", secret())?;
     writeln!(file, "CLICKHOUSE_PASSWORD={}", secret())?;
+    writeln!(file, "LENS_RUNTIME_SECRET={}", secret())?;
     writeln!(file, "LENS_PUBLIC_URL=http://localhost:4318")?;
     file.as_file().sync_all()?;
     match file.persist_noclobber(&path) {
@@ -96,7 +97,7 @@ mod tests {
                 .unwrap()
                 .lines()
                 .count(),
-            3
+            4
         );
     }
 

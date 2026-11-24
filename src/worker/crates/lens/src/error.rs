@@ -108,6 +108,8 @@ pub enum GatewayError {
 #[derive(Debug, thiserror::Error)]
 pub enum Error {
     #[error(transparent)]
+    Agents(#[from] lens_agents::Error),
+    #[error(transparent)]
     SignalAlert(#[from] SignalAlertError),
     #[error(transparent)]
     Optimization(#[from] OptimizationError),
