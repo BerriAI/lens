@@ -169,7 +169,7 @@ impl Query for TraceAgents {
 pub struct LensSample;
 
 impl LensSample {
-    pub fn filtered_sql(predicate: &'static str) -> String {
+    pub fn filtered_sql(selection: &'static str) -> String {
         const CANDIDATES: &str = concat!(
             include_str!("../../query/lens_eval_spend.sql"),
             include_str!("../../query/profile_sample_candidates.sql"),
@@ -177,7 +177,7 @@ impl LensSample {
             include_str!("../../query/lens_sample.sql")
         );
         format!(
-            "{CANDIDATES} selected_candidates AS (SELECT * FROM sample_candidates WHERE {predicate}) {}",
+            "{CANDIDATES} selected_candidates AS ({selection}) {}",
             include_str!("../../query/lens_sample_page.sql")
         )
     }

@@ -15,6 +15,7 @@ import { Input } from "../../../ui/input";
 import { SearchSelect } from "../../../shared/SearchSelect";
 import { useLensApi } from "../../data/LensServices";
 import { lensQueries } from "../../data/queries";
+import { signalsConfigured } from "../../model/signals";
 import type { InvestigationInput } from "../investigationSchema";
 import type { ScopeOptions } from "../useMatchingActivity";
 
@@ -26,7 +27,7 @@ export function ScopeFields({ names, agentsLoading, agentsError, retryAgents, at
   const api = useLensApi();
   const signals = useQuery(lensQueries.signalConfig(api));
   const selection = useWatch({ control, name: "selection" });
-  const configuredSignals = signals.data?.signals ?? [];
+  const configuredSignals = signals.data && signalsConfigured(signals.data) ? signals.data.signals : [];
   const selectedSignal = configuredSignals.find((signal) => signal.id === selection.signal_id);
   const signalItems = configuredSignals.map((signal) => ({ value: signal.id, label: signal.name }));
   const filters = selection.filters ?? [];
@@ -108,13 +109,13 @@ export function ScopeFields({ names, agentsLoading, agentsError, retryAgents, at
                 ? "Loading signals from Alerts…"
                 : signals.error
                   ? "Could not load signals from Alerts. Your selected filter is preserved."
-                  : selection.signal_id && !selectedSignal
-                    ? "This signal is no longer configured in Alerts. Choose another signal or clear the filter."
-                    : configuredSignals.length
-                      ? selection.signal_id
+                  : !configuredSignals.length
+                    ? "Configure model signals in Alerts to filter runs by their saved results."
+                    : selection.signal_id && !selectedSignal
+                      ? "This signal is no longer configured in Alerts. Choose another signal or clear the filter."
+                      : selection.signal_id
                         ? "Uses saved results for signals configured in Alerts, at the current alert threshold."
-                        : "Leave empty to include all runs in your selected scope."
-                      : "Configure model signals in Alerts to filter runs by their saved results."}
+                        : "Leave empty to include all runs in your selected scope."}
             </span>
           </label>
           {signals.error && (

@@ -26,7 +26,7 @@ struct Classified {
     config: SignalConfig,
     start: u64,
     end: u64,
-    clear_run: String,
+    clear_run: Execution,
 }
 
 fn scope() -> Scope {
@@ -38,7 +38,12 @@ fn scope() -> Scope {
 }
 
 impl Classified {
-    async fn sample(&self, selection: &ActivitySelection, preview: bool, cursor: &str) -> Sample {
+    async fn sample(
+        &self,
+        selection: &ActivitySelection,
+        preview: bool,
+        cursor: &str,
+    ) -> Result<Sample, litellm_lens::Error> {
         SourceReader(self.database.state.clone())
             .sample(
                 &scope(),
@@ -53,7 +58,6 @@ impl Classified {
                 },
             )
             .await
-            .unwrap()
     }
 
     fn selection(&self) -> ActivitySelection {
@@ -68,20 +72,27 @@ impl Classified {
     }
 }
 
-async fn classify(repository: &Signals, config: &SignalConfig, execution: &Execution) {
-    let now = chrono::Utc::now();
+async fn classify(
+    repository: &Signals,
+    config: &SignalConfig,
+    execution: &Execution,
+    score: f64,
+    now: chrono::DateTime<chrono::Utc>,
+) {
     let until = now + chrono::TimeDelta::minutes(5);
-    repository
-        .claim(execution, config, until, now)
-        .await
-        .unwrap();
+    assert!(
+        repository
+            .claim(execution, config, until, now)
+            .await
+            .unwrap()
+    );
     if execution.trace_id == "pending" {
         return;
     }
     let attempt: SignalAttempt = serde_json::from_value(json!({
         "status": if execution.trace_id == "failed" { "failed" } else { "classified" },
         "scores": if execution.trace_id == "missing" { json!({}) } else {
-            json!({"custom_signal": if execution.trace_id == "low" { 0.4 } else { 0.8 }})
+            json!({"custom_signal": score})
         },
         "model": config.model,
         "error": if execution.trace_id == "error" { "failed to classify" } else { "" }
@@ -166,10 +177,20 @@ async fn classified(#[future(awt)] database: Database) -> Classified {
         .iter()
         .find(|run| run.trace_id == "low")
         .unwrap()
-        .id
         .clone();
     for execution in traces.executions {
-        classify(&repository, &config, &execution).await;
+        classify(
+            &repository,
+            &config,
+            &execution,
+            if execution.trace_id == "low" {
+                0.4
+            } else {
+                0.8
+            },
+            now,
+        )
+        .await;
         if execution.trace_id == "stale" {
             classify(
                 &repository,
@@ -178,6 +199,8 @@ async fn classified(#[future(awt)] database: Database) -> Classified {
                     ..config.clone()
                 },
                 &execution,
+                0.8,
+                now,
             )
             .await;
         }
@@ -209,23 +232,98 @@ async fn saved_signals_filter_before_sampling_and_pagination(
         sample_size: cap.and_then(std::num::NonZeroU64::new),
         ..classified.selection()
     };
-    let first = classified.sample(&selection, preview, "").await;
+    let first = classified.sample(&selection, preview, "").await.unwrap();
     assert_eq!((first.eligible, first.selected), (2, selected));
     assert_eq!(first.executions.len(), 1);
     assert_eq!(first.executions[0].team_id, "alpha");
     assert!([MATCH_TRACE, "second"].contains(&first.executions[0].trace_id.as_str()));
-    let second = classified
-        .sample(&selection, preview, first.next_cursor.as_deref().unwrap())
-        .await;
+    if preview || selected == 2 {
+        let second = classified
+            .sample(&selection, preview, first.next_cursor.as_deref().unwrap())
+            .await
+            .unwrap();
+        assert_eq!(second.executions.len(), 1);
+        assert_ne!(second.executions[0].id, first.executions[0].id);
+        assert!(second.next_cursor.is_none());
+    } else {
+        assert!(first.next_cursor.is_none());
+    }
+}
+
+#[rstest]
+#[case::fewer_matches(0.9, false)]
+#[case::more_matches(0.05, false)]
+#[case::same_matches(0.7, false)]
+#[case::removed_signal(0.8, true)]
+#[tokio::test]
+async fn changed_alert_config_invalidates_a_signal_sample_cursor(
+    #[future(awt)] classified: Classified,
+    #[case] threshold: f64,
+    #[case] removed: bool,
+) {
+    let selection = classified.selection();
+    let first = classified.sample(&selection, false, "").await.unwrap();
+    Signals(classified.database.sessions.clone())
+        .save_config(&SignalConfig {
+            threshold,
+            signals: if removed {
+                vec![]
+            } else {
+                classified.config.signals.clone()
+            },
+            ..classified.config.clone()
+        })
+        .await
+        .unwrap();
+    assert!(
+        classified
+            .sample(&selection, false, first.next_cursor.as_deref().unwrap())
+            .await
+            .is_err()
+    );
+}
+
+#[rstest]
+#[tokio::test]
+async fn changing_classifications_with_the_same_count_invalidates_the_cursor(
+    #[future(awt)] classified: Classified,
+) {
+    let selection = classified.selection();
+    let first = classified.sample(&selection, false, "").await.unwrap();
+    let repository = Signals(classified.database.sessions.clone());
+    let now = chrono::Utc::now() + chrono::TimeDelta::minutes(6);
+    classify(
+        &repository,
+        &classified.config,
+        &Execution {
+            span_count: first.executions[0].span_count + 1,
+            ..first.executions[0].clone()
+        },
+        0.4,
+        now,
+    )
+    .await;
+    classify(
+        &repository,
+        &classified.config,
+        &Execution {
+            span_count: classified.clear_run.span_count + 1,
+            ..classified.clear_run.clone()
+        },
+        0.8,
+        now,
+    )
+    .await;
+    let fresh = classified.sample(&selection, false, "").await.unwrap();
     assert_eq!(
-        second.executions.len(),
-        usize::from(preview || selected == 2)
+        (fresh.eligible, fresh.selected),
+        (first.eligible, first.selected)
     );
     assert!(
-        second
-            .executions
-            .first()
-            .is_none_or(|run| run.id != first.executions[0].id)
+        classified
+            .sample(&selection, false, first.next_cursor.as_deref().unwrap())
+            .await
+            .is_err()
     );
 }
 
@@ -270,13 +368,13 @@ async fn preview_uses_the_current_alert_config(
 #[tokio::test]
 async fn explicit_runs_cannot_bypass_the_signal_filter(#[future(awt)] classified: Classified) {
     let selection = ActivitySelection::default();
-    let unfiltered = classified.sample(&selection, true, "").await;
+    let unfiltered = classified.sample(&selection, true, "").await.unwrap();
     assert_eq!(unfiltered.eligible, 8);
     let selection = ActivitySelection {
-        execution_ids: vec![classified.clear_run.clone()],
+        execution_ids: vec![classified.clear_run.id.clone()],
         ..classified.selection()
     };
-    let filtered = classified.sample(&selection, true, "").await;
+    let filtered = classified.sample(&selection, true, "").await.unwrap();
     assert_eq!(filtered.eligible, 0);
     assert!(filtered.executions.is_empty());
 }
@@ -290,7 +388,7 @@ async fn a_matching_signal_cannot_include_another_tenants_trace(
         signal_id: Some("custom_signal".try_into().unwrap()),
         ..Default::default()
     };
-    let filtered = classified.sample(&selection, true, "").await;
+    let filtered = classified.sample(&selection, true, "").await.unwrap();
     assert_eq!(filtered.eligible, 2);
     assert_eq!(filtered.executions[0].team_id, "alpha");
 }
