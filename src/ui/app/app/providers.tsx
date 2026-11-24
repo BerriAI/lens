@@ -6,9 +6,10 @@ import { ApiError } from "@litellm/lens-ui/http";
 import { ThemeProvider } from "next-themes";
 import { NuqsAdapter } from "nuqs/adapters/next/app";
 import { HotkeysProvider } from "react-hotkeys-hook";
-import { Toaster } from "@litellm/lens-ui";
+import { Toaster, useGatewayFrameTheme } from "@litellm/lens-ui";
 
 export function Providers({ children }: { children: ReactNode }) {
+  const gatewayTheme = useGatewayFrameTheme();
   const [client] = useState(
     () =>
       new QueryClient({
@@ -25,6 +26,7 @@ export function Providers({ children }: { children: ReactNode }) {
     <ThemeProvider
       attribute="class"
       defaultTheme="light"
+      forcedTheme={gatewayTheme}
       enableSystem
       disableTransitionOnChange
     >

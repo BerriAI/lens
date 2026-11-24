@@ -48,6 +48,7 @@ function gatewayResponse(path: string, gateway: Gateway): unknown {
   if (path === "/lens/admin/models") return { data: models.map((id) => ({ id })) };
   if (path === "/lens/admin/model_group/info") return { data: modelDetails };
   if (path === "/lens/admin/agents") return agents;
+  if (path === "/lens/admin/signals") return { signals: [], threshold: 0.95, model: "" };
   return [];
 }
 
@@ -63,6 +64,71 @@ beforeEach(() => {
   proxy.post.mockResolvedValue({ eligible: 1, selected: 1, executions: [] });
 });
 describe("Investigation setup", () => {
+  it("keeps a saved signal clearable without offering new filters when Alerts has no model", async () => {
+    const user = userEvent.setup();
+    proxy.get.mockImplementation(async (path) =>
+      path === "/lens/admin/signals"
+        ? { model: "", threshold: 0.8, signals: [{ id: "custom_task_failed", name: "Task not completed", question: "Was the task incomplete?" }] }
+        : gatewayResponse(path, {}),
+    );
+    proxy.post.mockImplementation(async (path, options) => {
+      if (path === "/v1/traces/query") return { data: [] };
+      const body = options.body as { selection: Settings };
+      const count = body.selection.signal_id ? 0 : 47;
+      return { eligible: count, selected: count, executions: [] };
+    });
+    renderWithProviders(
+      <InvestigationSetup mode="edit" initial={{ ...settings, signal_id: "custom_task_failed" }} onClose={vi.fn()} onSave={vi.fn()} />,
+    );
+    expect(await screen.findByText("Configure model signals in Alerts to filter runs by their saved results.")).toBeVisible();
+    const signal = screen.getByRole("combobox", { name: "Signal result (optional)" });
+    expect(signal).toHaveValue("custom_task_failed");
+    await user.click(screen.getByRole("button", { name: "Clear", exact: true }));
+    expect(await screen.findByText("47 matching runs")).toBeVisible();
+    expect(signal).toHaveValue("");
+    await user.click(signal);
+    expect(await screen.findByText("No matching signals")).toBeVisible();
+    expect(screen.queryByRole("option", { name: "Task not completed" })).not.toBeInTheDocument();
+  });
+
+  it("uses custom signals from Alerts to narrow the preview and save the same scope", async () => {
+    const user = userEvent.setup();
+    const save = vi.fn().mockResolvedValue(undefined);
+    proxy.get.mockImplementation(async (path) =>
+      path === "/lens/admin/signals"
+        ? { model: "judge", threshold: 0.8, signals: [{ id: "custom_task_failed", name: "Task not completed", question: "Was the task incomplete?" }] }
+        : gatewayResponse(path, {}),
+    );
+    proxy.post.mockImplementation(async (path, options) => {
+      if (path === "/v1/traces/query") return { data: [] };
+      const body = options.body as { selection: Settings };
+      const count = body.selection.signal_id === "custom_task_failed" ? 8 : 47;
+      return { eligible: count, selected: count, executions: [] };
+    });
+    renderWithProviders(<InvestigationSetup mode="edit" initial={settings} onClose={vi.fn()} onSave={save} />);
+    expect(await screen.findByText("47 matching runs")).toBeVisible();
+    await user.click(screen.getByText("Advanced filters"));
+    const signal = screen.getByRole("combobox", { name: "Signal result (optional)" });
+    expect(signal).toHaveValue("");
+    expect(signal).toHaveAttribute("placeholder", "All runs");
+    await chooseSelectOption(user, signal, "Task not completed");
+    expect(await screen.findByText("8 matching runs")).toBeVisible();
+    await user.click(screen.getByRole("button", { name: "Clear", exact: true }));
+    expect(await screen.findByText("47 matching runs")).toBeVisible();
+    expect(signal).toHaveValue("");
+    await chooseSelectOption(user, signal, "Task not completed");
+    expect(await screen.findByText("8 matching runs")).toBeVisible();
+    await user.click(screen.getByText("Advanced filters (1)"));
+    expect(screen.getByText("Advanced filters (1)")).toBeVisible();
+    await user.click(screen.getByRole("button", { name: "Continue" }));
+    await user.click(screen.getByRole("button", { name: "Continue" }));
+    await waitFor(() => expect(screen.getByRole("button", { name: "Save changes" })).toBeEnabled());
+    await user.click(screen.getByRole("button", { name: "Save changes" }));
+    expect(save).toHaveBeenCalledWith(expect.objectContaining({
+      signal_id: "custom_task_failed", profile: undefined, filters: [], checks: settings.checks,
+    }));
+  });
+
   it.each(["Coding", "Unclassified"])("previews and saves the selected %s profile without converting it to metadata conditions", async (category) => {
     const user = userEvent.setup();
     const save = vi.fn().mockResolvedValue(undefined);

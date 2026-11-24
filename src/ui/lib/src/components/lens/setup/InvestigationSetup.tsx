@@ -122,6 +122,7 @@ function SetupEditor({
           "selection.service",
           "selection.agent_name",
           "selection.profile",
+          "selection.signal_id",
           "selection.filters",
           "selection.lookback_hours",
           "selection.team_id",

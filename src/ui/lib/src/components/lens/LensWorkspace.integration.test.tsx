@@ -2,7 +2,7 @@ import { act, fireEvent, screen, waitFor, within } from "@testing-library/react"
 import userEvent from "@testing-library/user-event";
 import { useMemo, useState, type ReactNode } from "react";
 import { createPortal } from "react-dom";
-import { ThemeProvider } from "next-themes";
+import { ThemeProvider, useTheme } from "next-themes";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { renderWithProviders, testQueryClient } from "../../../tests/test-utils";
 import { readRequest, requestPath } from "../../../tests/lens-test-utils";
@@ -10,6 +10,7 @@ import { LensWorkspace } from "./LensWorkspace";
 import { lensKeys } from "./data/queries";
 import { createLensDemoData } from "./data/demo/fixtures";
 import { LensHostProvider } from "../../host/LensHost";
+import { useGatewayFrameTheme } from "../../host/gatewayFrame";
 
 const lastUrl = (onUrlUpdate: ReturnType<typeof vi.fn>) =>
   new URLSearchParams(String(onUrlUpdate.mock.lastCall?.[0].queryString ?? ""));
@@ -1271,6 +1272,76 @@ it("renders navigation in the gateway sidebar and follows its collapsed state", 
   await user.click(sidebar.getByRole("link", { name: "Documentation" }));
   expect(onNavigate).toHaveBeenCalled();
   expect(network).not.toHaveBeenCalled();
+});
+
+it("accepts navigation and live themes from its same-origin gateway parent", async () => {
+  const postMessage = vi.fn();
+  const parent = { postMessage } as unknown as Window;
+  const parentProperty = vi.spyOn(window, "parent", "get").mockReturnValue(parent);
+  const originalUrl = window.location.href;
+  const originalClass = document.documentElement.className;
+  const originalScheme = document.documentElement.style.colorScheme;
+  window.history.replaceState(null, "", "/gateway/lens/ui/");
+  const onUrlUpdate = vi.fn();
+
+  function Surface() {
+    const { forcedTheme } = useTheme();
+    return (
+      <LensHostProvider host={{ surface: "standalone", gatewayFrameNavigation: Boolean(forcedTheme) }}>
+        <LensWorkspace accessToken="" userRole="Admin" readOnly={false} />
+      </LensHostProvider>
+    );
+  }
+
+  function HostedWorkspace() {
+    const gatewayTheme = useGatewayFrameTheme();
+    return (
+      <ThemeProvider attribute="class" defaultTheme="light" storageKey="lens-frame-test" forcedTheme={gatewayTheme}>
+        <Surface />
+      </ThemeProvider>
+    );
+  }
+
+  const send = (command: object, source: Window = parent, origin = window.location.origin) => {
+    act(() => {
+      window.dispatchEvent(new MessageEvent("message", { source, origin, data: { channel: "litellm-lens:v1", command } }));
+    });
+  };
+  try {
+    renderWithProviders(<HostedWorkspace />, { searchParams: "?demo=true&agent=support_agent&tab=traces", onUrlUpdate });
+    expect(postMessage).toHaveBeenCalledWith({ channel: "litellm-lens:v1", type: "ready" }, window.location.origin);
+    send({ type: "theme", theme: "dark" }, parent, "https://other.example");
+    expect(screen.getByRole("group", { name: "Color theme" })).toBeVisible();
+
+    send({ type: "theme", theme: "dark" });
+    expect(document.documentElement).toHaveClass("dark");
+    expect(screen.queryByRole("complementary", { name: "Lens navigation" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("group", { name: "Color theme" })).not.toBeInTheDocument();
+    expect(postMessage).toHaveBeenCalledWith(expect.objectContaining({
+      type: "navigation",
+      navigation: expect.objectContaining({
+        activeTab: "traces",
+        currentAgent: "support_agent",
+        tabs: expect.arrayContaining([expect.objectContaining({ value: "findings" })]),
+      }),
+    }), window.location.origin);
+
+    send({ type: "tab", value: "findings" }, window);
+    expect(onUrlUpdate).not.toHaveBeenCalled();
+    send({ type: "tab", value: "findings" });
+    expect(await screen.findByRole("grid", { name: "Findings" })).toBeVisible();
+    await expectUrl(onUrlUpdate, (url) => expect(url.get("tab")).toBe("findings"));
+    send({ type: "agent", value: "release_agent" });
+    await expectUrl(onUrlUpdate, (url) => expect(url.get("agent")).toBe("release_agent"));
+    send({ type: "theme", theme: "light" });
+    expect(document.documentElement).toHaveClass("light");
+    expect(window.localStorage.getItem("lens-frame-test")).toBeNull();
+  } finally {
+    parentProperty.mockRestore();
+    window.history.replaceState(null, "", originalUrl);
+    document.documentElement.className = originalClass;
+    document.documentElement.style.colorScheme = originalScheme;
+  }
 });
 
 it("should switch color themes from the sidebar and restore the saved preference after reopening", async () => {
