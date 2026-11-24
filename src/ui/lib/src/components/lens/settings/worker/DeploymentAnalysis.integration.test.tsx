@@ -127,7 +127,7 @@ describe("Deployment analysis setup", () => {
     expect(screen.queryByRole("button", { name: "New investigation" })).not.toBeInTheDocument();
   });
 
-  it("should list only chat or unspecified analysis modes from a mixed gateway catalogue", async () => {
+  it("lists only eligible analysis models alphabetically, ignoring capitalization", async () => {
     const user = userEvent.setup();
     const gateway = stubGateway();
     gateway.get.mockImplementation((path) =>
@@ -135,8 +135,10 @@ describe("Deployment analysis setup", () => {
         ? { workers }
         : {
             data: [
-              model,
+              { model_group: "Zulu-chat", providers: ["gateway"], mode: "chat" },
               { model_group: "compatible-chat", providers: ["gateway"] },
+              { model_group: "Beta-chat", providers: ["gateway"], mode: "chat" },
+              model,
               { model_group: "embedding-model", providers: ["gateway"], mode: "embedding" },
               { model_group: "signal-model", providers: ["gateway"], mode: "evaluation" },
               { model_group: "image-model", providers: ["gateway"], mode: "image_generation" },
@@ -144,14 +146,21 @@ describe("Deployment analysis setup", () => {
           },
     );
     renderWithLens(<DeploymentAnalysis workers={workers} />);
-    expect(await screen.findByText("2 analysis models available")).toBeVisible();
+    expect(await screen.findByText("4 analysis models available")).toBeVisible();
     await user.click(screen.getByRole("button", { name: "Browse models" }));
     const models = await screen.findByRole("list", { name: "Analysis models" });
-    expect(models).toHaveTextContent("analysis");
-    expect(models).toHaveTextContent("compatible-chat");
-    expect(models).not.toHaveTextContent("embedding-model");
-    expect(models).not.toHaveTextContent("signal-model");
-    expect(models).not.toHaveTextContent("image-model");
+    expect(within(models).getAllByRole("listitem").map((item) => item.textContent)).toEqual([
+      "analysis",
+      "Beta-chat",
+      "compatible-chat",
+      "Zulu-chat",
+    ]);
+    fireEvent.change(screen.getByRole("searchbox", { name: "Search models" }), { target: { value: "chat" } });
+    expect(within(models).getAllByRole("listitem").map((item) => item.textContent)).toEqual([
+      "Beta-chat",
+      "compatible-chat",
+      "Zulu-chat",
+    ]);
   });
 
   it("browses and searches a large catalog in a dismissible dialog without changing configuration", async () => {

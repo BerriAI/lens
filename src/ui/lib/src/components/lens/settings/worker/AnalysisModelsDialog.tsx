@@ -16,7 +16,9 @@ import type { AnalysisModelInfo } from "../../model/types";
 export function AnalysisModelsDialog({ models }: { models: readonly AnalysisModelInfo[] }) {
   const [search, setSearch] = useState("");
   const query = search.trim().toLowerCase();
-  const matching = models.filter((model) => model.model_group.toLowerCase().includes(query));
+  const matching = models
+    .filter((model) => model.model_group.toLowerCase().includes(query))
+    .toSorted((a, b) => a.model_group.localeCompare(b.model_group, undefined, { sensitivity: "base" }));
 
   return (
     <Dialog onOpenChange={() => setSearch("")}>
