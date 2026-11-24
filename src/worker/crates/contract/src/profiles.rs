@@ -80,6 +80,8 @@ pub struct ProfilesOverview {
     pub window: ProfileWindow,
     pub coverage: ProfileCoverage,
     pub totals: ProfileTotals,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub unfiltered_runs: Option<u64>,
     pub profiles: Vec<ProfileSummary>,
     pub points: Vec<MapPoint>,
 }

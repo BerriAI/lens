@@ -24,6 +24,8 @@ export function ProfileDetailSheet({
   agent,
   window,
   profileId,
+  signalId = null,
+  signalName,
   canInvestigate,
   investigateDisabled,
   onInvestigate,
@@ -32,6 +34,8 @@ export function ProfileDetailSheet({
   agent: string;
   window: TimeWindow;
   profileId: string | null;
+  signalId?: string | null;
+  signalName?: string;
   canInvestigate: boolean;
   investigateDisabled: boolean;
   onInvestigate: (profileId: string) => void;
@@ -40,14 +44,14 @@ export function ProfileDetailSheet({
   const api = useProfilesApi();
   const openTrace = useOpenSourceTrace();
   const query = useQuery({
-    queryKey: ["lens", "profile-detail", api.scope, window, agent, profileId],
-    queryFn: ({ signal }) => api.detail(window, agent, profileId ?? "", signal),
+    queryKey: ["lens", "profile-detail", api.scope, window, agent, profileId, signalId],
+    queryFn: ({ signal }) => api.detail(window, agent, profileId ?? "", signal, signalId),
     enabled: !!profileId && !!agent,
     staleTime: 30_000,
   });
   const matrix = useQuery({
-    queryKey: ["lens", "profile-matrix", api.scope, window, agent],
-    queryFn: ({ signal }) => api.matrix(window, agent, signal),
+    queryKey: ["lens", "profile-matrix", api.scope, window, agent, signalId],
+    queryFn: ({ signal }) => api.matrix(window, agent, signal, signalId),
     enabled: !!profileId && !!agent,
     staleTime: 30_000,
   });
@@ -61,6 +65,7 @@ export function ProfileDetailSheet({
           <SheetDescription>{detail ? `${SOURCE_LABELS[detail.profile.source]} · ${agent}` : agent}</SheetDescription>
         </SheetHeader>
         <div className="flex flex-col gap-6 px-4 pb-6">
+          {signalId && <p className="text-xs text-muted-foreground">Signal: {signalName ?? signalId} · Flagged</p>}
           {query.isPending && <LoadingState title="Loading profile…" description="Reading runs and model figures." />}
           {query.error && (
             <p role="alert" className="text-sm text-destructive">
@@ -184,7 +189,7 @@ export function ProfileDetailSheet({
               {canInvestigate && (
                 <div>
                   <Button size="sm" disabled={investigateDisabled} onClick={() => onInvestigate(detail.profile.profile_id)}>
-                    Investigate these runs
+                    {signalId ? (detail.coverage.truncated ? "Investigate matching runs" : `Investigate ${formatCount(detail.profile.run_count)} runs`) : "Investigate these runs"}
                   </Button>
                 </div>
               )}

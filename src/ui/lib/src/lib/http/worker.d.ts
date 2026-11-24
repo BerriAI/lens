@@ -1100,6 +1100,7 @@ export interface ProfilesOverview {
   points: MapPoint[];
   profiles: ProfileSummary[];
   totals: ProfileTotals;
+  unfiltered_runs?: number | null;
   window: ProfileWindow;
   [k: string]: unknown;
 }

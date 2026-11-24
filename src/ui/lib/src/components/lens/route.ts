@@ -76,7 +76,7 @@ const GITHUB_PARSERS = { github_agent: parseAsString, github_authorization: pars
 const LIST_PARSERS = { search: parseAsString.withDefault("") };
 export const PROFILE_VIEWS = ["breakdown", "similarity"] as const;
 export type ProfileView = (typeof PROFILE_VIEWS)[number];
-const PROFILE_PARSERS = { profile: parseAsString, profile_view: parseAsStringLiteral(PROFILE_VIEWS).withDefault("breakdown") };
+const PROFILE_PARSERS = { profile: parseAsString, profile_signal: parseAsString, profile_view: parseAsStringLiteral(PROFILE_VIEWS).withDefault("breakdown") };
 const AGENT_LIST_PARSERS = { agent_search: parseAsString.withDefault("") };
 const CONNECT_PROJECT_PARSERS = {
   connect_agent: parseAsString,
@@ -299,17 +299,20 @@ export function useDialogRoute() {
 }
 
 export function useProfileRoute() {
-  const [{ profile, profile_view, agent, hours }, setParams] = useQueryStates(PROFILE_ROUTE_PARSERS, { history: "push" });
+  const [{ profile, profile_signal, profile_view, agent, hours }, setParams] = useQueryStates(PROFILE_ROUTE_PARSERS, { history: "push" });
   return {
     profile,
+    signalId: profile_signal,
+    selectSignal: (next: string | null) => void setParams({ profile_signal: next, profile: null }),
     view: profile_view,
     agent,
     hours,
     selectProfile: (next: string | null) => void setParams({ profile: next }),
     setView: (next: ProfileView) => void setParams({ profile_view: next === "breakdown" ? null : next }, { history: "replace" }),
-    investigate: (next: string, selectedAgent: string, lookbackHours: number) =>
+    investigate: (next: string | null, selectedAgent: string, lookbackHours: number, signalId: string | null = null) =>
       void setParams({
         profile: next,
+        profile_signal: signalId,
         agent: selectedAgent,
         hours: isRangeHours(lookbackHours) ? lookbackHours : 24,
         tab: "findings",

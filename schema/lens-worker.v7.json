@@ -2865,6 +2865,17 @@
         "totals": {
           "$ref": "#/definitions/ProfileTotals"
         },
+        "unfiltered_runs": {
+          "anyOf": [
+            {
+              "minimum": 0,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
         "window": {
           "$ref": "#/definitions/ProfileWindow"
         }

@@ -4,17 +4,23 @@ mod discovery;
 mod gateway;
 mod worker;
 
-use std::{future::Future, sync::Arc, time::Duration};
+use std::{collections::HashMap, future::Future, sync::Arc, time::Duration};
 
-use lens_contract::profiles::{
-    ClassificationWindow, DiscoveryModelChoice, DiscoveryModelOptions, DiscoveryPreview,
-    DiscoveryPreviewRun, DiscoveryRequest, ProfileSettings, Taxonomy,
+use lens_contract::{
+    feedback::TraceIdentity,
+    profiles::{
+        ClassificationWindow, DiscoveryModelChoice, DiscoveryModelOptions, DiscoveryPreview,
+        DiscoveryPreviewRun, DiscoveryRequest, ProfileSettings, Taxonomy,
+    },
+    signals::{SignalConfig, StoredTraceSignal},
 };
 use lens_server::profiles::{
     ConfiguredModel, ProfileStore, ProfileStoreError, RunQuery,
-    aggregate::{Run, RunCalls},
+    aggregate::{Run, RunCalls, trace_ref},
     taxonomy::{AgentState, Changes, DiscoveryCatalog, TaxonomyStore},
 };
+use lens_signals::SignalRepository;
+use litellm_storage_clickhouse::signals::Signals;
 use litellm_storage_clickhouse::state::{Change, ClickHouseState, Snapshot};
 use litellm_traces::query::named::ReadAccessParams;
 use litellm_traces_clickhouse::{
@@ -276,6 +282,39 @@ impl ProfileStore for ProfilesApi {
         .await
     }
 
+    async fn filter_signal(
+        &self,
+        signal_id: &str,
+        runs: Vec<Run>,
+    ) -> Result<Option<Vec<Run>>, ProfileStoreError> {
+        let _permit = self.permit().await?;
+        let signals = Signals(self.store.clone());
+        let config = signals
+            .get_config()
+            .await
+            .map_err(|_| ProfileStoreError::Unavailable)?;
+        if !lens_signals::enabled(&config)
+            || !config.signals.iter().any(|signal| signal.id == signal_id)
+        {
+            return Ok(None);
+        }
+        let mut matched = Vec::new();
+        for batch in runs.chunks(500) {
+            let identities: Vec<_> = batch.iter().map(signal_trace).collect();
+            let stored = signals
+                .traces(&identities)
+                .await
+                .map_err(|_| ProfileStoreError::Unavailable)?;
+            matched.extend(flagged_runs(
+                &config,
+                signal_id,
+                batch.iter().zip(&identities),
+                &stored,
+            )?);
+        }
+        Ok(Some(matched))
+    }
+
     async fn configured_models(&self) -> Vec<ConfiguredModel> {
         let Some(models) = &self.models else {
             return Vec::new();
@@ -287,6 +326,37 @@ impl ProfileStore for ProfilesApi {
             .get(gateway::configured_models(&models.client(), &connection))
             .await
     }
+}
+
+fn signal_trace(run: &Run) -> TraceIdentity {
+    TraceIdentity {
+        trace_id: run.trace_id.clone(),
+        trace_ref: trace_ref(run),
+    }
+}
+
+fn flagged_runs<'a>(
+    config: &SignalConfig,
+    signal_id: &str,
+    runs: impl Iterator<Item = (&'a Run, &'a TraceIdentity)>,
+    stored: &[StoredTraceSignal],
+) -> Result<Vec<Run>, ProfileStoreError> {
+    let stored: HashMap<_, _> = stored
+        .iter()
+        .map(|row| ((row.trace_id.as_str(), row.trace_ref.as_str()), row))
+        .collect();
+    let mut matched = Vec::new();
+    for (run, trace) in runs {
+        let Some(row) = stored.get(&(trace.trace_id.as_str(), trace.trace_ref.as_str())) else {
+            continue;
+        };
+        let result = lens_signals::trace_signals(trace, Some(row), config)
+            .map_err(|_| ProfileStoreError::Unavailable)?;
+        if result.flags.iter().any(|flag| flag.signal_id == signal_id) {
+            matched.push(run.clone());
+        }
+    }
+    Ok(matched)
 }
 
 impl TaxonomyStore for ProfilesApi {
@@ -375,6 +445,66 @@ mod tests {
 
     const DAY: i64 = 86_400_000;
     const NOW: i64 = 100 * DAY;
+
+    #[rstest]
+    #[case::at_threshold("classified", Some(0.8), true, 1)]
+    #[case::above_threshold("classified", Some(0.9), true, 1)]
+    #[case::below_threshold("classified", Some(0.7), true, 0)]
+    #[case::different_signal("classified", None, true, 0)]
+    #[case::stale_config("classified", Some(0.9), false, 0)]
+    #[case::pending("pending", Some(0.9), true, 0)]
+    #[case::failed("failed", Some(0.9), true, 0)]
+    fn selected_signal_filters_use_current_flags_and_scoped_trace_identity(
+        #[case] status: &str,
+        #[case] score: Option<f64>,
+        #[case] current: bool,
+        #[case] expected: usize,
+    ) {
+        let config = SignalConfig {
+            model: "test-model".into(),
+            threshold: 0.8,
+            ..SignalConfig::default()
+        };
+        let target = &config.signals[0].id;
+        let other = &config.signals[1].id;
+        let run = |team: &str, key: &str, profile: &str| Run {
+            team_id: team.into(),
+            api_key_hash: key.into(),
+            trace_id: "duplicated-trace-id".into(),
+            start_ms: 0,
+            end_ms: 1,
+            profile_id: profile.into(),
+            category: String::new(),
+            input_preview: String::new(),
+            agent_count: 1,
+        };
+        let runs = [
+            run("team", "key", "task"),
+            run("other-team", "key", "other-team-task"),
+            run("team", "other-key", "other-key-task"),
+        ];
+        let identities = runs.each_ref().map(signal_trace);
+        let mut scores = serde_json::json!({ other: 1.0 });
+        if let Some(score) = score {
+            scores[target] = serde_json::json!(score);
+        }
+        let stored = StoredTraceSignal {
+            trace_id: identities[0].trace_id.clone(),
+            trace_ref: identities[0].trace_ref.clone(),
+            config_key: if current {
+                lens_signals::config_key(&config)
+            } else {
+                "old-config".into()
+            },
+            span_count: 1,
+            claimed_until: None,
+            classified_at: None,
+            data: serde_json::json!({"status": status, "scores": scores}),
+        };
+        let matched =
+            flagged_runs(&config, target, runs.iter().zip(&identities), &[stored]).unwrap();
+        assert_eq!(matched, runs[..expected]);
+    }
 
     fn window(start_ms: i64, end_ms: Option<i64>) -> ClassificationWindow {
         ClassificationWindow { start_ms, end_ms }

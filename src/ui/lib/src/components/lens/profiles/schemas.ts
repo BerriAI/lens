@@ -33,6 +33,7 @@ export const taskDefinitionSchema = z.object({
 const taxonomyStatus = z.enum(["discovering", "draft", "frozen", "failed", "cleared"]);
 
 export const overviewSchema = z.object({
+  unfiltered_runs: count.optional(),
   window: windowSchema,
   coverage: coverageSchema,
   totals: z.object({

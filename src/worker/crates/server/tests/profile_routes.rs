@@ -71,6 +71,18 @@ impl Memory {
 }
 
 impl ProfileStore for Memory {
+    async fn filter_signal(
+        &self,
+        signal_id: &str,
+        runs: Vec<Run>,
+    ) -> Result<Option<Vec<Run>>, ProfileStoreError> {
+        Ok((signal_id == "test_signal").then(|| {
+            runs.into_iter()
+                .filter(|run| matches!(run.trace_id.as_str(), "trace" | "t1"))
+                .collect()
+        }))
+    }
+
     async fn runs(
         &self,
         _: ReadAccessParams,
@@ -349,6 +361,101 @@ fn window_query(extra: &str) -> String {
 #[fixture]
 fn admin() -> Option<Role> {
     Some(Role::ProxyAdmin)
+}
+
+#[rstest]
+#[case::anonymous(None, "test_signal", StatusCode::UNAUTHORIZED)]
+#[case::scoped_user(Some(Role::InternalUser), "test_signal", StatusCode::FORBIDDEN)]
+#[case::admin(Some(Role::ProxyAdmin), "test_signal", StatusCode::OK)]
+#[case::admin_viewer(Some(Role::ProxyAdminViewer), "test_signal", StatusCode::OK)]
+#[case::unknown_signal(Some(Role::ProxyAdmin), "deleted_signal", StatusCode::BAD_REQUEST)]
+#[tokio::test]
+async fn profile_signal_filter_follows_signal_read_access(
+    #[future(awt)] database: Database,
+    #[case] role: Option<Role>,
+    #[case] signal_id: &str,
+    #[case] expected: StatusCode,
+    #[values("overview", "matrix", "detail")] endpoint: &str,
+) {
+    let store = Memory {
+        runs: vec![run("trace", "recorded:billing", "billing")],
+        ..Memory::default()
+    };
+    let server = serve(&database, store.clone()).await;
+    let path = format!(
+        "/lens/profiles/{endpoint}{}",
+        window_query(&format!(
+            "&signal_id={signal_id}&profile_id=recorded:billing"
+        ))
+    );
+    let (status, payload) = call(&server, Method::GET, &path, role, None).await;
+
+    assert_eq!(status, expected);
+    if status == StatusCode::OK {
+        assert_eq!(payload["coverage"]["runs_listed"], 1);
+        assert_eq!(store.lock().queries[0].agent, AGENT);
+    } else if matches!(status, StatusCode::UNAUTHORIZED | StatusCode::FORBIDDEN) {
+        assert!(store.lock().queries.is_empty());
+    }
+}
+
+#[rstest]
+#[tokio::test]
+async fn signal_filter_scopes_aggregates_models_and_detail_runs(
+    #[future(awt)] database: Database,
+    admin: Option<Role>,
+) {
+    let store = traffic(AgentState {
+        active: Some(taxonomy(TaxonomyStatus::Frozen, open())),
+        ..AgentState::default()
+    });
+    let total = store.runs.len();
+    let server = serve(&database, store).await;
+    let query = window_query("&signal_id=test_signal");
+    let (status, overview) = call(
+        &server,
+        Method::GET,
+        &format!("/lens/profiles/overview{query}"),
+        admin,
+        None,
+    )
+    .await;
+    assert_eq!(status, StatusCode::OK);
+    assert_eq!(overview["totals"]["runs"], 1);
+    assert_eq!(overview["unfiltered_runs"], total);
+    assert_eq!(overview["profiles"].as_array().unwrap().len(), 1);
+    assert_eq!(overview["profiles"][0]["share"], 1.0);
+    assert_eq!(overview["totals"]["spend_usd"], 0.25);
+    assert_eq!(overview["totals"]["requests"], 1);
+    let (_, matrix) = call(
+        &server,
+        Method::GET,
+        &format!("/lens/profiles/matrix{query}"),
+        admin,
+        None,
+    )
+    .await;
+    assert_eq!(matrix["profiles"].as_array().unwrap().len(), 1);
+    assert_eq!(matrix["cells"][0]["request_count"], 1);
+    let (_, detail) = call(
+        &server,
+        Method::GET,
+        &format!("/lens/profiles/detail{query}&profile_id=task:billing"),
+        admin,
+        None,
+    )
+    .await;
+    assert_eq!(detail["runs"].as_array().unwrap().len(), 1);
+    assert_eq!(detail["runs"][0]["trace_id"], "t1");
+    let (_, restored) = call(
+        &server,
+        Method::GET,
+        &format!("/lens/profiles/overview{}", window_query("")),
+        admin,
+        None,
+    )
+    .await;
+    assert_eq!(restored["totals"]["runs"], total);
 }
 
 #[rstest]

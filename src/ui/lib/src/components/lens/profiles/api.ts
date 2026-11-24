@@ -38,9 +38,9 @@ export type TaxonomyTarget = "draft" | "active";
 export interface ProfilesApi {
   readonly scope: string;
   usage(window: TimeWindow, agent: string, signal?: AbortSignal): Promise<UsageCategory[]>;
-  overview(window: TimeWindow, agent: string, signal?: AbortSignal): Promise<ProfilesOverview>;
-  matrix(window: TimeWindow, agent: string, signal?: AbortSignal): Promise<ProfilesMatrix>;
-  detail(window: TimeWindow, agent: string, profileId: string, signal?: AbortSignal): Promise<ProfileDetail>;
+  overview(window: TimeWindow, agent: string, signal?: AbortSignal, signalId?: string | null): Promise<ProfilesOverview>;
+  matrix(window: TimeWindow, agent: string, signal?: AbortSignal, signalId?: string | null): Promise<ProfilesMatrix>;
+  detail(window: TimeWindow, agent: string, profileId: string, signal?: AbortSignal, signalId?: string | null): Promise<ProfileDetail>;
   taxonomy(agent: string, signal?: AbortSignal): Promise<TaxonomyView>;
   settings(agent: string, signal?: AbortSignal): Promise<ProfileSettingsView>;
   saveSettings(update: SettingsUpdate): Promise<ProfileSettings>;
@@ -58,7 +58,8 @@ const discoveryBody = ({ agent, window, maxRuns }: DiscoveryInput) => ({
   max_runs: maxRuns,
 });
 
-const windowQuery = (window: TimeWindow, agent: string) => ({
+const windowQuery = (window: TimeWindow, agent: string, signalId?: string | null) => ({
+  ...(signalId ? { signal_id: signalId } : {}),
   agent,
   start_ms: String(Math.trunc(window.startMs)),
   end_ms: String(Math.trunc(window.endMs)),
@@ -77,14 +78,14 @@ export function liveProfilesApi(accessToken: string): ProfilesApi {
       });
       return usageProfileSchema.parse(response).data;
     },
-    overview: (window, agent, signal) =>
-      get("/lens/profiles/overview", windowQuery(window, agent), (value) => overviewSchema.parse(value), signal),
-    matrix: (window, agent, signal) =>
-      get("/lens/profiles/matrix", windowQuery(window, agent), (value) => matrixSchema.parse(value), signal),
-    detail: (window, agent, profileId, signal) =>
+    overview: (window, agent, signal, signalId) =>
+      get("/lens/profiles/overview", windowQuery(window, agent, signalId), (value) => overviewSchema.parse(value), signal),
+    matrix: (window, agent, signal, signalId) =>
+      get("/lens/profiles/matrix", windowQuery(window, agent, signalId), (value) => matrixSchema.parse(value), signal),
+    detail: (window, agent, profileId, signal, signalId) =>
       get(
         "/lens/profiles/detail",
-        { ...windowQuery(window, agent), profile_id: profileId },
+        { ...windowQuery(window, agent, signalId), profile_id: profileId },
         (value) => detailSchema.parse(value),
         signal,
       ),

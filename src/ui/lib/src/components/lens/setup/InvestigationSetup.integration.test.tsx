@@ -65,6 +65,18 @@ beforeEach(() => {
   proxy.post.mockResolvedValue({ eligible: 1, selected: 1, executions: [] });
 });
 describe("Investigation setup", () => {
+  it.each([null, "recorded:Coding"])("inherits signal and optional task %s when opened from Profiles", async (profile) => {
+    renderWithProviders(<InvestigationSetup mode="new" onClose={vi.fn()} onSave={vi.fn()} />, {
+      searchParams: `?agent=assistant&hours=168&profile_signal=custom_task_failed${profile ? `&profile=${profile}` : ""}`,
+    });
+    await waitFor(() => expect(proxy.post).toHaveBeenCalledWith(
+      "/lens/admin/preview/sample",
+      expect.objectContaining({ body: expect.objectContaining({ lookback_hours: 168, selection: expect.objectContaining({
+        signal_id: "custom_task_failed", ...(profile ? { profile } : {}), agent_name: "assistant",
+      }) }) }),
+    ));
+  });
+
   it("keeps a saved signal clearable without offering new filters when Alerts has no model", async () => {
     const user = userEvent.setup();
     proxy.get.mockImplementation(async (path) =>

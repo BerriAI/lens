@@ -94,9 +94,20 @@ const detail = (profileId: string): ProfileDetail => ({
 
 function routes(proxy: ReturnType<typeof stubGateway>, data: { overview?: ProfilesOverview; admin?: boolean } = {}) {
   proxy.get.mockImplementation(async (path, request) => {
-    if (path === "/lens/profiles/overview") return data.overview ?? overview();
+    if (path === "/lens/admin/signals") {
+      return { model: "judge", threshold: 0.8, signals: [{ id: "repeat", name: "Repeated request", question: "Was it repeated?" }] };
+    }
+    if (path === "/lens/profiles/overview") return data.overview ?? (request.query.signal_id ? overview({
+      unfiltered_runs: 20,
+      coverage: { runs_listed: 3, runs_resolved: 3, truncated: false },
+      totals: { runs: 3, requests: 4, matched_requests: 4, cost_observations: 4, spend_usd: 0.4, other_agent_requests: 0, shared_requests: 0 },
+      profiles: [summary("recorded:Coding", "Coding", { run_count: 3, share: 1, request_count: 4, cost_observations: 4, spend_usd: 0.4 })],
+    }) : overview());
     if (path === "/lens/profiles/matrix") return matrix;
-    if (path === "/lens/profiles/detail") return detail(String(request.query.profile_id));
+    if (path === "/lens/profiles/detail") {
+      const result = detail(String(request.query.profile_id));
+      return request.query.signal_id ? { ...result, profile: { ...result.profile, run_count: 3 } } : result;
+    }
     if (path === "/lens/profiles/taxonomy") return { taxonomy: null, active: null, discovery_available: false, can_write: data.admin ?? false };
     if (path === "/lens/profiles/settings")
       return {
@@ -123,6 +134,70 @@ beforeEach(() => {
 afterEach(() => {
   vi.restoreAllMocks();
   vi.unstubAllGlobals();
+});
+
+it("filters the page through a removable chip and restores all profiles on clear", async () => {
+  const user = userEvent.setup();
+  const proxy = stubGateway();
+  routes(proxy);
+  renderWithLens(<ProfilesView agents={agents} canViewSignals />);
+
+  expect((await ranked()).getByRole("button", { name: /Unclassified/ })).toBeVisible();
+  expect(screen.queryByRole("textbox", { name: "Find a signal" })).not.toBeInTheDocument();
+  await user.click(screen.getByRole("button", { name: "Filter", exact: true }));
+  await user.click(await screen.findByRole("button", { name: "Repeated request", exact: true }));
+
+  expect(await screen.findByRole("button", { name: "Edit signal filter: Repeated request" })).toBeVisible();
+  expect(await screen.findByText("of 20 runs")).toBeVisible();
+  const list = await ranked();
+  expect(list.getByRole("button", { name: /Coding/ })).toHaveTextContent("3 runs");
+  expect(list.queryByRole("button", { name: /Unclassified/ })).not.toBeInTheDocument();
+  expect(proxy.get).toHaveBeenCalledWith("/lens/profiles/matrix", expect.objectContaining({ query: expect.objectContaining({ signal_id: "repeat" }) }));
+  await user.click(screen.getByRole("button", { name: "Remove signal filter" }));
+
+  expect((await ranked()).getByRole("button", { name: /Unclassified/ })).toBeVisible();
+  expect(screen.queryByText("of 20 runs")).not.toBeInTheDocument();
+});
+
+it("keeps a shared signal filter in task details and investigation scope", async () => {
+  const user = userEvent.setup();
+  const proxy = stubGateway();
+  routes(proxy);
+  const onUrlUpdate = vi.fn();
+  renderWithLens(<ProfilesView agents={agents} canViewSignals />, {
+    searchParams: "?tab=profiles&agent=assistant&hours=168&profile_signal=repeat",
+    onUrlUpdate,
+  });
+  await user.click((await ranked()).getByRole("button", { name: /Coding/ }));
+  expect(await screen.findByText("Fix the login test")).toBeVisible();
+  expect(proxy.get).toHaveBeenCalledWith("/lens/profiles/detail", expect.objectContaining({ query: expect.objectContaining({ signal_id: "repeat", profile_id: "recorded:Coding" }) }));
+  await user.click(within(screen.getByRole("dialog")).getByRole("button", { name: "Investigate 3 runs" }));
+  await waitFor(() => expect(onUrlUpdate.mock.lastCall?.[0].queryString).toContain("dialog=new"));
+  const url = new URLSearchParams(onUrlUpdate.mock.lastCall?.[0].queryString);
+  expect(url.get("profile_signal")).toBe("repeat");
+  expect(url.get("profile")).toBe("recorded:Coding");
+  expect(url.get("hours")).toBe("168");
+  expect(url.get("agent")).toBe("assistant");
+});
+
+it("retains the filter controls when no runs match", async () => {
+  const proxy = stubGateway();
+  routes(proxy, { overview: overview({ unfiltered_runs: 20, profiles: [], totals: { ...overview().totals, runs: 0 } }) });
+  renderWithLens(<ProfilesView agents={agents} canViewSignals />, { searchParams: "?profile_signal=repeat" });
+  expect(await screen.findByText("No runs match this filter")).toBeVisible();
+  expect(screen.getByRole("button", { name: "Remove signal filter" })).toBeEnabled();
+  expect(screen.queryByRole("button", { name: /Investigate/ })).not.toBeInTheDocument();
+});
+
+it("does not query Signals from a shared link for viewers without Signals access", async () => {
+  const proxy = stubGateway();
+  routes(proxy);
+  renderWithLens(<ProfilesView agents={agents} />, { searchParams: "?profile_signal=repeat" });
+
+  expect((await ranked()).getByRole("button", { name: /Coding/ })).toHaveTextContent("10 runs");
+  expect(screen.queryByRole("combobox", { name: "Signal" })).not.toBeInTheDocument();
+  expect(proxy.get).not.toHaveBeenCalledWith("/lens/admin/signals", expect.anything());
+  expect(proxy.get).not.toHaveBeenCalledWith("/lens/profiles/overview", expect.objectContaining({ query: expect.objectContaining({ signal_id: "repeat" }) }));
 });
 
 it("waits for the navigation agent instead of querying all agents", async () => {
