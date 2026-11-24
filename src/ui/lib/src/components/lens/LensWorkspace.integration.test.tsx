@@ -704,7 +704,8 @@ describe("Lens interactive demo", () => {
     expect(panel.getByText("Tracing enabled", { exact: true })).toBeVisible();
     expect(panel.getByRole("heading", { name: "Analysis", exact: true })).toBeVisible();
     expect(await panel.findByText("Analysis is configured")).toBeVisible();
-    expect(panel.getByRole("list", { name: "Analysis models" })).toHaveTextContent("analysis · OpenAI");
+    expect(panel.getByText("1 analysis model available")).toBeVisible();
+    expect(panel.getByRole("button", { name: "Browse models" })).toBeVisible();
     expect(panel.getByRole("button", { name: "Check configuration" })).toBeEnabled();
     workers.mockReturnValue([{ ...worker, revoked: true }]);
     await testQueryClient.refetchQueries({ queryKey: lensKeys.lists() });
@@ -801,7 +802,7 @@ describe("Lens interactive demo", () => {
     await user.click(tabs.getByRole("tab", { name: "Traces" }));
     expect(await screen.findByRole("table", { name: "Agent runs" })).toBeVisible();
     await user.click(tabs.getByRole("tab", { name: "Settings" }));
-    expect(panel.getByRole("list", { name: "Analysis models" })).toHaveTextContent("analysis · OpenAI");
+    expect(panel.getByText("1 analysis model available")).toBeVisible();
     workers.mockReturnValue([{ ...worker, last_seen: new Date().toISOString() }]);
     await user.click(panel.getByRole("button", { name: "Check configuration" }));
     expect(await panel.findByText("Analysis is configured")).toBeVisible();

@@ -1,4 +1,4 @@
-import { screen, waitFor } from "@testing-library/react";
+import { fireEvent, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { renderWithLens, stubGateway } from "../../../../../tests/lens-test-utils";
@@ -59,7 +59,9 @@ describe("Deployment analysis setup", () => {
       );
       expect(await screen.findByRole("heading", { name: "Analysis", exact: true })).toBeVisible();
       expect(await screen.findByRole("button", { name: "New investigation" })).toBeVisible();
-      expect(screen.getByRole("list", { name: "Analysis models" })).toHaveTextContent("analysis · openai");
+      expect(screen.getByText("1 analysis model available")).toBeVisible();
+      expect(screen.getByRole("button", { name: "Browse models" })).toBeVisible();
+      expect(screen.queryByRole("list", { name: "Analysis models" })).not.toBeInTheDocument();
       expect(await screen.findByText("No model gateway configured")).toBeVisible();
       expect(gateway.get.mock.calls.map(([path]) => path).sort()).toEqual([
         "/lens",
@@ -77,7 +79,7 @@ describe("Deployment analysis setup", () => {
     gateway.get.mockImplementation((path) => (path === "/lens" ? { workers } : { data: [model] }));
     renderWithLens(<DeploymentAnalysis workers={workers} readyAction={<button>New investigation</button>} />);
     await waitFor(() => expect(screen.getByRole("status")).toHaveTextContent("Analysis is configured"));
-    expect(screen.getByRole("list", { name: "Analysis models" })).toHaveTextContent("analysis · openai");
+    expect(screen.getByText("1 analysis model available")).toBeVisible();
     expect(screen.getByRole("button", { name: "New investigation" })).toBeVisible();
     expect(gateway.get.mock.calls.map(([path]) => path).sort()).toEqual(["/lens", "/lens/admin/model_group/info"]);
     expect(gateway.post).not.toHaveBeenCalled();
@@ -125,15 +127,18 @@ describe("Deployment analysis setup", () => {
     expect(screen.queryByRole("button", { name: "New investigation" })).not.toBeInTheDocument();
   });
 
-  it("should list only chat or unspecified analysis modes from a mixed gateway catalogue", async () => {
+  it("passes only eligible analysis models to the browser", async () => {
+    const user = userEvent.setup();
     const gateway = stubGateway();
     gateway.get.mockImplementation((path) =>
       path === "/lens"
         ? { workers }
         : {
             data: [
-              model,
+              { model_group: "Zulu-chat", providers: ["gateway"], mode: "chat" },
               { model_group: "compatible-chat", providers: ["gateway"] },
+              { model_group: "Beta-chat", providers: ["gateway"], mode: "chat" },
+              model,
               { model_group: "embedding-model", providers: ["gateway"], mode: "embedding" },
               { model_group: "signal-model", providers: ["gateway"], mode: "evaluation" },
               { model_group: "image-model", providers: ["gateway"], mode: "image_generation" },
@@ -141,11 +146,63 @@ describe("Deployment analysis setup", () => {
           },
     );
     renderWithLens(<DeploymentAnalysis workers={workers} />);
+    expect(await screen.findByText("4 analysis models available")).toBeVisible();
+    await user.click(screen.getByRole("button", { name: "Browse models" }));
     const models = await screen.findByRole("list", { name: "Analysis models" });
-    expect(models).toHaveTextContent("analysis");
-    expect(models).toHaveTextContent("compatible-chat");
-    expect(models).not.toHaveTextContent("embedding-model");
-    expect(models).not.toHaveTextContent("signal-model");
-    expect(models).not.toHaveTextContent("image-model");
+    expect(within(models).getAllByRole("listitem").map((item) => item.textContent)).toEqual([
+      "analysis",
+      "Beta-chat",
+      "compatible-chat",
+      "Zulu-chat",
+    ]);
+  });
+
+  it("browses and searches a large catalog in a dismissible dialog without changing configuration", async () => {
+    const user = userEvent.setup();
+    const gateway = stubGateway();
+    const catalog = Array.from({ length: 200 }, (_, index) => ({
+      model_group: `analysis-${String(index).padStart(3, "0")}`,
+      providers: ["openai_compatible"],
+      mode: "chat",
+    }));
+    gateway.get.mockImplementation((path) => (path === "/lens" ? { workers } : { data: catalog }));
+    renderWithLens(<DeploymentAnalysis workers={workers} />);
+    expect(await screen.findByText("200 analysis models available")).toBeVisible();
+    expect(screen.queryByText("analysis-199")).not.toBeInTheDocument();
+
+    const browse = screen.getByRole("button", { name: "Browse models" });
+    await user.click(browse);
+    const dialog = await screen.findByRole("dialog", { name: "Analysis models" });
+    const search = within(dialog).getByRole("searchbox", { name: "Search models" });
+    expect(within(dialog).getAllByRole("listitem")).toHaveLength(200);
+    expect(within(dialog).getByText("analysis-199")).toBeInTheDocument();
+    expect(within(dialog).queryByText("openai_compatible")).not.toBeInTheDocument();
+    await waitFor(() => expect(search).toHaveFocus());
+    await user.tab();
+    expect(within(dialog).getByRole("region", { name: "Model results" })).toHaveFocus();
+
+    fireEvent.change(search, { target: { value: "  ANALYSIS-19  " } });
+    expect(within(dialog).getAllByRole("listitem")).toHaveLength(10);
+    expect(within(dialog).getByRole("status")).toHaveTextContent("10 of 200 models");
+    expect(within(dialog).getByText("analysis-199")).toBeVisible();
+    expect(within(dialog).queryByText("analysis-001")).not.toBeInTheDocument();
+
+    fireEvent.change(search, { target: { value: "unavailable" } });
+    expect(within(dialog).getByText("No models match your search")).toBeVisible();
+    expect(within(dialog).getByRole("status")).toHaveTextContent("0 of 200 models");
+    await user.click(search);
+    await user.tab();
+    expect(within(dialog).getByRole("button", { name: "Close", exact: true })).toHaveFocus();
+    await user.keyboard("{Escape}");
+    await waitFor(() => expect(screen.queryByRole("dialog")).not.toBeInTheDocument());
+    expect(browse).toHaveFocus();
+
+    await user.click(browse);
+    const reopened = await screen.findByRole("dialog", { name: "Analysis models" });
+    expect(within(reopened).getByRole("searchbox", { name: "Search models" })).toHaveValue("");
+    expect(within(reopened).getAllByRole("listitem")).toHaveLength(200);
+    await user.click(within(reopened).getByRole("button", { name: "Close", exact: true }));
+    await waitFor(() => expect(screen.queryByRole("dialog")).not.toBeInTheDocument());
+    expect(gateway.post).not.toHaveBeenCalled();
   });
 });
