@@ -82,6 +82,7 @@ impl litellm_lens::control::JobBackend for RetryingModel {
                 cost: 0.0,
                 context_exceeded: false,
                 finish_reason: None,
+                refusal: None,
             })
         })
     }
@@ -614,6 +615,48 @@ async fn structured_retry_requests_a_complete_answer_after_provider_normalizatio
 }
 
 #[rstest]
+#[case::empty("", None)]
+#[case::explained(
+    "",
+    Some("The provider declined this request under its content policy.")
+)]
+#[case::complete_json(r#"{"working_notes":"must not be accepted"}"#, None)]
+#[tokio::test]
+async fn content_filter_stops_without_a_json_repair_retry(
+    #[case] content: &'static str,
+    #[case] refusal: Option<&'static str>,
+) {
+    let server = MockServer::start().await;
+    Mock::given(method("POST"))
+        .and(path("/replay/lens-test/job-test/model"))
+        .respond_with(ResponseTemplate::new(200).set_body_json(json!({
+            "content": content,
+            "cost": 0.25,
+            "finish_reason": "content_filter",
+            "refusal": refusal,
+        })))
+        .expect(1)
+        .mount(&server)
+        .await;
+    let request = model::request(
+        wire::ModelRequestPurpose::Extract,
+        json!({"task":"Inspect evidence"}),
+    )
+    .unwrap();
+    let error =
+        model::structured::<wire::Checkpoint>(&client(&server), request, "Checkpoint", |_| None)
+            .await
+            .unwrap_err();
+    assert!(!error.retryable());
+    assert!(!error.is_control_failure());
+    assert!(error.to_string().contains("content policy"));
+    assert!(matches!(
+        error,
+        litellm_lens::Error::ModelRefused { reason } if reason.as_deref() == refusal
+    ));
+}
+
+#[rstest]
 #[tokio::test]
 async fn proxy_prefix_is_preserved_for_every_control_request() {
     let server = MockServer::start().await;
@@ -937,6 +980,7 @@ impl litellm_lens::control::JobBackend for GatedProgress {
                 cost: 0.0,
                 context_exceeded: false,
                 finish_reason: None,
+                refusal: None,
             })
         })
     }

@@ -108,7 +108,13 @@ pub async fn structured<T: DeserializeOwned>(
         }
         let parsed = match response.finish_reason {
             Some(wire::ModelResultFinishReason::Length) => Err("The response reached the model output limit before the JSON object was complete. Return a shorter complete object: keep reasoning and notes brief and cite fewer, shorter quotes. If this keeps happening, raise the deployment output limit.".into()),
-            Some(wire::ModelResultFinishReason::ContentFilter) => Err("The provider content filter stopped the response before it was complete. Return a complete JSON object.".into()),
+            Some(wire::ModelResultFinishReason::ContentFilter) => {
+                return Err(Error::ModelRefused {
+                    reason: response.refusal.map(|reason| {
+                        crate::evidence::character_range(&reason, 0, Some(1000))
+                    }),
+                });
+            }
             None => document(&response.content)
                 .map_err(|error| error.to_string())
                 .and_then(|value| {

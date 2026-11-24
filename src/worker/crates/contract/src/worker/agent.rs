@@ -84,6 +84,8 @@ pub struct ModelResult {
     pub cost: f64,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub finish_reason: Option<ModelResultFinishReason>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub refusal: Option<String>,
 }
 
 #[derive(serde::Deserialize, serde::Serialize, Clone, Debug, schemars::JsonSchema, Default)]

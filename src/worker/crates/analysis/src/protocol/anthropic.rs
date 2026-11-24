@@ -78,6 +78,7 @@ struct Response {
     model: String,
     content: Vec<Block>,
     stop_reason: Option<String>,
+    stop_details: Option<StopDetails>,
     usage: ResponseUsage,
 }
 #[derive(Deserialize)]
@@ -146,6 +147,11 @@ enum Delta {
 #[derive(Deserialize)]
 struct Closing {
     stop_reason: Option<String>,
+    stop_details: Option<StopDetails>,
+}
+#[derive(Deserialize)]
+struct StopDetails {
+    explanation: Option<String>,
 }
 #[derive(Deserialize)]
 struct FinalUsage {
@@ -178,6 +184,7 @@ pub(super) fn response(body: &[u8]) -> Result<Completion, Error> {
         response.model,
         content,
         response.stop_reason,
+        response.stop_details,
         response.usage,
     ))
 }
@@ -217,6 +224,7 @@ pub(super) fn stream(body: &[u8]) -> Result<Outcome<'_>, Error> {
         opening.model,
         content,
         closing.stop_reason,
+        closing.stop_details,
         usage,
     )))
 }
@@ -225,11 +233,16 @@ fn completion(
     model: String,
     content: String,
     stop_reason: Option<String>,
+    stop_details: Option<StopDetails>,
     usage: ResponseUsage,
 ) -> Completion {
     Completion {
         model,
         content: (!content.is_empty()).then_some(content),
+        refusal: stop_details
+            .filter(|_| stop_reason.as_deref() == Some("refusal"))
+            .and_then(|details| details.explanation)
+            .filter(|reason| !reason.trim().is_empty()),
         finish_reason: stop_reason.map(|reason| finish_reason_for(&reason).to_owned()),
         usage: Usage {
             prompt_tokens: usage.input_tokens,

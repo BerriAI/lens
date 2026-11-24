@@ -496,11 +496,14 @@ impl AnalysisModels {
             lens_inference::completion_charge(custom, usage, actual, estimate)
         };
         Ok(AnalysisCompletion {
-            result: lens_inference::model_result(
-                completion.content.as_deref(),
-                cost,
-                completion.finish_reason.as_deref(),
-            ),
+            result: ModelResult {
+                refusal: completion.refusal,
+                ..lens_inference::model_result(
+                    completion.content.as_deref(),
+                    cost,
+                    completion.finish_reason.as_deref(),
+                )
+            },
             usage: UsageEnvelope {
                 model: Some(completion.model),
                 usage: Some(usage),
@@ -568,6 +571,7 @@ fn context_completion() -> AnalysisCompletion {
             cost: 0.0,
             context_exceeded: true,
             finish_reason: None,
+            refusal: None,
         },
         usage: UsageEnvelope::default(),
     }
