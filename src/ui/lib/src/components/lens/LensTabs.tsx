@@ -8,6 +8,7 @@ import {
   Database,
   FlaskConical,
   House,
+  Plug,
   Settings,
   Sparkles,
   type LucideIcon,
@@ -42,6 +43,7 @@ export const NAVIGATION_ITEMS = [
     label: "Model optimizations",
     icon: ChartNoAxesColumn,
   },
+  { value: "connectors", label: "Connectors", icon: Plug },
 ] as const;
 
 export function LensTabs({ activity, workers, onNavigate, orientation, canViewAlerts, collapsed = false }: LensTabsProps) {

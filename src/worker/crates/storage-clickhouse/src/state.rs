@@ -87,7 +87,7 @@ impl ClickHouseState {
             String::new(),
         )
         .await?;
-        Ok(())
+        crate::mcp::initialize(self).await
     }
 
     pub(crate) async fn command(

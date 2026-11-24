@@ -2,22 +2,40 @@
 
 Lens serves a read only [MCP](https://modelcontextprotocol.io) endpoint so a coding agent can look up its own runs: list traces, open one with its steps and cost, and read its turns. It is part of the Lens server, so there is nothing to install and it always matches your Lens version
 
-## Add it to Claude Code
+## Connect your agent
 
-Use the Lens address and `LENS_ADMIN_TOKEN` from `deploy/lens/.env`:
+Open **Connectors**, directly above **Settings**, then choose **Lens MCP**. Setup detects whether you are using the gateway or standalone Lens
+
+1. Choose your agent app, name the connection, and select an expiry
+2. Create the connection. Standalone Lens shows a dedicated read-only token once; save it in your secret store. Through the gateway, use a LiteLLM key belonging to your signed-in user
+3. Set the environment variable shown in Setup, then copy the generated client configuration. Commands and agent prompts contain no live credentials
+4. Copy the starter prompt into your agent. Setup shows **Connected** only after Lens records a successful tool call in the selected activity window
+
+For example, a standalone Codex connection uses its named endpoint:
 
 ```sh
-claude mcp add --transport http lens http://localhost:4318/lens/mcp \
-  --header "Authorization: Bearer <LENS_ADMIN_TOKEN>"
+export LENS_MCP_TOKEN='<your saved MCP token>'
+codex mcp add lens --url 'https://lens.example.com/lens/mcp/<connection-id>' \
+  --bearer-token-env-var LENS_MCP_TOKEN
 ```
 
-Run `claude mcp list` and check that `lens` shows as connected. Then ask something that needs trace data, for example "Use Lens to find my last failed run and tell me which tool call failed and what the run cost"
+The environment variable must be available when the agent starts. Claude Code expands and stores the authorization header when its install command runs; update that configuration when replacing the credential. Cursor uses an environment reference in its MCP configuration
 
-Any MCP client that speaks Streamable HTTP works the same way: send JSON-RPC with `POST` to `/lens/mcp` and the same `Authorization` header
+Setup also includes reusable instructions for `AGENTS.md` or `CLAUDE.md`. A successful empty result means the connection works but there are no matching traces. Send a run from your project or check the agent and time range
 
-## Credentials
+## Access and usage
 
-The endpoint takes the same credentials as the Lens trace API. `LENS_ADMIN_TOKEN` reads every trace, and whoever runs the Lens deployment holds it. A tracing key from the Tracing keys page can only send traces, so it is rejected here with `401`. Lens also accepts the signed identity a connected LiteLLM gateway sends for a user, and then returns only the traces that user and their teams may see
+**Access** lists connection owners, scopes, expiry, and revocation. Gateway connections check the current caller identity and team permissions on every request. A different user's key cannot use your named connection. Standalone tokens can read all traces but are accepted only by MCP, not by settings or ingestion APIs. Standalone owner labels and client names are labels, not verified identities
+
+Revocation immediately blocks the named connection. Revoking a gateway connection does not revoke the underlying LiteLLM key, its other permissions, or its access through the original `/lens/mcp` endpoint. Manage that key in LiteLLM when you need to remove its gateway access entirely
+
+**Usage** shows tool calls, errors, and last use within an explicit time window, with a paginated request log. Activity is retained for 30 days. It stores metadata only, never tool arguments, results, prompts, authorization headers, or raw tokens. Denied attempts are associated with the targeted connection; they do not establish that its owner made the request
+
+Administrators can view all connections and activity. Members see their own. Viewer roles cannot create or revoke connections. Existing credentials appear after their next request; shared credentials cannot identify individual people
+
+## Existing clients
+
+The original `/lens/mcp` endpoint continues to accept the deployment admin token and signed gateway identities. Dedicated standalone MCP tokens also work there and retain their expiry and revocation checks. Tracing keys are write-only and cannot read through MCP
 
 ## Tools
 

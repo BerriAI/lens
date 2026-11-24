@@ -45,3 +45,27 @@ pub enum IngestionError {
     #[error(transparent)]
     Store(#[from] StoreError),
 }
+
+#[derive(Debug, thiserror::Error)]
+pub enum McpError {
+    #[error("{0}")]
+    Invalid(&'static str),
+    #[error(
+        "This MCP connection already exists. Open Access to manage it or create a new connection"
+    )]
+    Exists,
+    #[error("You cannot manage this MCP connection")]
+    Forbidden,
+    #[error("Invalid MCP connection credential")]
+    Unauthorized,
+    #[error("MCP connection expired. Create a replacement connection")]
+    Expired,
+    #[error("MCP connection revoked. Create a replacement connection")]
+    Revoked,
+    #[error("MCP connection not found")]
+    NotFound,
+    #[error("MCP credential generation is unavailable")]
+    Random(#[source] rand::Error),
+    #[error(transparent)]
+    Store(#[from] StoreError),
+}

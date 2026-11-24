@@ -1,5 +1,7 @@
 #[path = "state/compaction.rs"]
 mod compaction;
+#[path = "state/mcp.rs"]
+mod mcp;
 #[path = "state/support.rs"]
 mod support;
 
