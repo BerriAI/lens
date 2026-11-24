@@ -50,7 +50,7 @@ export function ReportFeed({
 }) {
   return (
     <section aria-label="Trace updates">
-      <h2 className="mb-4 text-sm font-medium">From your traces</h2>
+      <h2 className="mb-3 text-sm font-medium">From your traces</h2>
       {loading && (
         <p
           role="status"
@@ -78,7 +78,7 @@ export function ReportFeed({
           </p>
         </div>
       )}
-      <div className="space-y-4">
+      <div className="space-y-3">
         {reports.map((report) => (
           <ReportPost
             key={report.id}
@@ -115,8 +115,8 @@ function ReportPost({
 }) {
   return (
     <article className="overflow-hidden rounded-lg border bg-card">
-      <div className="px-5 pt-4 pb-2">
-        <div className="mb-3 flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
+      <div className="px-4 pt-3 pb-1">
+        <div className="mb-2 flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
           <Bot aria-hidden="true" className="size-3.5" />
           <span className="font-medium text-foreground">{author}</span>
           <span aria-hidden="true">·</span>
@@ -128,34 +128,45 @@ function ReportPost({
               minute: "2-digit",
             })}
           </time>
+          {report.traces.length > 0 && (
+            <button
+              type="button"
+              onClick={onOpen}
+              className="ml-auto hover:text-primary"
+            >
+              {report.traces.length}{" "}
+              {report.traces.length === 1 ? "trace" : "traces"}
+            </button>
+          )}
         </div>
         <button
           type="button"
           onClick={onOpen}
-          className="mb-3 text-left text-base font-medium hover:text-primary focus-visible:ring-2 focus-visible:ring-ring"
+          className="mb-1.5 line-clamp-2 text-left text-sm leading-5 font-medium hover:text-primary focus-visible:ring-2 focus-visible:ring-ring"
         >
           {report.title}
         </button>
-        <div className="max-h-80 overflow-hidden">
-          <Markdown text={report.markdown} />
-        </div>
-        <div className="mt-3 space-y-3">
-          {report.artifacts?.map((artifact) => (
-            <ReportArtifact key={artifact.id} api={api} info={artifact} />
-          ))}
-        </div>
-        {report.traces.length > 0 && (
+        <Markdown
+          text={report.markdown}
+          className="line-clamp-3 leading-5 [&>*]:mb-1"
+        />
+        {report.artifacts?.slice(0, 1).map((artifact) => (
+          <div key={artifact.id} className="mt-2">
+            <ReportArtifact api={api} info={artifact} onOpen={onOpen} />
+          </div>
+        ))}
+        {report.artifacts.length > 1 && (
           <button
             type="button"
             onClick={onOpen}
-            className="mt-3 text-xs text-muted-foreground hover:text-primary"
+            className="mt-2 text-xs text-muted-foreground hover:text-primary"
           >
-            {report.traces.length}{" "}
-            {report.traces.length === 1 ? "trace" : "traces"} linked
+            +{report.artifacts.length - 1} more{" "}
+            {report.artifacts.length === 2 ? "attachment" : "attachments"}
           </button>
         )}
       </div>
-      <div className="px-3 py-2">
+      <div className="px-2 py-1">
         <ReportActions
           api={api}
           report={report}
@@ -312,9 +323,11 @@ function ReportActions({
 function ReportArtifact({
   api,
   info,
+  onOpen,
 }: {
   api: WorkspaceApi;
   info: ArtifactInfo;
+  onOpen?: () => void;
 }) {
   const scope = useContext(WorkspaceScope);
   const content = useQuery({
@@ -338,6 +351,29 @@ function ReportArtifact({
       </p>
     );
   const url = `data:${content.data.media_type};base64,${content.data.data_base64}`;
+  if (onOpen)
+    return (
+      <button
+        type="button"
+        onClick={onOpen}
+        aria-label={`Open attachment ${info.filename}`}
+        className="block w-full overflow-hidden rounded-md border text-left focus-visible:ring-2 focus-visible:ring-ring"
+      >
+        {info.media_type.startsWith("image/") ? (
+          <img
+            src={url}
+            alt={info.filename}
+            loading="lazy"
+            className="max-h-48 w-full object-contain"
+          />
+        ) : (
+          <span className="flex items-center gap-2 px-3 py-2 text-xs text-muted-foreground">
+            <FileText className="size-3.5 shrink-0" />
+            <span className="truncate">{info.filename}</span>
+          </span>
+        )}
+      </button>
+    );
   return (
     <figure className="overflow-hidden rounded-md border">
       {info.media_type.startsWith("image/") && (
