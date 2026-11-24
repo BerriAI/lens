@@ -6,13 +6,15 @@ import { ChartNoAxesColumn, CircleAlert, List, RefreshCw, Sparkles } from "lucid
 import { Button } from "../../ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "../../ui/tabs";
 import { LoadingState } from "../../shared/LoadingState";
+import { SearchSelect } from "../../shared/SearchSelect";
 import { StateMessage } from "../../shared/StateMessage";
 import { TimeRangeControls } from "../../shared/timeRange/TimeRangeControls";
 import { timeWindow } from "../../shared/timeRange/timeRange";
 import { useRelativeRange } from "../../shared/timeRange/useRelativeRange";
 import { useZoomRouting } from "../../shared/timeRange/routing";
 import type { LensAgents } from "../agents/AgentScoped";
-import { useProfilesApi } from "../data/LensServices";
+import { useLensApi, useProfilesApi } from "../data/LensServices";
+import { lensQueries } from "../data/queries";
 import { useTracesLive } from "../traces/api";
 import { LensPageHeader } from "../ui/LensPageHeader";
 import { PROFILE_VIEWS, useLensRoute, useProfileRoute } from "../route";
@@ -64,11 +66,14 @@ function Totals({ overview, agent, live }: { overview: ProfilesOverview; agent: 
 export function ProfilesView({
   agents,
   canInvestigate = true,
+  canViewSignals = false,
 }: {
   agents: LensAgents;
   canInvestigate?: boolean;
+  canViewSignals?: boolean;
 }) {
   const api = useProfilesApi();
+  const lensApi = useLensApi();
   const time = useRelativeRange(false);
   const live = useTracesLive();
   const queryClient = useQueryClient();
@@ -89,6 +94,15 @@ export function ProfilesView({
     enabled: !!agent,
     staleTime: 30_000,
   });
+  const showSignalPicker = canViewSignals && live && profile.view === "breakdown" && !!agent;
+  const signalConfig = useQuery({ ...lensQueries.signalConfig(lensApi), enabled: showSignalPicker });
+  const signals = showSignalPicker && signalConfig.data?.model ? signalConfig.data.signals : [];
+  const signalId = signals.find(({ id }) => id === profile.signalId)?.id;
+  const signalCounts = useQuery({
+    queryKey: ["lens", "profile-signal-counts", api.scope, window, agent, signalId, signalConfig.data],
+    queryFn: ({ signal }) => api.signalCounts(window, agent, signalId ?? "", signal),
+    enabled: !!signalId && !!overview.data?.profiles.length,
+  });
   const matrix = useQuery({
     queryKey: ["lens", "profile-matrix", api.scope, window, agent],
     queryFn: ({ signal }) => api.matrix(window, agent, signal),
@@ -106,7 +120,7 @@ export function ProfilesView({
   const profiles = shown?.profiles ?? [];
   const colors = useMemo(() => profileColors(profiles), [profiles]);
   const selected = selectedProfileId(profiles, profile.profile);
-  const fetching = overview.isFetching || matrix.isFetching;
+  const fetching = overview.isFetching || matrix.isFetching || signalCounts.isFetching;
   return (
     <section aria-label="Usage profiles" className="flex min-h-0 flex-1 flex-col">
       <LensPageHeader
@@ -143,6 +157,7 @@ export function ProfilesView({
                   ? void Promise.all([
                       overview.refetch(),
                       matrix.refetch(),
+                      ...(signalId ? [signalCounts.refetch()] : []),
                       queryClient.invalidateQueries({ queryKey: ["lens", "profile-detail", api.scope, window, agent] }),
                     ])
                   : setRefreshAt(Date.now())
@@ -201,7 +216,32 @@ export function ProfilesView({
                 </TabsList>
               </div>
               <TabsContent value="breakdown">
-                <ProfileBreakdown profiles={profiles} colors={colors} selected={selected} onSelect={profile.selectProfile} />
+                {signals.length > 0 && (
+                  <div className="mb-3 flex flex-wrap items-center gap-2">
+                    <div className="w-64 max-w-full">
+                      <SearchSelect
+                        aria-label="Signal"
+                        placeholder="Select a Signal"
+                        options={signals.map(({ id, name }) => ({ value: id, label: name }))}
+                        value={signalId}
+                        onValueChange={profile.selectSignal}
+                      />
+                    </div>
+                    {signalId && signalCounts.isFetching && (
+                      <span role="status" className="text-xs text-muted-foreground">Loading flagged runs…</span>
+                    )}
+                    {signalId && signalCounts.isError && (
+                      <span role="alert" className="text-xs text-destructive">Could not load flagged runs</span>
+                    )}
+                  </div>
+                )}
+                <ProfileBreakdown
+                  profiles={profiles}
+                  colors={colors}
+                  selected={selected}
+                  onSelect={profile.selectProfile}
+                  signalCounts={!signalCounts.isError ? signalCounts.data?.by_profile : undefined}
+                />
               </TabsContent>
               <TabsContent value="similarity">
                 <ProfileMap overview={shown} colors={colors} selected={selected} onOpenDetails={profile.selectProfile} />

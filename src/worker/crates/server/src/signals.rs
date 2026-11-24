@@ -88,7 +88,7 @@ where
         }))
 }
 
-fn authorize(role: Role, write: bool) -> Result<(), InvestigationError> {
+pub(crate) fn authorize(role: Role, write: bool) -> Result<(), InvestigationError> {
     match (role, write) {
         (Role::ProxyAdmin, _) | (Role::ProxyAdminViewer, false) => Ok(()),
         (_, true) => Err(InvestigationError::ForbiddenWrite),

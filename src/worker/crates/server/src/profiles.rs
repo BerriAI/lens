@@ -2,15 +2,15 @@ use std::{collections::BTreeMap, future::Future, sync::Arc};
 
 use axum::{
     Json, Router,
-    extract::{Query, State},
+    extract::{Path, Query, State},
     http::{HeaderMap, Method},
     routing::get,
 };
 use lens_auth::{Authentication, ReadScope, SessionRepository, trace_read_scope};
 use lens_contract::profiles::{
     ClassificationWindow, DiscoveryModelChoice, ModelCapabilities, ModelColumn, ProfileDetail,
-    ProfileRef, ProfileSource, ProfileSummary, ProfileWindow, ProfilesMatrix, ProfilesOverview,
-    Taxonomy, TaxonomyStatus, TaxonomyView,
+    ProfileRef, ProfileSignalCounts, ProfileSource, ProfileSummary, ProfileWindow, ProfilesMatrix,
+    ProfilesOverview, Taxonomy, TaxonomyStatus, TaxonomyView,
 };
 use litellm_traces::query::named::ReadAccessParams;
 use serde::Deserialize;
@@ -62,6 +62,11 @@ pub trait ProfileStore: Send + Sync {
         max_spans: usize,
     ) -> impl Future<Output = Result<RunCalls, ProfileStoreError>> + Send;
     fn configured_models(&self) -> impl Future<Output = Vec<ConfiguredModel>> + Send;
+    fn signal_counts(
+        &self,
+        signal_id: &str,
+        runs: &[Run],
+    ) -> impl Future<Output = Result<Option<ProfileSignalCounts>, ProfileStoreError>> + Send;
 }
 
 /// Enhanced taxonomies are built from every team's runs, so only callers who can already read
@@ -91,6 +96,10 @@ pub fn router<
 ) -> Router {
     Router::new()
         .public_route("/lens/profiles/overview", get(overview::<R, S>))
+        .public_route(
+            "/lens/profiles/signals/{signal_id}",
+            get(signal_counts::<R, S>),
+        )
         .public_route("/lens/profiles/matrix", get(matrix::<R, S>))
         .public_route("/lens/profiles/detail", get(detail::<R, S>))
         .public_route("/lens/profiles/taxonomy", get(taxonomy_view::<R, S>))
@@ -233,7 +242,7 @@ async fn inventory<S: ProfileStore>(store: &S, scope: &ReadAccessParams) -> Vec<
     }
 }
 
-async fn load<S: ProfileStore + taxonomy::TaxonomyStore>(
+async fn load_runs<S: ProfileStore + taxonomy::TaxonomyStore>(
     store: &S,
     scope: &ReadAccessParams,
     query: &WindowQuery,
@@ -266,14 +275,25 @@ async fn load<S: ProfileStore + taxonomy::TaxonomyStore>(
         .await?;
     let truncated = runs.len() > MAX_RUNS as usize;
     runs.truncate(MAX_RUNS as usize);
-    let calls = store.calls(scope.clone(), runs.clone(), MAX_SPANS).await?;
     Ok(Loaded {
         runs,
-        calls,
+        calls: RunCalls::default(),
         truncated,
         taxonomy,
         draft,
     })
+}
+
+async fn load<S: ProfileStore + taxonomy::TaxonomyStore>(
+    store: &S,
+    scope: &ReadAccessParams,
+    query: &WindowQuery,
+) -> Result<Loaded, ProfileHttpError> {
+    let mut loaded = load_runs(store, scope, query).await?;
+    loaded.calls = store
+        .calls(scope.clone(), loaded.runs.clone(), MAX_SPANS)
+        .await?;
+    Ok(loaded)
 }
 
 async fn overview<R: SessionRepository, S: ProfileStore + taxonomy::TaxonomyStore>(
@@ -297,6 +317,26 @@ async fn overview<R: SessionRepository, S: ProfileStore + taxonomy::TaxonomyStor
         ),
         profiles: loaded.summaries(&query.agent),
     }))
+}
+
+async fn signal_counts<R: SessionRepository, S: ProfileStore + taxonomy::TaxonomyStore>(
+    State(app): State<Arc<App<R, S>>>,
+    headers: HeaderMap,
+    method: Method,
+    Path(signal_id): Path<String>,
+    Query(query): Query<WindowQuery>,
+) -> Result<Json<ProfileSignalCounts>, ProfileHttpError> {
+    let identity = auth::identity(&app.authentication, &headers, &method).await?;
+    crate::signals::authorize(identity.user_role, false)
+        .map_err(|_| ProfileHttpError::Forbidden("Not allowed to view Signals"))?;
+    let scope = scope(&identity)?;
+    let query = query.validate()?;
+    let loaded = load_runs(&app.store, &scope, &query).await?;
+    app.store
+        .signal_counts(&signal_id, &loaded.runs)
+        .await?
+        .map(Json)
+        .ok_or(ProfileHttpError::Invalid("Select a configured Signal"))
 }
 
 async fn matrix<R: SessionRepository, S: ProfileStore + taxonomy::TaxonomyStore>(
@@ -627,6 +667,14 @@ mod tests {
     struct Inventory;
 
     impl ProfileStore for Inventory {
+        async fn signal_counts(
+            &self,
+            _: &str,
+            _: &[Run],
+        ) -> Result<Option<ProfileSignalCounts>, ProfileStoreError> {
+            Ok(None)
+        }
+
         async fn runs(
             &self,
             _: ReadAccessParams,

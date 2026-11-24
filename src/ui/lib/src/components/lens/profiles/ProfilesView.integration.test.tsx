@@ -94,6 +94,10 @@ const detail = (profileId: string): ProfileDetail => ({
 
 function routes(proxy: ReturnType<typeof stubGateway>, data: { overview?: ProfilesOverview; admin?: boolean } = {}) {
   proxy.get.mockImplementation(async (path, request) => {
+    if (path === "/lens/admin/signals") {
+      return { model: "judge", threshold: 0.8, signals: [{ id: "repeat", name: "Repeated request", question: "Was it repeated?" }] };
+    }
+    if (path === "/lens/profiles/signals/repeat") return { by_profile: { "recorded:Coding": 3, unclassified: 0 } };
     if (path === "/lens/profiles/overview") return data.overview ?? overview();
     if (path === "/lens/profiles/matrix") return matrix;
     if (path === "/lens/profiles/detail") return detail(String(request.query.profile_id));
@@ -123,6 +127,38 @@ beforeEach(() => {
 afterEach(() => {
   vi.restoreAllMocks();
   vi.unstubAllGlobals();
+});
+
+it("adds counts for the selected Signal alongside run totals and removes them on clear", async () => {
+  const user = userEvent.setup();
+  const proxy = stubGateway();
+  routes(proxy);
+  renderWithLens(<ProfilesView agents={agents} canViewSignals />);
+
+  const picker = await screen.findByRole("combobox", { name: "Signal" });
+  expect(proxy.get).not.toHaveBeenCalledWith("/lens/profiles/signals/repeat", expect.anything());
+
+  await user.click(picker);
+  await user.click(await screen.findByRole("option", { name: "Repeated request" }));
+  expect(await screen.findByText("3 flagged")).toBeVisible();
+  expect(screen.getByText("0 flagged")).toBeVisible();
+  expect((await ranked()).getByRole("button", { name: /Coding/ })).toHaveTextContent("10 runs");
+  const overviewRequest = proxy.get.mock.calls.find(([path]) => path === "/lens/profiles/overview")?.[1];
+  expect(proxy.get).toHaveBeenCalledWith("/lens/profiles/signals/repeat", expect.objectContaining({ query: overviewRequest?.query }));
+
+  await user.click(screen.getByRole("button", { name: /clear/i }));
+  await waitFor(() => expect(screen.queryByText("3 flagged")).not.toBeInTheDocument());
+});
+
+it("does not query Signals from a shared link for viewers without Signals access", async () => {
+  const proxy = stubGateway();
+  routes(proxy);
+  renderWithLens(<ProfilesView agents={agents} />, { searchParams: "?profile_signal=repeat" });
+
+  expect((await ranked()).getByRole("button", { name: /Coding/ })).toHaveTextContent("10 runs");
+  expect(screen.queryByRole("combobox", { name: "Signal" })).not.toBeInTheDocument();
+  expect(proxy.get).not.toHaveBeenCalledWith("/lens/admin/signals", expect.anything());
+  expect(proxy.get).not.toHaveBeenCalledWith("/lens/profiles/signals/repeat", expect.anything());
 });
 
 it("waits for the navigation agent instead of querying all agents", async () => {

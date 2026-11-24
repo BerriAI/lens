@@ -12,7 +12,8 @@ use lens_contract::{
     profiles::{
         Capability, ClassificationWindow, DiscoveryModelChoice, DiscoveryModelOptions,
         DiscoveryPreview, DiscoveryPreviewRun, DiscoveryRequest, DiscoveryRun, ModelCapabilities,
-        ProfileSettings, TaskDefinition, Taxonomy, TaxonomyModels, TaxonomyStatus,
+        ProfileSettings, ProfileSignalCounts, TaskDefinition, Taxonomy, TaxonomyModels,
+        TaxonomyStatus,
     },
 };
 use lens_server::profiles::{
@@ -71,6 +72,16 @@ impl Memory {
 }
 
 impl ProfileStore for Memory {
+    async fn signal_counts(
+        &self,
+        signal_id: &str,
+        runs: &[Run],
+    ) -> Result<Option<ProfileSignalCounts>, ProfileStoreError> {
+        Ok((signal_id == "test_signal").then(|| ProfileSignalCounts {
+            by_profile: runs.iter().map(|run| (run.profile_id.clone(), 1)).collect(),
+        }))
+    }
+
     async fn runs(
         &self,
         _: ReadAccessParams,
@@ -349,6 +360,36 @@ fn window_query(extra: &str) -> String {
 #[fixture]
 fn admin() -> Option<Role> {
     Some(Role::ProxyAdmin)
+}
+
+#[rstest]
+#[case::anonymous(None, "test_signal", StatusCode::UNAUTHORIZED)]
+#[case::scoped_user(Some(Role::InternalUser), "test_signal", StatusCode::FORBIDDEN)]
+#[case::admin(Some(Role::ProxyAdmin), "test_signal", StatusCode::OK)]
+#[case::admin_viewer(Some(Role::ProxyAdminViewer), "test_signal", StatusCode::OK)]
+#[case::unknown_signal(Some(Role::ProxyAdmin), "deleted_signal", StatusCode::BAD_REQUEST)]
+#[tokio::test]
+async fn profile_signal_counts_follow_signal_read_access(
+    #[future(awt)] database: Database,
+    #[case] role: Option<Role>,
+    #[case] signal_id: &str,
+    #[case] expected: StatusCode,
+) {
+    let store = Memory {
+        runs: vec![run("trace", "recorded:billing", "billing")],
+        ..Memory::default()
+    };
+    let server = serve(&database, store.clone()).await;
+    let path = format!("/lens/profiles/signals/{signal_id}{}", window_query(""));
+    let (status, payload) = call(&server, Method::GET, &path, role, None).await;
+
+    assert_eq!(status, expected);
+    if status == StatusCode::OK {
+        assert_eq!(payload, json!({"by_profile": {"recorded:billing": 1}}));
+        assert_eq!(store.lock().queries[0].agent, AGENT);
+    } else if matches!(status, StatusCode::UNAUTHORIZED | StatusCode::FORBIDDEN) {
+        assert!(store.lock().queries.is_empty());
+    }
 }
 
 #[rstest]

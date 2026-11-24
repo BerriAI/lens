@@ -369,7 +369,7 @@ function LensContent({ userRole, readOnly }: Omit<WorkspaceProps, "accessToken">
                       </TabsContent>
                     )}
                     <TabsContent value="profiles" className={PANEL}>
-                      <ProfilesView agents={agents} canInvestigate={canConfigure && isAdmin} />
+                      <ProfilesView agents={agents} canInvestigate={canConfigure && isAdmin} canViewSignals={canViewAlerts} />
                     </TabsContent>
                     <TabsContent value="findings" className={PANEL}>
                       {canViewInvestigations ? (

@@ -8,6 +8,8 @@ export const capabilities = ["function_calling", "vision", "reasoning", "structu
 
 export const windowSchema = z.object({ agent: z.string(), start_ms: z.number(), end_ms: z.number() });
 export const coverageSchema = z.object({ runs_listed: count, runs_resolved: count, truncated: z.boolean() });
+export const profileSignalCountsSchema = z.object({ by_profile: z.record(z.string(), count) });
+export type ProfileSignalCounts = z.infer<typeof profileSignalCountsSchema>;
 
 export const profileSummarySchema = z.object({
   profile_id: z.string(),

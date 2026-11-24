@@ -2670,6 +2670,21 @@
       ],
       "type": "object"
     },
+    "ProfileSignalCounts": {
+      "properties": {
+        "by_profile": {
+          "additionalProperties": {
+            "minimum": 0,
+            "type": "integer"
+          },
+          "type": "object"
+        }
+      },
+      "required": [
+        "by_profile"
+      ],
+      "type": "object"
+    },
     "ProfileSource": {
       "enum": [
         "recorded",

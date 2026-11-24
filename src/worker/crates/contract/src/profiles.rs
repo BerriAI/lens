@@ -84,6 +84,11 @@ pub struct ProfilesOverview {
     pub points: Vec<MapPoint>,
 }
 
+#[derive(Clone, Debug, Deserialize, JsonSchema, PartialEq, Serialize)]
+pub struct ProfileSignalCounts {
+    pub by_profile: std::collections::BTreeMap<String, u64>,
+}
+
 #[derive(Clone, Debug, Default, Deserialize, JsonSchema, PartialEq, Serialize)]
 pub struct ModelCapabilities {
     pub function_calling: Option<bool>,

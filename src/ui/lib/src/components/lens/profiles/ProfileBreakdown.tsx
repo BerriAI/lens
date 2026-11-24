@@ -41,11 +41,13 @@ export function ProfileBreakdown({
   colors,
   selected,
   onSelect,
+  signalCounts,
 }: {
   profiles: readonly ProfileSummary[];
   colors: ReadonlyMap<string, string>;
   selected: string | null;
   onSelect: (profileId: string) => void;
+  signalCounts?: Readonly<Record<string, number>>;
 }) {
   const [rank, setRank] = useState<Rank>("runs");
   const rows = useMemo(() => rankProfiles(profiles, rank), [profiles, rank]);
@@ -62,6 +64,7 @@ export function ProfileBreakdown({
           const { profile } = row;
           const active = selected === profile.profile_id;
           const { primary, secondary } = figures(row, rank);
+          const flagged = signalCounts?.[profile.profile_id];
           return (
             <li key={profile.profile_id}>
               <button
@@ -84,6 +87,9 @@ export function ProfileBreakdown({
                   <span className="min-w-0 tabular-nums sm:max-w-[45%] sm:text-right">
                     <span className="block text-sm">{primary}</span>
                     <span className="block text-xs break-words text-muted-foreground">{secondary}</span>
+                    {flagged !== undefined && (
+                      <span className="block text-xs text-muted-foreground">{formatCount(flagged)} flagged</span>
+                    )}
                   </span>
                 </span>
                 {row.value === null ? (

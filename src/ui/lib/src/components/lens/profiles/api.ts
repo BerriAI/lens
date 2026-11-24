@@ -6,6 +6,7 @@ import {
   matrixSchema,
   overviewSchema,
   previewSchema,
+  profileSignalCountsSchema,
   settingsSchema,
   settingsViewSchema,
   taxonomyViewSchema,
@@ -14,6 +15,7 @@ import {
   type ProfileDetail,
   type ProfileSettings,
   type ProfileSettingsView,
+  type ProfileSignalCounts,
   type ProfilesMatrix,
   type ProfilesOverview,
   type TaxonomyView,
@@ -39,6 +41,7 @@ export interface ProfilesApi {
   readonly scope: string;
   usage(window: TimeWindow, agent: string, signal?: AbortSignal): Promise<UsageCategory[]>;
   overview(window: TimeWindow, agent: string, signal?: AbortSignal): Promise<ProfilesOverview>;
+  signalCounts(window: TimeWindow, agent: string, signalId: string, signal?: AbortSignal): Promise<ProfileSignalCounts>;
   matrix(window: TimeWindow, agent: string, signal?: AbortSignal): Promise<ProfilesMatrix>;
   detail(window: TimeWindow, agent: string, profileId: string, signal?: AbortSignal): Promise<ProfileDetail>;
   taxonomy(agent: string, signal?: AbortSignal): Promise<TaxonomyView>;
@@ -79,6 +82,8 @@ export function liveProfilesApi(accessToken: string): ProfilesApi {
     },
     overview: (window, agent, signal) =>
       get("/lens/profiles/overview", windowQuery(window, agent), (value) => overviewSchema.parse(value), signal),
+    signalCounts: (window, agent, signalId, signal) =>
+      get(`/lens/profiles/signals/${encodeURIComponent(signalId)}`, windowQuery(window, agent), (value) => profileSignalCountsSchema.parse(value), signal),
     matrix: (window, agent, signal) =>
       get("/lens/profiles/matrix", windowQuery(window, agent), (value) => matrixSchema.parse(value), signal),
     detail: (window, agent, profileId, signal) =>
