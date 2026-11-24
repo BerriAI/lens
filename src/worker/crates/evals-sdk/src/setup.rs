@@ -59,6 +59,7 @@ fn git(root: &Path, args: &[&str]) -> Result<String> {
 pub fn execution(root: &Path, ci: bool) -> Result<Execution> {
     if !ci {
         return Ok(Execution {
+            baseline_run_id: env_value("LENS_BASELINE_RUN_ID"),
             version: match env_value("LENS_VERSION") {
                 Some(value) => value,
                 None => git(root, &["rev-parse", "HEAD"])?,
@@ -84,6 +85,7 @@ pub fn execution(root: &Path, ci: bool) -> Result<Execution> {
             .map_err(Error::Response)?;
     let run = required("GITHUB_RUN_ID")?;
     Ok(Execution {
+        baseline_run_id: env_value("LENS_BASELINE_RUN_ID"),
         version: required("GITHUB_SHA")?,
         branch: match env_value("GITHUB_HEAD_REF") {
             Some(value) => value,

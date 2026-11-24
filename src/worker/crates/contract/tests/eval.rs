@@ -82,7 +82,7 @@ fn golden_fixtures_round_trip(#[case] fixture: &str) {
 }
 
 #[rstest]
-#[case::create_eval_run("CreateEvalRun", serialized_keys(&serde_json::from_str::<CreateEvalRun>(CREATE_RUN).unwrap()), BTreeSet::from(["agent_io".into()]))]
+#[case::create_eval_run("CreateEvalRun", serialized_keys(&serde_json::from_str::<CreateEvalRun>(CREATE_RUN).unwrap()), BTreeSet::from(["agent_io".into(), "baseline_run_id".into()]))]
 #[case::eval_run("EvalRun", serialized_keys(&serde_json::from_str::<EvalRun>(RUN_DONE).unwrap()), BTreeSet::new())]
 #[case::case_result("CaseResult", serialized_keys(&serde_json::from_str::<CaseResult>(RESULT_TRACE).unwrap()), BTreeSet::from(["output".into()]))]
 #[case::gate("Gate", serialized_keys(&Gate::default()), BTreeSet::new())]

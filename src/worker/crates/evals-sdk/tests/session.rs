@@ -52,14 +52,23 @@ async fn local_outputs_use_saved_cases_trials_and_server_baseline_without_an_htt
         .unwrap();
     assert!(replay.cases().is_empty());
     assert_eq!(replay.finish(None).await.unwrap().run.id, before.run.id);
-    let mut candidate = Evaluation::start(
+    let mut other = Evaluation::start(
         "python-eval",
         &server.address,
         "lens-dev",
-        &support::context("topic", "candidate"),
+        &support::context("main", "other-baseline"),
     )
     .await
     .unwrap();
+    let latest = other.finish(None).await.unwrap();
+    assert_ne!(latest.run.id, before.run.id);
+    let execution = lens_evals_sdk::model::Execution {
+        baseline_run_id: Some(before.run.id.clone()),
+        ..support::context("topic", "candidate")
+    };
+    let mut candidate = Evaluation::start("python-eval", &server.address, "lens-dev", &execution)
+        .await
+        .unwrap();
     let case = candidate.cases()[0].clone();
     candidate.record(&case, support::good()).await.unwrap();
     let after = candidate
