@@ -2,7 +2,7 @@
 
 import { useQuery } from "@tanstack/react-query";
 import { useState } from "react";
-import { Activity, LoaderCircle, Settings2 } from "lucide-react";
+import { Activity, LoaderCircle, Play, Settings2 } from "lucide-react";
 import { useNow } from "../../../hooks/useNow";
 import { SearchSelect } from "../../shared/SearchSelect";
 import { Button } from "../../ui/button";
@@ -11,7 +11,7 @@ import { Input } from "../../ui/input";
 import { Switch } from "../../ui/switch";
 import { Textarea } from "../../ui/textarea";
 import { useLensApi } from "../data/LensServices";
-import { useSaveLens } from "../data/mutations";
+import { useLensUpdate, useSaveLens } from "../data/mutations";
 import { useAnalysisModels } from "../setup/fields/useAnalysisModels";
 import { analysisModelOptions, modelGate } from "../setup/fields/analysisModels";
 import { useLensRoute } from "../route";
@@ -186,6 +186,7 @@ function AgentAnalysis({
   availableModels: readonly string[] | null;
 }) {
   const api = useLensApi();
+  const run = useLensUpdate();
   const now = useNow(30_000);
   const [editing, setEditing] = useState(false);
   const job = lens.jobs?.[0];
@@ -274,12 +275,32 @@ function AgentAnalysis({
             {sample.error.message}
           </p>
         )}
+        {run.error && (
+          <p role="alert" className="text-destructive">
+            {run.error.message}
+          </p>
+        )}
       </div>
       {!readOnly && (
-        <Button variant="outline" size="sm" aria-label="Findings settings" onClick={() => setEditing(true)}>
-          <Settings2 aria-hidden className="size-3.5" />
-          Settings
-        </Button>
+        <div className="flex items-center gap-2">
+          <Button
+            variant="outline"
+            size="sm"
+            disabled={run.isPending || !!active || !ready || modelUnavailable}
+            onClick={() => run.mutate((api) => api.startRun(lens.id))}
+          >
+            {run.isPending ? (
+              <LoaderCircle aria-hidden className="size-3.5 motion-safe:animate-spin" />
+            ) : (
+              <Play aria-hidden className="size-3.5" />
+            )}
+            {run.isPending ? "Starting…" : "Run now"}
+          </Button>
+          <Button variant="outline" size="sm" aria-label="Findings settings" onClick={() => setEditing(true)}>
+            <Settings2 aria-hidden className="size-3.5" />
+            Settings
+          </Button>
+        </div>
       )}
       {editing && <AnalysisSettings lens={lens} onClose={() => setEditing(false)} />}
     </section>
