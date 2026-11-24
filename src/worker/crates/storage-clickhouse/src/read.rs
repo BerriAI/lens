@@ -1,4 +1,4 @@
-use std::{collections::BTreeMap, time::Duration};
+use std::{borrow::Cow, collections::BTreeMap, time::Duration};
 
 use litellm_http::Client;
 use serde::{Deserialize, Serialize, de::DeserializeOwned};
@@ -165,6 +165,10 @@ pub trait Query {
 
     const READ_LIMITS: ReadLimits = crate::read::READ_LIMITS;
     const SQL: &'static str;
+
+    fn sql() -> Cow<'static, str> {
+        Cow::Borrowed(Self::SQL)
+    }
 }
 
 #[derive(Deserialize)]
@@ -185,7 +189,7 @@ pub async fn fetch<Q: Query>(
     let body = execute_read_with_limits(
         client,
         connection,
-        Q::SQL,
+        &Q::sql(),
         &parameters(params)?,
         Q::READ_LIMITS,
     )
@@ -201,7 +205,7 @@ pub async fn fetch_json<Q: Query>(
     let body = execute_read_with_limits(
         client,
         connection,
-        Q::SQL,
+        &Q::sql(),
         &parameters(params)?,
         Q::READ_LIMITS,
     )

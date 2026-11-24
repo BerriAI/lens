@@ -21,6 +21,8 @@ use litellm_traces_clickhouse::query::profiles::ProfileTaxonomyParams;
 
 use crate::{Error, State, wait_for_read_slot};
 
+mod saved_signal;
+
 #[derive(Clone)]
 pub struct SourceReader(pub Arc<State>);
 
@@ -137,7 +139,10 @@ impl SourceReader {
 
     pub async fn sample(&self, scope: &Scope, request: SampleRequest<'_>) -> Result<Sample, Error> {
         let parameters = self.sample_parameters(scope, &request).await?;
-        let rows = self.read::<LensSample>(&parameters).await?;
+        let rows = match &request.selection.signal_id {
+            Some(signal) => self.saved_signal_sample(parameters, signal).await?,
+            None => self.read::<LensSample>(&parameters).await?,
+        };
         sample_page(rows, &request)
     }
 
@@ -156,6 +161,19 @@ impl SourceReader {
         scope: &Scope,
         request: SampleRequest<'_>,
     ) -> Result<u64, Error> {
+        if request.selection.signal_id.is_some() {
+            let sample = self
+                .sample(
+                    scope,
+                    SampleRequest {
+                        page_size: 1,
+                        preview: true,
+                        ..request
+                    },
+                )
+                .await?;
+            return u64::try_from(sample.eligible).map_err(|_| Error::Unavailable);
+        }
         let parameters = self.sample_parameters(scope, &request).await?;
         let rows = self.read::<LensSampleEligibility>(&parameters).await?;
         Ok(rows.first().map_or(0, |row| row.eligible))
@@ -392,9 +410,10 @@ fn sample_page(rows: Vec<LensSampleRow>, request: &SampleRequest<'_>) -> Result<
     } else {
         None
     };
-    let next_cursor = (rows.len() == request.page_size as usize)
-        .then(|| rows.last().map(|row| row.selection_key.clone()))
-        .flatten();
+    let next_cursor = (rows.len() == request.page_size as usize
+        && rows.last().is_some_and(|row| row.position < total))
+    .then(|| rows.last().map(|row| row.selection_key.clone()))
+    .flatten();
     let executions = rows.into_iter().map(execution).collect::<Result<_, _>>()?;
     Ok(Sample {
         executions,
@@ -485,7 +504,7 @@ mod tests {
 
     #[rstest]
     #[case::selected_first(false, 0, 1, Some(1), Some("cursor"))]
-    #[case::selected_last(false, 1, 1, None, Some("cursor"))]
+    #[case::selected_last(false, 1, 1, None, None)]
     #[case::preview_more(true, 1, 1, Some(2), Some("cursor"))]
     #[case::short_page(false, 0, 100, Some(1), None)]
     #[case::zero_page(false, 0, 0, None, None)]
@@ -499,7 +518,10 @@ mod tests {
     ) {
         let selection = ActivitySelection::default();
         let page = sample_page(
-            vec![row],
+            vec![LensSampleRow {
+                position: offset + 1,
+                ..row
+            }],
             &SampleRequest {
                 selection: &selection,
                 start: 0,

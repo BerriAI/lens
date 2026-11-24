@@ -6,14 +6,16 @@ fn generated_worker_schema_preserves_the_current_contract() {
     let expected: Value =
         serde_json::from_str(include_str!("fixtures/python-worker-v7.json")).unwrap();
     let mut actual = lens_contract::schema::worker_contract();
-    let profile = actual["definitions"]["LensSettings"]["properties"]
+    let properties = actual["definitions"]["LensSettings"]["properties"]
         .as_object_mut()
-        .unwrap()
-        .remove("profile")
         .unwrap();
     assert_eq!(
-        profile,
+        properties.remove("profile").unwrap(),
         serde_json::json!({"anyOf":[{"type":"string","minLength":1},{"type":"null"}]})
+    );
+    assert_eq!(
+        properties.remove("signal_id").unwrap(),
+        serde_json::json!({"anyOf":[{"type":"string","minLength":1,"maxLength":64},{"type":"null"}]})
     );
     compare("", &actual, &expected);
 }

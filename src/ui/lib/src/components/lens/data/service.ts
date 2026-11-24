@@ -122,6 +122,7 @@ export function liveLensApi(client: LensClient, apiClient: ApiClient, accessToke
               service: selection.service ?? "",
               agent_name: selection.agent_name ?? "",
               ...(selection.profile ? { profile: selection.profile } : {}),
+              ...(selection.signal_id ? { signal_id: selection.signal_id } : {}),
               filters: selection.filters ?? [],
               sample_size: selection.sample_size,
               sample_percent: selection.sample_percent ?? 100,

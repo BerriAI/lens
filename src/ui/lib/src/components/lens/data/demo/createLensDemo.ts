@@ -71,6 +71,7 @@ function demoLensApi(data: LensDemoData, storage?: DemoStorage): LensApi {
     },
     execution: notInDemo,
     sample: async (selection) => {
+      if (selection.signal_id) return { eligible: 0, selected: 0, executions: [] };
       const executions = data.lenses
         .filter((lens) => !selection.agent_name || lens.settings.agent_name === selection.agent_name)
         .flatMap((lens) => lens.jobs[0]?.sample?.executions ?? []);

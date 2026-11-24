@@ -479,6 +479,7 @@ export interface LensSettings {
   sample_percent?: number;
   sample_size?: number | null;
   service?: string;
+  signal_id?: string | null;
   source?: "traces" | "requests" | "both";
   team_id?: string;
 }

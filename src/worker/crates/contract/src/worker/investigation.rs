@@ -91,6 +91,8 @@ pub struct Job {
 pub struct LensSettings {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub profile: Option<UsageProfile>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub signal_id: Option<SavedSignalId>,
     #[serde(default)]
     #[schemars(extend("default" = ""))]
     pub agent_name: String,
