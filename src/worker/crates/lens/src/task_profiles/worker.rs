@@ -609,6 +609,32 @@ mod tests {
     use litellm_traces_clickhouse::profiles::BucketingCandidate;
     use rstest::rstest;
 
+    #[rstest]
+    #[case::perplexity(lens_decisions::Provider::Perplexity, true)]
+    #[case::unsupported(lens_decisions::Provider::OpenRouter, false)]
+    fn classification_options_include_supported_evaluation_deployments(
+        #[case] provider: lens_decisions::Provider,
+        #[case] supported: bool,
+    ) {
+        let deployment = lens_decisions::Deployment {
+            name: "profile-decision".into(),
+            model: "test-decision".into(),
+            provider,
+            max_input_tokens: None,
+            api_base: Some("https://decisions.example.test".parse().unwrap()),
+            api_key: Some(lens_decisions::Secret::new("test-key")),
+        };
+        let models = Models::new(vec![], vec![deployment], None, None).unwrap();
+        assert_eq!(
+            model_options(&models).classification,
+            if supported {
+                vec!["profile-decision"]
+            } else {
+                vec![]
+            }
+        );
+    }
+
     fn taxonomy(status: TaxonomyStatus, windows: Vec<ClassificationWindow>) -> Taxonomy {
         Taxonomy {
             taxonomy_id: "tax".into(),

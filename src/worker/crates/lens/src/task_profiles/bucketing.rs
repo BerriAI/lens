@@ -16,7 +16,7 @@ const INPUT_CHARACTERS: usize = 1_500;
 pub const MAX_OPTIONS: usize = 254;
 pub const TAG: &str = "litellm-lens-profiles";
 /// Providers that serve Jev's Choice and Noul primitives. A generative chat judge is never used.
-pub const DECISION_PROVIDERS: [&str; 2] = ["typesafe", "decisions_compatible"];
+pub const DECISION_PROVIDERS: [&str; 3] = ["typesafe", "decisions_compatible", "perplexity"];
 
 #[derive(Clone, Debug, PartialEq)]
 pub enum Decision {
