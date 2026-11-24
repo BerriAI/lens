@@ -153,6 +153,8 @@ struct Part {
     id: Option<Value>,
     name: Option<String>,
     arguments: Option<Value>,
+    #[serde(default, deserialize_with = "present")]
+    result: Option<Value>,
     response: Option<Value>,
 }
 
@@ -248,7 +250,11 @@ impl Part {
                 .text
                 .clone()
                 .or_else(|| self.content.as_ref().map(display_value)),
-            "tool_call_response" => self.response.as_ref().map(display_value),
+            "tool_call_response" => self
+                .result
+                .as_ref()
+                .or(self.response.as_ref())
+                .map(display_value),
             _ => None,
         }
     }
