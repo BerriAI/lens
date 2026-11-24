@@ -165,7 +165,72 @@ it("should expose a connection problem and hide editing for read-only viewers", 
   renderWithLens(<AutomaticAnalysis agent={initial.settings.agent_name} lenses={[initial]} ready={false} readOnly />);
   expect(screen.getByText("Waiting for connection")).toBeVisible();
   expect(screen.queryByRole("button", { name: "Findings settings" })).not.toBeInTheDocument();
+  expect(screen.queryByRole("button", { name: "Run now" })).not.toBeInTheDocument();
   expect(proxy.post).not.toHaveBeenCalled();
+});
+
+it("should run the selected agent with saved settings once and prevent duplicate clicks while starting", async () => {
+  const user = userEvent.setup();
+  const pending = Promise.withResolvers<unknown>();
+  const paused = {
+    ...initial,
+    settings: { ...initial.settings, enabled: false },
+  };
+  proxy.post.mockReturnValue(pending.promise);
+  renderWithLens(<AutomaticAnalysis agent={paused.settings.agent_name} lenses={[paused]} ready readOnly={false} />);
+  await user.click(screen.getByRole("button", { name: "Run now" }));
+  const starting = screen.getByRole("button", { name: "Starting…" });
+  expect(starting).toBeDisabled();
+  await user.click(starting);
+  expect(proxy.post).toHaveBeenCalledExactlyOnceWith(
+    `/lens/admin/${paused.id}/runs`,
+    expect.objectContaining({ body: {} }),
+  );
+  expect(proxy.put).not.toHaveBeenCalled();
+  pending.resolve({});
+  await waitFor(() => expect(screen.getByRole("button", { name: "Run now" })).toBeEnabled());
+  expect(screen.getByText("Paused")).toBeVisible();
+});
+
+it("should show a rejected start and let the user retry", async () => {
+  const user = userEvent.setup();
+  const paused = {
+    ...initial,
+    settings: { ...initial.settings, enabled: false },
+  };
+  proxy.post.mockRejectedValueOnce(new Error("Monthly analysis budget reached"));
+  renderWithLens(<AutomaticAnalysis agent={paused.settings.agent_name} lenses={[paused]} ready readOnly={false} />);
+  await user.click(screen.getByRole("button", { name: "Run now" }));
+  expect(await screen.findByRole("alert")).toHaveTextContent("Monthly analysis budget reached");
+  expect(screen.getByRole("button", { name: "Run now" })).toBeEnabled();
+  await user.click(screen.getByRole("button", { name: "Run now" }));
+  await waitFor(() => expect(screen.queryByRole("alert")).not.toBeInTheDocument());
+  expect(proxy.post).toHaveBeenCalledTimes(2);
+});
+
+it.each(["queued", "running"] as const)("should disable Run now while an analysis is %s", (status) => {
+  const active: Lens = {
+    ...initial,
+    jobs: [{ ...fixture.jobs[0], status, finished_at: null }],
+  };
+  renderWithLens(<AutomaticAnalysis agent={active.settings.agent_name} lenses={[active]} ready readOnly={false} />);
+  expect(screen.getByRole("button", { name: "Run now" })).toBeDisabled();
+});
+
+it("should disable Run now until the analysis connection is ready", () => {
+  renderWithLens(
+    <AutomaticAnalysis agent={initial.settings.agent_name} lenses={[initial]} ready={false} readOnly={false} />,
+  );
+  expect(screen.getByRole("button", { name: "Run now" })).toBeDisabled();
+  expect(screen.getByRole("button", { name: "Findings settings" })).toBeEnabled();
+});
+
+it("should disable Run now when the saved model is unavailable", async () => {
+  proxy.get.mockResolvedValue({ data: [] });
+  renderWithLens(<AutomaticAnalysis agent={initial.settings.agent_name} lenses={[initial]} ready readOnly={false} />);
+  expect(await screen.findByText("Selected model unavailable")).toBeVisible();
+  expect(screen.getByRole("button", { name: "Run now" })).toBeDisabled();
+  expect(screen.getByRole("button", { name: "Findings settings" })).toBeEnabled();
 });
 
 it("should keep a failed analysis error visible with its next retry time", () => {

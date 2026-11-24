@@ -67,7 +67,7 @@ Open **Settings > Analysis** and select **Check configuration**. Your `analysis`
 
 Once an analysis model is connected, Lens creates an automatic analysis configuration for each agent discovered in production traces. The first run waits for 10 eligible traces from the last 24 hours. Traces settle for two minutes after receipt so incomplete runs are not analyzed immediately. Evaluation traffic and browser demo data do not create automatic analysis configurations
 
-Open **Findings** to see received trace counts, waiting or running status, the last result, and the next scheduled time. Select **Configure** beside an agent to choose its model, edit what to look for, change its frequency or monthly budget, or pause analysis
+Open **Findings** to see received trace counts, waiting or running status, the last result, and the next scheduled time. Select **Settings** beside an agent to choose its model, edit what to look for, change its frequency or monthly budget, or pause analysis. Select **Run now** beside Settings to start an analysis immediately with the saved settings, including when automatic analysis is paused. The button is unavailable while a run is queued or running, or when its analysis connection or saved model is unavailable
 
 Defaults are one analysis every 60 minutes, up to 10 traces per run, and a $10 monthly budget per agent. After the first run, the existing scheduler reviews new activity in the saved lookback window. The interval begins after a run finishes. Existing agent configurations, including paused configurations, are preserved; a configuration covering all agents also prevents automatic duplicates
 
