@@ -973,6 +973,123 @@ async fn a_gateway_set_in_the_environment_cannot_be_replaced(
 }
 
 #[rstest]
+#[tokio::test]
+async fn a_gateway_admin_connects_models_without_replacing_login_credentials(
+    authentication: Authentication<Memory>,
+    now: DateTime<Utc>,
+) {
+    let mut payload = claims(now);
+    payload["identity"]["user_role"] = serde_json::json!("proxy_admin");
+    let token = jwt(&payload, jsonwebtoken::Algorithm::HS256, support::SECRET);
+    authentication
+        .connect_model_gateway(
+            &token,
+            "https://gateway.test/prefix".into(),
+            "sk-model-key".into(),
+            now,
+        )
+        .await
+        .unwrap();
+    let replica = Authentication {
+        settings: Settings::new(ADMIN, Some(support::SECRET.into()), ORIGIN).unwrap(),
+        sessions: authentication.sessions.clone(),
+    };
+    replica.refresh_gateway().await.unwrap();
+    assert_eq!(
+        replica.settings.connected_model_gateway(),
+        Some(("https://gateway.test/prefix".into(), "sk-model-key".into())),
+    );
+    assert!(
+        replica
+            .authenticate(bearer(&format!("Bearer {token}")), now)
+            .await
+            .is_ok()
+    );
+    replica
+        .connect_model_gateway(
+            &token,
+            "https://other.test".into(),
+            "sk-replacement".into(),
+            now,
+        )
+        .await
+        .unwrap();
+    assert_eq!(
+        replica.settings.connected_model_gateway(),
+        authentication.settings.connected_model_gateway(),
+    );
+}
+
+#[rstest]
+#[case::viewer(
+    "proxy_admin_viewer",
+    support::SECRET,
+    "https://gateway.test",
+    "sk-key"
+)]
+#[case::user("internal_user", support::SECRET, "https://gateway.test", "sk-key")]
+#[case::untrusted(
+    "proxy_admin",
+    "untrusted-secret-32-characters-long",
+    "https://gateway.test",
+    "sk-key"
+)]
+#[case::url_credentials(
+    "proxy_admin",
+    support::SECRET,
+    "https://user:pass@gateway.test",
+    "sk-key"
+)]
+#[case::empty_key("proxy_admin", support::SECRET, "https://gateway.test", "")]
+#[tokio::test]
+async fn invalid_model_connections_do_not_write_credentials(
+    authentication: Authentication<Memory>,
+    now: DateTime<Utc>,
+    #[case] role: &str,
+    #[case] secret: &str,
+    #[case] url: &str,
+    #[case] key: &str,
+) {
+    let mut payload = claims(now);
+    payload["identity"]["user_role"] = serde_json::json!(role);
+    let token = jwt(&payload, jsonwebtoken::Algorithm::HS256, secret);
+    assert!(
+        authentication
+            .connect_model_gateway(&token, url.into(), key.into(), now)
+            .await
+            .is_err()
+    );
+    assert_eq!(authentication.settings.connected_model_gateway(), None);
+    assert_eq!(*authentication.sessions.gateway.lock().unwrap(), None);
+}
+
+#[rstest]
+#[tokio::test]
+async fn rotating_the_environment_secret_drops_saved_model_access(
+    authentication: Authentication<Memory>,
+    now: DateTime<Utc>,
+) {
+    let mut payload = claims(now);
+    payload["identity"]["user_role"] = serde_json::json!("proxy_admin");
+    let token = jwt(&payload, jsonwebtoken::Algorithm::HS256, support::SECRET);
+    authentication
+        .connect_model_gateway(&token, "https://gateway.test".into(), "sk-key".into(), now)
+        .await
+        .unwrap();
+    let restarted = Authentication {
+        settings: Settings::new(
+            ADMIN,
+            Some("rotated-gateway-secret-32-characters".into()),
+            ORIGIN,
+        )
+        .unwrap(),
+        sessions: authentication.sessions.clone(),
+    };
+    restarted.refresh_gateway().await.unwrap();
+    assert_eq!(restarted.settings.connected_model_gateway(), None);
+}
+
+#[rstest]
 #[case::named(Some("kerry@example.com"), Some("kerry@example.com"))]
 #[case::blank(Some("  "), None)]
 #[case::unnamed(None, None)]

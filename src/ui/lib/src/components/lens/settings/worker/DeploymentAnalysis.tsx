@@ -43,8 +43,8 @@ export function DeploymentAnalysis({
         <div className="space-y-2">
           <h3 className="font-semibold">Add an analysis provider</h3>
           <p className="text-sm text-muted-foreground">
-            Configure a model and its provider key in your Lens deployment, then restart Lens and check again. You can
-            keep recording and inspecting traces while analysis is unconfigured.
+            Connect a model gateway above, or configure an analysis provider in your Lens deployment.
+            You can keep recording and inspecting traces while analysis is unconfigured.
           </p>
         </div>
       ) : (

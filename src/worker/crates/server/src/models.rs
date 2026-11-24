@@ -17,6 +17,8 @@ pub struct GatewayStatus {
     pub connected: bool,
     #[serde(default)]
     pub login_connected: bool,
+    #[serde(default)]
+    pub supports_gateway_connect: bool,
     pub api_base: Option<String>,
     pub evaluation_models: usize,
     pub analysis_models: usize,
@@ -81,6 +83,11 @@ pub fn with_catalog<R: SessionRepository + 'static, M: ModelCatalog>(
             "/gateway/refresh",
             axum::routing::post(refresh::<R, M>),
         )
+        .admin_route(
+            &authentication,
+            "/gateway/connect",
+            axum::routing::post(connect::<R, M>),
+        )
         .layer(axum::middleware::from_fn(
             crate::routing::redirect_trailing_slash,
         ))
@@ -139,6 +146,7 @@ fn with_login<R: SessionRepository, M>(
     mut status: GatewayStatus,
 ) -> GatewayStatus {
     status.login_connected = app.authentication.settings.gateway_login_url().is_some();
+    status.supports_gateway_connect = app.authentication.settings.gateway_connected();
     status
 }
 
@@ -165,5 +173,36 @@ async fn refresh<R: SessionRepository, M: ModelCatalog>(
     if authorize(&app, &headers, &method).await? != Role::ProxyAdmin {
         return Err(InvestigationError::ForbiddenWrite);
     }
+    Ok(Json(with_login(&app, app.models.refresh().await)))
+}
+
+#[derive(Deserialize)]
+#[serde(deny_unknown_fields)]
+struct GatewayRequest {
+    gateway_url: String,
+    api_key: String,
+}
+
+async fn connect<R: SessionRepository, M: ModelCatalog>(
+    State(app): State<Arc<App<R, M>>>,
+    headers: HeaderMap,
+    method: Method,
+    bearer: crate::auth::BearerToken,
+    Json(request): Json<GatewayRequest>,
+) -> Result<Json<GatewayStatus>, InvestigationError> {
+    if authorize(&app, &headers, &method).await? != Role::ProxyAdmin {
+        return Err(InvestigationError::ForbiddenWrite);
+    }
+    if app.models.gateway().configured {
+        return Ok(Json(with_login(&app, app.models.gateway())));
+    }
+    app.authentication
+        .connect_model_gateway(
+            bearer.token(),
+            request.gateway_url,
+            request.api_key,
+            chrono::Utc::now(),
+        )
+        .await?;
     Ok(Json(with_login(&app, app.models.refresh().await)))
 }

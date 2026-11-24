@@ -24,7 +24,10 @@ export function useAnalysisModels(): AnalysisModels {
   return {
     models: configured,
     modelDetails: modelDetails.data?.data ?? [],
-    modelsLoading: models.isLoading || modelDetails.isLoading,
+    modelsLoading:
+      models.isLoading ||
+      modelDetails.isLoading ||
+      (configured.length === 0 && (models.isFetching || modelDetails.isFetching)),
     modelsError: models.error?.message ?? modelDetails.error?.message,
     defaultModel: configured.length === 1 ? configured[0] : undefined,
   };

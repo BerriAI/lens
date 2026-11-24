@@ -15,6 +15,7 @@ import { isProxyAdminRole, isProxyAdminTierRole } from "../../utils/roles";
 import { DatasetsView } from "./datasets/DatasetsView";
 import { EvalsView } from "./evals/EvalsView";
 import { LensSettings } from "./settings/LensSettings";
+import { GatewayConnection } from "./settings/GatewayConnection";
 import { createLensDemo } from "./data/demo/createLensDemo";
 import { browserDemoStorage } from "./data/demo/storage";
 import { ModelOptimizations } from "./optimizations/ModelOptimizations";
@@ -308,6 +309,9 @@ function LensContent({ userRole, readOnly }: Omit<WorkspaceProps, "accessToken">
                   !embedded && !traceWorkspace && "m-2 rounded-xl border md:m-4",
                 )}
               >
+                {!demo && isAdmin && !readOnly && (
+                  <GatewayConnection key={accessToken} automatic />
+                )}
                 {showSetup ? (
                   <TabsContent value={activeTab} keepMounted className={cn(PANEL, "lens-page-body")}>
                     {setupState.loading ? (
