@@ -9,6 +9,7 @@ import { useWorkerConnected } from "../../hooks/useWorkerConnected";
 import type { LensList } from "../../model/types";
 import { SettingsCard } from "../SettingsSection";
 import { SetupAgentPrompt } from "../../onboarding/SetupAgentPrompt";
+import { AnalysisModelsDialog } from "./AnalysisModelsDialog";
 
 const CONFIGURATION_GUIDE = "https://github.com/BerriAI/lens/blob/main/docs/analysis.md";
 
@@ -52,14 +53,12 @@ export function DeploymentAnalysis({
           <p role="status" className="text-sm">
             {connected ? "Analysis is configured" : "Models are configured; waiting for the analysis worker"}
           </p>
-          <ul aria-label="Analysis models" className="space-y-1.5 font-mono text-xs">
-            {configured.map((model) => (
-              <li key={model.model_group} className="rounded-md border bg-background px-3 py-2">
-                <span className="font-medium text-[var(--lens-brand)]">{model.model_group}</span>
-                <span className="text-muted-foreground"> · {model.providers.join(", ")}</span>
-              </li>
-            ))}
-          </ul>
+          <div className="flex flex-wrap items-center justify-between gap-3 rounded-md border px-3 py-2">
+            <p className="text-sm text-muted-foreground">
+              {configured.length} analysis {configured.length === 1 ? "model" : "models"} available
+            </p>
+            <AnalysisModelsDialog models={configured} />
+          </div>
           <p className="text-sm text-muted-foreground">
             Automatic analysis sends selected trace content to these providers. Choose a model and monthly spending
             limit in Findings. Provider keys stay on the Lens server.
