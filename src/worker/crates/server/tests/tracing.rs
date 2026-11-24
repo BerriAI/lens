@@ -1,3 +1,5 @@
+#[path = "tracing/connectors.rs"]
+mod connectors;
 mod identity;
 #[path = "sessions/support.rs"]
 pub mod support;

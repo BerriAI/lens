@@ -1,5 +1,6 @@
 "use client";
 
+import { Fragment } from "react";
 import {
   Activity,
   Bell,
@@ -8,11 +9,13 @@ import {
   Database,
   FlaskConical,
   House,
+  Plug,
   Settings,
   Sparkles,
   type LucideIcon,
 } from "lucide-react";
 import { cn } from "../../lib/cva.config";
+import { Separator } from "../ui/separator";
 import { TabsList, TabsTrigger } from "../ui/tabs";
 import { useWorkerConnected } from "./hooks/useWorkerConnected";
 import type { InvestigationActivity } from "./model/status";
@@ -42,6 +45,7 @@ export const NAVIGATION_ITEMS = [
     label: "Model optimizations",
     icon: ChartNoAxesColumn,
   },
+  { value: "connectors", label: "Connectors", icon: Plug },
 ] as const;
 
 export function LensTabs({ activity, workers, onNavigate, orientation, canViewAlerts, collapsed = false }: LensTabsProps) {
@@ -97,7 +101,12 @@ export function LensTabs({ activity, workers, onNavigate, orientation, canViewAl
       )}
     >
       {NAVIGATION_ITEMS.map(({ value, label, icon }) =>
-        value === "alerts" && !canViewAlerts ? null : item(value, label, icon),
+        value === "alerts" && !canViewAlerts ? null : (
+          <Fragment key={value}>
+            {vertical && value === "connectors" && <Separator className="my-2" />}
+            {item(value, label, icon)}
+          </Fragment>
+        ),
       )}
       {workers && item("settings", "Settings", Settings, connected ? "Analysis configured" : "Configure analysis")}
     </TabsList>
