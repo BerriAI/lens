@@ -5,7 +5,7 @@ import { useQuery } from "@tanstack/react-query";
 import { ArrowLeft, ArrowUpRight, Plug } from "lucide-react";
 import { useLensHost } from "../../../host/LensHost";
 import { getRequestBaseUrl } from "../../../lib/http/runtime";
-import type { McpCreateRequest } from "../../../lib/http/worker";
+import type { McpCreateRequest, McpOverview } from "../../../lib/http/worker";
 import { Button } from "../../ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "../../ui/tabs";
 import {
@@ -55,9 +55,11 @@ function LiveConnectors() {
   const accessToken = useLensAccessToken();
   const host = useLensHost();
   const route = useConnectorRoute();
-  const [secret, setSecret] = useState<{ id: string; value: string } | null>(
-    null,
-  );
+  const [creation, setCreation] = useState<{
+    id: string;
+    token: string | null;
+    overview: McpOverview;
+  } | null>(null);
   const [pending, setPending] = useState(false);
   const [formVersion, setFormVersion] = useState(0);
   const [error, setError] = useState<string | null>(null);
@@ -85,7 +87,11 @@ function LiveConnectors() {
     gcTime: 0,
     refetchInterval: Date.now() < watchUntil ? 3000 : false,
   });
-  const data = overview.data;
+  const createdSetup =
+    route.section === "setup" && creation?.id === route.connection
+      ? creation
+      : null;
+  const data = overview.data ?? createdSetup?.overview;
   const selected = data?.connections.find(
     (connection) => connection.id === route.connection,
   );
@@ -107,18 +113,26 @@ function LiveConnectors() {
         })
       : null;
   const create = async (request: McpCreateRequest) => {
+    if (!data) return;
     setPending(true);
     setError(null);
     try {
       const created = await createConnection(accessToken, request);
-      setSecret(
-        created.token
-          ? { id: created.connection.id, value: created.token }
-          : null,
-      );
+      setCreation({
+        id: created.connection.id,
+        token: created.token ?? null,
+        overview: {
+          ...data,
+          connections: [
+            ...data.connections.filter(
+              (item) => item.id !== created.connection.id,
+            ),
+            created.connection,
+          ],
+        },
+      });
       route.setup(created.connection.id);
       setWatchUntil(Date.now() + 120_000);
-      await overview.refetch();
     } catch {
       setError(
         "Could not finish creating the connection. Refresh Access before retrying. If it was created but the token was not received, revoke it and create a new connection",
@@ -134,7 +148,7 @@ function LiveConnectors() {
     setError(null);
     try {
       await revokeConnection(accessToken, revoke);
-      if (secret?.id === revoke) setSecret(null);
+      if (creation?.id === revoke) setCreation(null);
       setRevoke(null);
       await overview.refetch();
     } catch {
@@ -145,7 +159,7 @@ function LiveConnectors() {
   };
   const newConnection = () => {
     setFormVersion((version) => version + 1);
-    setSecret(null);
+    setCreation(null);
     route.setup(null);
     setError(null);
   };
@@ -237,7 +251,7 @@ function LiveConnectors() {
                   "Could not load connections. Check your sign-in and refresh to retry"}
               </div>
             )}
-            {overview.isPending && (
+            {overview.isPending && !data && (
               <p role="status" className="py-6 text-sm text-muted-foreground">
                 Loading connections…
               </p>
@@ -289,8 +303,8 @@ function LiveConnectors() {
                       selected={selected}
                       endpoint={endpoint}
                       secret={
-                        secret && selected?.id === secret.id
-                          ? secret.value
+                        creation && selected?.id === creation.id
+                          ? creation.token
                           : null
                       }
                       onCreate={create}

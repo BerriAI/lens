@@ -1,4 +1,4 @@
-import { fireEvent, screen, within } from "@testing-library/react";
+import { act, fireEvent, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { beforeEach, expect, it, vi } from "vitest";
 import {
@@ -124,6 +124,51 @@ it.each(["standalone", "embedded"] as const)(
     expect(await screen.findByText("My coding agent: Connected")).toBeVisible();
   },
 );
+
+it("keeps the new token available while the follow-up read is pending or fails", async () => {
+  const user = userEvent.setup();
+  const refresh = Promise.withResolvers<Response>();
+  const readStarted = Promise.withResolvers<void>();
+  network.mockImplementation(async (input, init) => {
+    const request = await readRequest(input, init);
+    if (request.method === "POST") {
+      return Response.json({ connection, token: "test-only-mcp-token" });
+    }
+    if (request.query.has("connection")) {
+      readStarted.resolve();
+      return refresh.promise;
+    }
+    return Response.json(empty);
+  });
+  renderConnectors();
+  await user.click(
+    await screen.findByRole("button", { name: "Create connection" }),
+  );
+  await act(async () => readStarted.promise);
+  expect(await screen.findByLabelText("New MCP token")).toHaveValue(
+    "test-only-mcp-token",
+  );
+  expect(
+    screen.getByText("My coding agent: Waiting for a tool call"),
+  ).toBeVisible();
+  await act(async () => {
+    refresh.resolve(Response.json({ detail: "unavailable" }, { status: 503 }));
+  });
+  expect(await screen.findByRole("alert")).toHaveTextContent(
+    "Could not load connections",
+  );
+  expect(screen.getByLabelText("New MCP token")).toHaveValue("test-only-mcp-token");
+  await user.click(screen.getByRole("button", { name: "Copy token" }));
+  expect(await navigator.clipboard.readText()).toBe("test-only-mcp-token");
+  expect(
+    JSON.stringify(
+      testQueryClient.getQueriesData({ queryKey: ["lens-connectors"] }),
+    ),
+  ).not.toContain("test-only-mcp-token");
+  await user.click(screen.getByRole("button", { name: "New connection" }));
+  expect(await screen.findByLabelText("Connection name")).toBeVisible();
+  expect(screen.queryByLabelText("New MCP token")).not.toBeInTheDocument();
+});
 
 it("revokes a connection and updates Access from the server", async () => {
   const user = userEvent.setup();
