@@ -2,15 +2,15 @@ use std::{collections::BTreeMap, future::Future, sync::Arc};
 
 use axum::{
     Json, Router,
-    extract::{Path, Query, State},
+    extract::{Query, State},
     http::{HeaderMap, Method},
     routing::get,
 };
 use lens_auth::{Authentication, ReadScope, SessionRepository, trace_read_scope};
 use lens_contract::profiles::{
     ClassificationWindow, DiscoveryModelChoice, ModelCapabilities, ModelColumn, ProfileDetail,
-    ProfileRef, ProfileSignalCounts, ProfileSource, ProfileSummary, ProfileWindow, ProfilesMatrix,
-    ProfilesOverview, Taxonomy, TaxonomyStatus, TaxonomyView,
+    ProfileRef, ProfileSource, ProfileSummary, ProfileWindow, ProfilesMatrix, ProfilesOverview,
+    Taxonomy, TaxonomyStatus, TaxonomyView,
 };
 use litellm_traces::query::named::ReadAccessParams;
 use serde::Deserialize;
@@ -62,11 +62,11 @@ pub trait ProfileStore: Send + Sync {
         max_spans: usize,
     ) -> impl Future<Output = Result<RunCalls, ProfileStoreError>> + Send;
     fn configured_models(&self) -> impl Future<Output = Vec<ConfiguredModel>> + Send;
-    fn signal_counts(
+    fn filter_signal(
         &self,
         signal_id: &str,
-        runs: &[Run],
-    ) -> impl Future<Output = Result<Option<ProfileSignalCounts>, ProfileStoreError>> + Send;
+        runs: Vec<Run>,
+    ) -> impl Future<Output = Result<Option<Vec<Run>>, ProfileStoreError>> + Send;
 }
 
 /// Enhanced taxonomies are built from every team's runs, so only callers who can already read
@@ -96,10 +96,6 @@ pub fn router<
 ) -> Router {
     Router::new()
         .public_route("/lens/profiles/overview", get(overview::<R, S>))
-        .public_route(
-            "/lens/profiles/signals/{signal_id}",
-            get(signal_counts::<R, S>),
-        )
         .public_route("/lens/profiles/matrix", get(matrix::<R, S>))
         .public_route("/lens/profiles/detail", get(detail::<R, S>))
         .public_route("/lens/profiles/taxonomy", get(taxonomy_view::<R, S>))
@@ -119,10 +115,19 @@ struct WindowQuery {
     end_ms: i64,
     #[serde(default)]
     profile_id: Option<String>,
+    #[serde(default)]
+    signal_id: Option<String>,
 }
 
 impl WindowQuery {
-    fn validate(self) -> Result<Self, ProfileHttpError> {
+    fn validate(self, identity: &lens_contract::auth::Identity) -> Result<Self, ProfileHttpError> {
+        if let Some(signal_id) = &self.signal_id {
+            crate::signals::authorize(identity.user_role, false)
+                .map_err(|_| ProfileHttpError::Forbidden("Not allowed to view Signals"))?;
+            if signal_id.trim().is_empty() {
+                return Err(ProfileHttpError::Invalid("Select a configured Signal"));
+            }
+        }
         if self.agent.trim().is_empty() {
             return Err(ProfileHttpError::Invalid("Select an agent"));
         }
@@ -161,6 +166,7 @@ fn scope(identity: &lens_contract::auth::Identity) -> Result<ReadAccessParams, P
 
 struct Loaded {
     runs: Vec<Run>,
+    unfiltered_runs: Option<u64>,
     calls: RunCalls,
     truncated: bool,
     taxonomy: Option<Taxonomy>,
@@ -275,8 +281,17 @@ async fn load_runs<S: ProfileStore + taxonomy::TaxonomyStore>(
         .await?;
     let truncated = runs.len() > MAX_RUNS as usize;
     runs.truncate(MAX_RUNS as usize);
+    let unfiltered_runs = query.signal_id.as_ref().map(|_| runs.len() as u64);
+    let runs = match &query.signal_id {
+        Some(signal_id) => store
+            .filter_signal(signal_id, runs)
+            .await?
+            .ok_or(ProfileHttpError::Invalid("Select a configured Signal"))?,
+        None => runs,
+    };
     Ok(Loaded {
         runs,
+        unfiltered_runs,
         calls: RunCalls::default(),
         truncated,
         taxonomy,
@@ -304,39 +319,20 @@ async fn overview<R: SessionRepository, S: ProfileStore + taxonomy::TaxonomyStor
 ) -> Result<Json<ProfilesOverview>, ProfileHttpError> {
     let identity = auth::identity(&app.authentication, &headers, &method).await?;
     let scope = scope(&identity)?;
-    let query = query.validate()?;
+    let query = query.validate(&identity)?;
     let loaded = load(&app.store, &scope, &query).await?;
     let view = loaded.view(&query.agent);
     Ok(Json(ProfilesOverview {
         window: query.window(),
         coverage: view.coverage(),
         totals: view.totals(),
+        unfiltered_runs: loaded.unfiltered_runs,
         points: layout::points(
             &loaded.runs,
             loaded.taxonomy.as_ref().or(loaded.draft.as_ref()),
         ),
         profiles: loaded.summaries(&query.agent),
     }))
-}
-
-async fn signal_counts<R: SessionRepository, S: ProfileStore + taxonomy::TaxonomyStore>(
-    State(app): State<Arc<App<R, S>>>,
-    headers: HeaderMap,
-    method: Method,
-    Path(signal_id): Path<String>,
-    Query(query): Query<WindowQuery>,
-) -> Result<Json<ProfileSignalCounts>, ProfileHttpError> {
-    let identity = auth::identity(&app.authentication, &headers, &method).await?;
-    crate::signals::authorize(identity.user_role, false)
-        .map_err(|_| ProfileHttpError::Forbidden("Not allowed to view Signals"))?;
-    let scope = scope(&identity)?;
-    let query = query.validate()?;
-    let loaded = load_runs(&app.store, &scope, &query).await?;
-    app.store
-        .signal_counts(&signal_id, &loaded.runs)
-        .await?
-        .map(Json)
-        .ok_or(ProfileHttpError::Invalid("Select a configured Signal"))
 }
 
 async fn matrix<R: SessionRepository, S: ProfileStore + taxonomy::TaxonomyStore>(
@@ -347,7 +343,7 @@ async fn matrix<R: SessionRepository, S: ProfileStore + taxonomy::TaxonomyStore>
 ) -> Result<Json<ProfilesMatrix>, ProfileHttpError> {
     let identity = auth::identity(&app.authentication, &headers, &method).await?;
     let scope = scope(&identity)?;
-    let query = query.validate()?;
+    let query = query.validate(&identity)?;
     let loaded = load(&app.store, &scope, &query).await?;
     let configured = inventory(&app.store, &scope).await;
     let view = loaded.view(&query.agent);
@@ -382,7 +378,7 @@ async fn detail<R: SessionRepository, S: ProfileStore + taxonomy::TaxonomyStore>
 ) -> Result<Json<ProfileDetail>, ProfileHttpError> {
     let identity = auth::identity(&app.authentication, &headers, &method).await?;
     let scope = scope(&identity)?;
-    let query = query.validate()?;
+    let query = query.validate(&identity)?;
     let requested = query
         .profile_id
         .clone()
@@ -566,6 +562,7 @@ mod tests {
         #[case] uncertain_labels: [&str; 2],
     ) {
         let loaded = Loaded {
+            unfiltered_runs: None,
             runs: vec![
                 listed("t1", "uncertain", uncertain_labels[0]),
                 listed("t2", "recorded:Coding", "Coding"),
@@ -667,11 +664,11 @@ mod tests {
     struct Inventory;
 
     impl ProfileStore for Inventory {
-        async fn signal_counts(
+        async fn filter_signal(
             &self,
             _: &str,
-            _: &[Run],
-        ) -> Result<Option<ProfileSignalCounts>, ProfileStoreError> {
+            _: Vec<Run>,
+        ) -> Result<Option<Vec<Run>>, ProfileStoreError> {
             Ok(None)
         }
 

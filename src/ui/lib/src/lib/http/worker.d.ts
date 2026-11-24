@@ -1062,16 +1062,6 @@ export interface ProfileSettingsView {
 }
 /**
  * This interface was referenced by `LensWorker`'s JSON-Schema
- * via the `definition` "ProfileSignalCounts".
- */
-export interface ProfileSignalCounts {
-  by_profile: {
-    [k: string]: number;
-  };
-  [k: string]: unknown;
-}
-/**
- * This interface was referenced by `LensWorker`'s JSON-Schema
  * via the `definition` "ProfileTotals".
  */
 export interface ProfileTotals {
@@ -1110,6 +1100,7 @@ export interface ProfilesOverview {
   points: MapPoint[];
   profiles: ProfileSummary[];
   totals: ProfileTotals;
+  unfiltered_runs?: number | null;
   window: ProfileWindow;
   [k: string]: unknown;
 }

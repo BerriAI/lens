@@ -2670,21 +2670,6 @@
       ],
       "type": "object"
     },
-    "ProfileSignalCounts": {
-      "properties": {
-        "by_profile": {
-          "additionalProperties": {
-            "minimum": 0,
-            "type": "integer"
-          },
-          "type": "object"
-        }
-      },
-      "required": [
-        "by_profile"
-      ],
-      "type": "object"
-    },
     "ProfileSource": {
       "enum": [
         "recorded",
@@ -2879,6 +2864,17 @@
         },
         "totals": {
           "$ref": "#/definitions/ProfileTotals"
+        },
+        "unfiltered_runs": {
+          "anyOf": [
+            {
+              "minimum": 0,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ]
         },
         "window": {
           "$ref": "#/definitions/ProfileWindow"

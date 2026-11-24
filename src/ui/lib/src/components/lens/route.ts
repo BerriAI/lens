@@ -303,15 +303,16 @@ export function useProfileRoute() {
   return {
     profile,
     signalId: profile_signal,
-    selectSignal: (next: string | null) => void setParams({ profile_signal: next }),
+    selectSignal: (next: string | null) => void setParams({ profile_signal: next, profile: null }),
     view: profile_view,
     agent,
     hours,
     selectProfile: (next: string | null) => void setParams({ profile: next }),
     setView: (next: ProfileView) => void setParams({ profile_view: next === "breakdown" ? null : next }, { history: "replace" }),
-    investigate: (next: string, selectedAgent: string, lookbackHours: number) =>
+    investigate: (next: string | null, selectedAgent: string, lookbackHours: number, signalId: string | null = null) =>
       void setParams({
         profile: next,
+        profile_signal: signalId,
         agent: selectedAgent,
         hours: isRangeHours(lookbackHours) ? lookbackHours : 24,
         tab: "findings",

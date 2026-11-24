@@ -73,12 +73,13 @@ export function InvestigationSetup(props: SetupProps) {
   const profile = useProfileRoute();
   const defaults = investigationDefaults(initial, mode);
   const form = useZodForm(investigationSchema, {
-    defaultValues: mode === "new" && profile.profile ? {
+    defaultValues: mode === "new" && (profile.profile || profile.signalId) ? {
       ...defaults,
       selection: {
         ...defaults.selection,
         source: "traces",
         profile: profile.profile,
+        signal_id: profile.signalId,
         agent_name: profile.agent,
         lookback_hours: profile.hours,
       },

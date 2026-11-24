@@ -10,7 +10,7 @@ use lens_contract::{
     feedback::TraceIdentity,
     profiles::{
         ClassificationWindow, DiscoveryModelChoice, DiscoveryModelOptions, DiscoveryPreview,
-        DiscoveryPreviewRun, DiscoveryRequest, ProfileSettings, ProfileSignalCounts, Taxonomy,
+        DiscoveryPreviewRun, DiscoveryRequest, ProfileSettings, Taxonomy,
     },
     signals::{SignalConfig, StoredTraceSignal},
 };
@@ -282,11 +282,11 @@ impl ProfileStore for ProfilesApi {
         .await
     }
 
-    async fn signal_counts(
+    async fn filter_signal(
         &self,
         signal_id: &str,
-        runs: &[Run],
-    ) -> Result<Option<ProfileSignalCounts>, ProfileStoreError> {
+        runs: Vec<Run>,
+    ) -> Result<Option<Vec<Run>>, ProfileStoreError> {
         let _permit = self.permit().await?;
         let signals = Signals(self.store.clone());
         let config = signals
@@ -298,24 +298,21 @@ impl ProfileStore for ProfilesApi {
         {
             return Ok(None);
         }
-        let mut counts = ProfileSignalCounts {
-            by_profile: Default::default(),
-        };
+        let mut matched = Vec::new();
         for batch in runs.chunks(500) {
             let identities: Vec<_> = batch.iter().map(signal_trace).collect();
             let stored = signals
                 .traces(&identities)
                 .await
                 .map_err(|_| ProfileStoreError::Unavailable)?;
-            add_flagged_runs(
+            matched.extend(flagged_runs(
                 &config,
                 signal_id,
                 batch.iter().zip(&identities),
                 &stored,
-                &mut counts,
-            )?;
+            )?);
         }
-        Ok(Some(counts))
+        Ok(Some(matched))
     }
 
     async fn configured_models(&self) -> Vec<ConfiguredModel> {
@@ -338,29 +335,28 @@ fn signal_trace(run: &Run) -> TraceIdentity {
     }
 }
 
-fn add_flagged_runs<'a>(
+fn flagged_runs<'a>(
     config: &SignalConfig,
     signal_id: &str,
     runs: impl Iterator<Item = (&'a Run, &'a TraceIdentity)>,
     stored: &[StoredTraceSignal],
-    counts: &mut ProfileSignalCounts,
-) -> Result<(), ProfileStoreError> {
+) -> Result<Vec<Run>, ProfileStoreError> {
     let stored: HashMap<_, _> = stored
         .iter()
         .map(|row| ((row.trace_id.as_str(), row.trace_ref.as_str()), row))
         .collect();
+    let mut matched = Vec::new();
     for (run, trace) in runs {
-        let count = counts.by_profile.entry(run.profile_id.clone()).or_default();
         let Some(row) = stored.get(&(trace.trace_id.as_str(), trace.trace_ref.as_str())) else {
             continue;
         };
         let result = lens_signals::trace_signals(trace, Some(row), config)
             .map_err(|_| ProfileStoreError::Unavailable)?;
         if result.flags.iter().any(|flag| flag.signal_id == signal_id) {
-            *count += 1;
+            matched.push(run.clone());
         }
     }
-    Ok(())
+    Ok(matched)
 }
 
 impl TaxonomyStore for ProfilesApi {
@@ -458,11 +454,11 @@ mod tests {
     #[case::stale_config("classified", Some(0.9), false, 0)]
     #[case::pending("pending", Some(0.9), true, 0)]
     #[case::failed("failed", Some(0.9), true, 0)]
-    fn selected_signal_counts_use_current_flags_and_scoped_trace_identity(
+    fn selected_signal_filters_use_current_flags_and_scoped_trace_identity(
         #[case] status: &str,
         #[case] score: Option<f64>,
         #[case] current: bool,
-        #[case] expected: u64,
+        #[case] expected: usize,
     ) {
         let config = SignalConfig {
             model: "test-model".into(),
@@ -505,26 +501,9 @@ mod tests {
             classified_at: None,
             data: serde_json::json!({"status": status, "scores": scores}),
         };
-        let mut counts = ProfileSignalCounts {
-            by_profile: Default::default(),
-        };
-        add_flagged_runs(
-            &config,
-            target,
-            runs.iter().zip(&identities),
-            &[stored],
-            &mut counts,
-        )
-        .unwrap();
-        assert_eq!(
-            counts.by_profile,
-            [
-                ("task".into(), expected),
-                ("other-team-task".into(), 0),
-                ("other-key-task".into(), 0),
-            ]
-            .into()
-        );
+        let matched =
+            flagged_runs(&config, target, runs.iter().zip(&identities), &[stored]).unwrap();
+        assert_eq!(matched, runs[..expected]);
     }
 
     fn window(start_ms: i64, end_ms: Option<i64>) -> ClassificationWindow {

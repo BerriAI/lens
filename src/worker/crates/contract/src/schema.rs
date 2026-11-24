@@ -61,7 +61,6 @@ pub fn worker_contract() -> Value {
     let _ = generator.subschema_for::<worker::ToolCount>();
     let _ = generator.subschema_for::<worker::TracePart>();
     let _ = generator.subschema_for::<profiles::ProfilesOverview>();
-    let _ = generator.subschema_for::<profiles::ProfileSignalCounts>();
     let _ = generator.subschema_for::<profiles::ProfilesMatrix>();
     let _ = generator.subschema_for::<profiles::ProfileDetail>();
     let _ = generator.subschema_for::<profiles::TaxonomyView>();

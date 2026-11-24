@@ -121,7 +121,6 @@ export function demoProfilesApi(data: LensDemoData, usage: ProfilesApi["usage"])
     scope: "demo",
     usage,
     overview: async (window, agent) => overview(demoRuns(data, window, agent), window, agent),
-    signalCounts: async () => ({ by_profile: {} }),
     matrix: async (window, agent) => {
       const runs = demoRuns(data, window, agent);
       const matrixCells = cells(runs);

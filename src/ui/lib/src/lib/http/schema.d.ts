@@ -9193,17 +9193,6 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/lens/profiles/signals/{signal_id}": {
-        get: {
-            parameters: {
-                query: { agent: string; start_ms: number; end_ms: number };
-                path: { signal_id: string };
-            };
-            responses: {
-                200: { content: { "application/json": import("./worker").ProfileSignalCounts } };
-            };
-        };
-    };
     "/lens/admin/traces/findings": {
         parameters: {
             query?: never;

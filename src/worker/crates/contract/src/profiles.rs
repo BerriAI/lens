@@ -80,13 +80,10 @@ pub struct ProfilesOverview {
     pub window: ProfileWindow,
     pub coverage: ProfileCoverage,
     pub totals: ProfileTotals,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub unfiltered_runs: Option<u64>,
     pub profiles: Vec<ProfileSummary>,
     pub points: Vec<MapPoint>,
-}
-
-#[derive(Clone, Debug, Deserialize, JsonSchema, PartialEq, Serialize)]
-pub struct ProfileSignalCounts {
-    pub by_profile: std::collections::BTreeMap<String, u64>,
 }
 
 #[derive(Clone, Debug, Default, Deserialize, JsonSchema, PartialEq, Serialize)]

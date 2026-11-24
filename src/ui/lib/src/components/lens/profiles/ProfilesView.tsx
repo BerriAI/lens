@@ -6,7 +6,6 @@ import { ChartNoAxesColumn, CircleAlert, List, RefreshCw, Sparkles } from "lucid
 import { Button } from "../../ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "../../ui/tabs";
 import { LoadingState } from "../../shared/LoadingState";
-import { SearchSelect } from "../../shared/SearchSelect";
 import { StateMessage } from "../../shared/StateMessage";
 import { TimeRangeControls } from "../../shared/timeRange/TimeRangeControls";
 import { timeWindow } from "../../shared/timeRange/timeRange";
@@ -21,15 +20,22 @@ import { PROFILE_VIEWS, useLensRoute, useProfileRoute } from "../route";
 import { ProfileDetailSheet } from "./ProfileDetailSheet";
 import { ProfileHeatmap } from "./ProfileHeatmap";
 import { DiscoverySettingsSheet } from "./DiscoverySettingsSheet";
+import { ProfileSignalFilter } from "./ProfileSignalFilter";
 import { ProfileBreakdown } from "./ProfileBreakdown";
 import { ProfileMap } from "./ProfileMap";
 import { formatCount, formatUsd, profileColors, selectedProfileId } from "./profilesData";
 import type { ProfilesOverview } from "./schemas";
 
 function Totals({ overview, agent, live }: { overview: ProfilesOverview; agent: string; live: boolean }) {
-  const { totals, coverage } = overview;
+  const { totals, coverage, unfiltered_runs } = overview;
   const cards = [
-    { label: "Runs", value: formatCount(totals.runs), note: coverage.truncated ? `at least, first ${formatCount(coverage.runs_listed)} listed` : "each run counted once" },
+    {
+      label: unfiltered_runs === undefined ? "Runs" : "Matching runs",
+      value: formatCount(totals.runs),
+      note: unfiltered_runs !== undefined
+        ? `of ${formatCount(unfiltered_runs)}${coverage.truncated ? " listed" : ""} runs`
+        : coverage.truncated ? `at least, first ${formatCount(coverage.runs_listed)} listed` : "each run counted once",
+    },
     {
       label: `Requests by ${agent}`,
       value: formatCount(totals.requests),
@@ -54,6 +60,7 @@ function Totals({ overview, agent, live }: { overview: ProfilesOverview; agent: 
       </dl>
       <p className="text-xs text-muted-foreground">
         {!live && "Demo data. "}
+        {unfiltered_runs !== undefined && coverage.truncated && `Signal filtering covers the first ${formatCount(unfiltered_runs)} runs. Narrow the time range for complete results. `}
         {coverage.runs_resolved < coverage.runs_listed &&
           `Request, cost and latency figures cover ${formatCount(coverage.runs_resolved)} of ${formatCount(coverage.runs_listed)} listed runs. Narrow the time range for complete figures. `}
         {totals.other_agent_requests + totals.shared_requests > 0 &&
@@ -88,24 +95,19 @@ export function ProfilesView({
     [time.range.hours, anchorMs],
   );
   const window = zoom ?? relativeWindow;
+  const showSignalFilter = canViewSignals && live && !!agent;
+  const signalConfig = useQuery({ ...lensQueries.signalConfig(lensApi), enabled: showSignalFilter });
+  const signals = signalConfig.data?.model ? signalConfig.data.signals : [];
+  const signalId = showSignalFilter ? profile.signalId : null;
   const overview = useQuery({
-    queryKey: ["lens", "profile-overview", api.scope, window, agent],
-    queryFn: ({ signal }) => api.overview(window, agent, signal),
+    queryKey: ["lens", "profile-overview", api.scope, window, agent, signalId],
+    queryFn: ({ signal }) => api.overview(window, agent, signal, signalId),
     enabled: !!agent,
     staleTime: 30_000,
   });
-  const showSignalPicker = canViewSignals && live && profile.view === "breakdown" && !!agent;
-  const signalConfig = useQuery({ ...lensQueries.signalConfig(lensApi), enabled: showSignalPicker });
-  const signals = showSignalPicker && signalConfig.data?.model ? signalConfig.data.signals : [];
-  const signalId = signals.find(({ id }) => id === profile.signalId)?.id;
-  const signalCounts = useQuery({
-    queryKey: ["lens", "profile-signal-counts", api.scope, window, agent, signalId, signalConfig.data],
-    queryFn: ({ signal }) => api.signalCounts(window, agent, signalId ?? "", signal),
-    enabled: !!signalId && !!overview.data?.profiles.length,
-  });
   const matrix = useQuery({
-    queryKey: ["lens", "profile-matrix", api.scope, window, agent],
-    queryFn: ({ signal }) => api.matrix(window, agent, signal),
+    queryKey: ["lens", "profile-matrix", api.scope, window, agent, signalId],
+    queryFn: ({ signal }) => api.matrix(window, agent, signal, signalId),
     enabled: !!agent,
     staleTime: 30_000,
   });
@@ -120,7 +122,7 @@ export function ProfilesView({
   const profiles = shown?.profiles ?? [];
   const colors = useMemo(() => profileColors(profiles), [profiles]);
   const selected = selectedProfileId(profiles, profile.profile);
-  const fetching = overview.isFetching || matrix.isFetching || signalCounts.isFetching;
+  const fetching = overview.isFetching || matrix.isFetching;
   return (
     <section aria-label="Usage profiles" className="flex min-h-0 flex-1 flex-col">
       <LensPageHeader
@@ -157,7 +159,6 @@ export function ProfilesView({
                   ? void Promise.all([
                       overview.refetch(),
                       matrix.refetch(),
-                      ...(signalId ? [signalCounts.refetch()] : []),
                       queryClient.invalidateQueries({ queryKey: ["lens", "profile-detail", api.scope, window, agent] }),
                     ])
                   : setRefreshAt(Date.now())
@@ -169,6 +170,17 @@ export function ProfilesView({
         }
       />
       <div className="lens-page-body flex flex-col gap-6">
+        {showSignalFilter && (
+          <ProfileSignalFilter
+            signals={signals}
+            value={signalId}
+            loading={signalConfig.isPending}
+            error={signalConfig.isError}
+            onRetry={() => void signalConfig.refetch()}
+            onChange={profile.selectSignal}
+          />
+        )}
+        {shown && (shown.totals.runs > 0 || signalId) && <Totals overview={shown} agent={agent} live={live} />}
         {((!!agent && overview.isPending) || agents.list.isLoading) && (
           <LoadingState title="Loading usage profiles…" description="Fetching profiles for the selected agent and time range." />
         )}
@@ -193,13 +205,12 @@ export function ProfilesView({
           <StateMessage
             role="status"
             icon={<ChartNoAxesColumn className="size-5" />}
-            title="No runs in this time range"
-            description="Choose another agent or a wider time range to see its task breakdown."
+            title={signalId ? (shown.coverage.truncated ? "No matching runs in the listed results" : "No runs match this filter") : "No runs in this time range"}
+            description={signalId ? "Try another signal or clear the filter." : "Choose another agent or a wider time range to see its task breakdown."}
           />
         )}
         {shown && shown.totals.runs > 0 && (
           <>
-            <Totals overview={shown} agent={agent} live={live} />
             <Tabs
               value={profile.view}
               onValueChange={(value) => {
@@ -216,31 +227,11 @@ export function ProfilesView({
                 </TabsList>
               </div>
               <TabsContent value="breakdown">
-                {signals.length > 0 && (
-                  <div className="mb-3 flex flex-wrap items-center gap-2">
-                    <div className="w-64 max-w-full">
-                      <SearchSelect
-                        aria-label="Signal"
-                        placeholder="Select a Signal"
-                        options={signals.map(({ id, name }) => ({ value: id, label: name }))}
-                        value={signalId}
-                        onValueChange={profile.selectSignal}
-                      />
-                    </div>
-                    {signalId && signalCounts.isFetching && (
-                      <span role="status" className="text-xs text-muted-foreground">Loading flagged runs…</span>
-                    )}
-                    {signalId && signalCounts.isError && (
-                      <span role="alert" className="text-xs text-destructive">Could not load flagged runs</span>
-                    )}
-                  </div>
-                )}
                 <ProfileBreakdown
                   profiles={profiles}
                   colors={colors}
                   selected={selected}
                   onSelect={profile.selectProfile}
-                  signalCounts={!signalCounts.isError ? signalCounts.data?.by_profile : undefined}
                 />
               </TabsContent>
               <TabsContent value="similarity">
@@ -253,6 +244,16 @@ export function ProfilesView({
               {matrix.isPending && <p className="text-xs text-muted-foreground">Loading model figures…</p>}
               {heatmap && <ProfileHeatmap matrix={heatmap} colors={colors} selected={selected} onSelect={profile.selectProfile} />}
             </section>
+            {signalId && canInvestigate && (
+              <div className="flex flex-wrap items-center justify-between gap-3 border-t pt-4">
+                <p className="text-xs text-muted-foreground">
+                  {zoom ? "Choose a relative time range to investigate these runs." : "Counts, shares and spend reflect matching runs"}
+                </p>
+                <Button size="sm" disabled={!!zoom} onClick={() => profile.investigate(null, agent, time.range.hours, signalId)}>
+                  {shown.coverage.truncated ? "Investigate matching runs" : `Investigate ${formatCount(shown.totals.runs)} runs`}
+                </Button>
+              </div>
+            )}
           </>
         )}
       </div>
@@ -263,9 +264,11 @@ export function ProfilesView({
         agent={agent}
         window={window}
         profileId={selected}
+        signalId={signalId}
+        signalName={signals.find((signal) => signal.id === signalId)?.name}
         canInvestigate={canInvestigate}
         investigateDisabled={!!zoom}
-        onInvestigate={(profileId) => profile.investigate(profileId, agent, time.range.hours)}
+        onInvestigate={(profileId) => profile.investigate(profileId, agent, time.range.hours, signalId)}
         onClose={() => profile.selectProfile(null)}
       />
     </section>
