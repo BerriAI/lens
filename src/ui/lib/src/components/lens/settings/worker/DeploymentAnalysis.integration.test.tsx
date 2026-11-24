@@ -127,7 +127,7 @@ describe("Deployment analysis setup", () => {
     expect(screen.queryByRole("button", { name: "New investigation" })).not.toBeInTheDocument();
   });
 
-  it("lists only eligible analysis models alphabetically, ignoring capitalization", async () => {
+  it("passes only eligible analysis models to the browser", async () => {
     const user = userEvent.setup();
     const gateway = stubGateway();
     gateway.get.mockImplementation((path) =>
@@ -151,12 +151,6 @@ describe("Deployment analysis setup", () => {
     const models = await screen.findByRole("list", { name: "Analysis models" });
     expect(within(models).getAllByRole("listitem").map((item) => item.textContent)).toEqual([
       "analysis",
-      "Beta-chat",
-      "compatible-chat",
-      "Zulu-chat",
-    ]);
-    fireEvent.change(screen.getByRole("searchbox", { name: "Search models" }), { target: { value: "chat" } });
-    expect(within(models).getAllByRole("listitem").map((item) => item.textContent)).toEqual([
       "Beta-chat",
       "compatible-chat",
       "Zulu-chat",
@@ -196,6 +190,9 @@ describe("Deployment analysis setup", () => {
     fireEvent.change(search, { target: { value: "unavailable" } });
     expect(within(dialog).getByText("No models match your search")).toBeVisible();
     expect(within(dialog).getByRole("status")).toHaveTextContent("0 of 200 models");
+    await user.click(search);
+    await user.tab();
+    expect(within(dialog).getByRole("button", { name: "Close", exact: true })).toHaveFocus();
     await user.keyboard("{Escape}");
     await waitFor(() => expect(screen.queryByRole("dialog")).not.toBeInTheDocument());
     expect(browse).toHaveFocus();

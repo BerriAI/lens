@@ -1,6 +1,6 @@
 "use client";
 
-import type { ReactNode } from "react";
+import { useMemo, type ReactNode } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { Button } from "../../../ui/button";
 import { useLensApi } from "../../data/LensServices";
@@ -24,7 +24,10 @@ export function DeploymentAnalysis({
   const models = useQuery(lensQueries.modelDetails(api));
   const list = useQuery(lensQueries.list(api));
   const connected = useWorkerConnected(list.data?.workers ?? workers);
-  const configured = models.data?.data.filter((model) => !model.mode || model.mode === "chat") ?? [];
+  const configured = useMemo(
+    () => models.data?.data.filter((model) => !model.mode || model.mode === "chat") ?? [],
+    [models.data],
+  );
   const refresh = () => {
     void models.refetch();
     void list.refetch();
@@ -60,8 +63,8 @@ export function DeploymentAnalysis({
             <AnalysisModelsDialog models={configured} />
           </div>
           <p className="text-sm text-muted-foreground">
-            Automatic analysis sends selected trace content to these providers. Choose a model and monthly spending
-            limit in Findings. Provider keys stay on the Lens server.
+            Automatic analysis sends selected trace content to the selected model's provider. Choose a model and
+            monthly spending limit in Findings. Provider keys stay on the Lens server.
           </p>
           {!connected && (
             <p className="text-sm text-muted-foreground">

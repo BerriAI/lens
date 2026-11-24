@@ -1,3 +1,4 @@
+import { compareModelNames } from "../../model/analysisModels";
 import type { AnalysisModelInfo } from "../../model/types";
 import type { AnalysisModels } from "./useAnalysisModels";
 
@@ -18,7 +19,7 @@ export function modelGate(models: AnalysisModels, model: string, preservingSaved
 }
 
 export function analysisModelOptions(models: string[], details: AnalysisModelInfo[]) {
-  return [...new Set(models)].sort().map((name) => {
+  return [...new Set(models)].sort(compareModelNames).map((name) => {
     const info = details.find((item) => item.model_group === name);
     const capability = () => {
       if (info?.mode && info.mode !== "chat") return `${info.mode}: not suitable for Lens`;
