@@ -40,10 +40,15 @@ RUN apk add --no-cache python-3.14=3.14.10_git20261118-r0 python-3.14-dev=3.14.1
 COPY --from=uv /uv /usr/local/bin/uv
 ENV UV_PYTHON_DOWNLOADS=never UV_LINK_MODE=copy
 RUN git init /opt/hermes && git -C /opt/hermes remote add origin https://github.com/NousResearch/hermes-agent.git && \
-    git -C /opt/hermes fetch --depth 1 origin 8fc0374447313e276f6b9a2764bfc750190c966a && \
-    git -C /opt/hermes checkout --detach FETCH_HEAD
+    git -C /opt/hermes fetch --depth 1 origin tag v0.23.4 && \
+    test "$(git -C /opt/hermes rev-parse 'v0.23.4^{commit}')" = 8fc0374447313e276f6b9a2764bfc750190c966a && \
+    git -C /opt/hermes checkout --detach 8fc0374447313e276f6b9a2764bfc750190c966a
 WORKDIR /opt/hermes
-RUN uv sync --frozen --no-dev --extra messaging --extra mcp --python /usr/bin/python3.14
+RUN hermes_version="$(git describe --tags --exact-match HEAD)" && hermes_version="${hermes_version#v}" && \
+    sed -i "s/^version = \"0.0.0\"$/version = \"$hermes_version\"/" pyproject.toml uv.lock && \
+    uv sync --frozen --no-dev --extra messaging --extra mcp --python /usr/bin/python3.14 && \
+    .venv/bin/python scripts/write_install_stamp.py --output install-stamp.json \
+      --distribution docker --update-mechanism external --source ci --base-version "$hermes_version" --distance 0
 COPY deploy/runtime/deepagents.lock /tmp/deepagents.lock
 WORKDIR /opt
 RUN uv venv /opt/deepagents --python /usr/bin/python3.14 && \
