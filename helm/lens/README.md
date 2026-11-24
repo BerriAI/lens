@@ -20,7 +20,7 @@ The bundled ClickHouse deployment includes an ingress NetworkPolicy that permits
 
 ## Use existing ClickHouse
 
-Skip this section when using the bundled database. Supported external storage is one ClickHouse server reached through a stable HTTP(S) endpoint. Several Lens replicas can share that endpoint and database. Every request must reach the same ClickHouse server; a load balancer that distributes requests across ClickHouse nodes, a distributed table deployment, and automatic failover to another ClickHouse server are unsupported
+Skip this section when using the bundled database. Supported external storage is one ClickHouse server reached through a stable HTTP(S) endpoint. With the agent workspace disabled, several Lens replicas can share that endpoint and database. The agent workspace requires one Lens replica. Every request must reach the same ClickHouse server; a load balancer that distributes requests across ClickHouse nodes, a distributed table deployment, and automatic failover to another ClickHouse server are unsupported
 
 Lens stores record payloads and indexes in local `ReplacingMergeTree` tables. Keeper coordinates publication of their current revisions; sharing Keeper across ClickHouse nodes does not replicate those payloads. This boundary applies to standalone Lens and Lens connected to a LiteLLM gateway
 
@@ -36,6 +36,46 @@ The external-storage qualification on ClickHouse 26.9.6.6 observed these startup
 | `Storage(Storage(SchemaFailed(403)))` with a SELECT-only database user | Have the database administrator grant the Lens user the database creation, schema and write permissions listed above. Use a database dedicated to Lens |
 
 Payloads and Keeper metadata must be backed up and restored together. An external database is never deleted by this chart. Existing installations need the documented writer handoff and data migration before changing their runtime, not just a Helm image update
+
+## Agent workspace
+
+On this experiment branch, enable `agents.enabled` and supply the core and native images built from the same source revision. The chart creates separate Lens and native runtime Deployments with independent resources, a 5 GiB shared-state PVC and a 10 GiB native-state PVC. ClickHouse keeps its own storage
+
+```yaml
+replicaCount: 1
+image:
+  repository: registry.example/lens
+  tag: candidate-revision
+agents:
+  enabled: true
+  image:
+    repository: registry.example/lens-agents
+    tag: candidate-revision
+extraEnvFrom:
+  - secretRef:
+      name: workspace-inference
+```
+
+Replace the two image references with your built candidates. Provision `workspace-inference` through your secret manager with `LITELLM_PROXY_API_BASE` and `LITELLM_PROXY_API_KEY`. That dedicated key determines the workspace's model and MCP access. To enable Slack, add `LENS_AGENT_SLACK_BOT_TOKEN` and `LENS_AGENT_SLACK_APP_TOKEN` to the same Secret, following the [Slack setup](../../deploy/lens/README.md#connect-slack)
+
+Save the non-secret settings above as `agent-values.yaml`, then install from this checkout:
+
+```sh
+helm upgrade --install lens ./helm/lens \
+  --namespace lens --create-namespace --values agent-values.yaml --wait
+kubectl --namespace lens get deployments,pvc
+kubectl --namespace lens port-forward service/lens 4318:4318
+```
+
+Open `http://localhost:4318/ui/`, sign in using the generated Lens admin credential described above, and send a message from Home. The response must complete before considering native inference connected. Create a bot and verify that its first run completes; pause it when finished with the check
+
+Lens and the native runtime each require one replica in this version. The chart rejects a larger Lens replica count while agents are enabled and uses `Recreate` updates to avoid concurrent state owners. Each service can have its resources adjusted independently. Additional gateway replicas are a separate gateway-chart setting; horizontally scaling the Lens workspace needs a shared database and distributed bot ownership first
+
+The native runtime receives only its internal runtime credential. It has no gateway, storage or Kubernetes API credentials. It runs agents under separate Linux users and needs the capabilities declared in the chart for user and file ownership changes. Its NetworkPolicy permits Lens, cluster DNS and public outbound tools, while excluding private and link-local destinations. Use a CNI that enforces NetworkPolicy, and verify those boundaries in the target cluster
+
+Set `agents.storageClassName` and `clickhouse.storageClassName` for your cluster. For EKS Auto Mode, create an encrypted `gp3` StorageClass using `ebs.csi.eks.amazonaws.com`, `WaitForFirstConsumer` and `Retain`; EKS does not create it automatically. Enable its network-policy controller before running bots, as described in the [AWS guide](https://docs.aws.amazon.com/eks/latest/userguide/auto-net-pol.html)
+
+Helm generates and retains the runtime credential across upgrades. For offline GitOps rendering, supply `agents.runtimeSecret.name` and `agents.runtimeSecret.key`. Agent PVCs are retained on uninstall. Before a stateful upgrade, stop Lens and the native runtime and snapshot their two volumes, ClickHouse data and Keeper metadata, and credentials together. Restarting retains conversations and bot memory; it does not replay interrupted turns
 
 ## Connect a gateway
 

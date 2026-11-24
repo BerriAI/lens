@@ -16,7 +16,7 @@ Use Docker with Compose 2.24 or newer. Export `LITELLM_PROXY_API_BASE` and `LITE
 
 Open [Lens](http://localhost:4318/ui/) and sign in with the generated `LENS_ADMIN_TOKEN` in `deploy/lens/.env`. See [Run the experiment](deploy/lens/README.md) for connecting traces, creating bots, Slack, deployment settings and restart verification
 
-Use separate state volumes for this experiment. Published Lens releases and existing Helm charts still describe the earlier product. This branch requires both the Lens core image and native agent image built from the same source revision
+Use separate state volumes for this experiment. This branch requires both the Lens core image and native agent image built from the same source revision. For Kubernetes, use this checkout's [Helm chart](helm/lens/README.md#agent-workspace) with the agent workspace enabled; published Lens releases do not contain this experiment
 
 ## Development
 

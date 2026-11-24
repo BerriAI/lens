@@ -12,6 +12,10 @@ data:
 {{- end -}}
 
 {{- define "lens.secrets" -}}
+{{- if and .Values.agents.enabled (not .Values.agents.runtimeSecret.name) }}
+{{ include "lens.secret" (dict "context" . "name" (include "lens.runtimeSecretName" .) "key" .Values.agents.runtimeSecret.key) }}
+---
+{{- end }}
 {{- if and .Values.gateway.enabled (not .Values.serviceTokenSecret.name) }}
 {{ include "lens.secret" (dict "context" . "name" (include "lens.serviceTokenSecretName" .) "key" .Values.serviceTokenSecret.key) }}
 ---

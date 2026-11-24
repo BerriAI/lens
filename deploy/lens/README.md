@@ -2,7 +2,7 @@
 
 This branch opens Lens on a chat composer and a feed of reports from your traces. Deep Agents runs ordinary chat sessions. Hermes runs persistent bots with their own conversation, memory, tools and schedules. Traces remain immutable; agents publish shared annotations, reports and attachments alongside them
 
-This is a separate deployment candidate. Use an isolated installation and new state volumes to try it. The released Lens images and existing Helm charts do not include this experiment
+This is a separate deployment candidate. Use an isolated installation and new state volumes to try it. Released Lens images do not include this experiment. For Kubernetes, use this checkout's [agent workspace chart settings](../../helm/lens/README.md#agent-workspace)
 
 ## Start locally
 
@@ -58,7 +58,7 @@ The default model is `openai/gpt-6.2-astra`; set `LENS_AGENT_MODEL` to another m
 
 To run previously built candidates, export both `LENS_IMAGE` and `LENS_AGENTS_IMAGE` with references from the same source revision, then run `./deploy/lens/start`. The public release tag is not an agent-first candidate
 
-The core process holds gateway and storage credentials. Native agents run in a separate container under separate Linux users with private working directories. They receive actor-scoped Lens credentials and a Lens model endpoint. They can execute code and use permitted tools; traces can only be read through their Lens tool interface. Use a dedicated gateway key and the private development deployment while evaluating this shared admin experiment
+The core process holds gateway and storage credentials. Native agents run in a separate container under separate Linux users with private working directories. They receive actor-scoped Lens credentials and a Lens model endpoint. They can execute code and use permitted tools; traces can only be read through their Lens tool interface. Use a dedicated gateway key and an isolated deployment while evaluating this shared admin experiment
 
 The Compose limits are 2 CPUs and 2 GiB for Lens, 2 CPUs and 4 GiB for native agents, and 4 GiB for ClickHouse. More simultaneous bots need more memory. Bot working files, native sessions and schedules persist in `agent_data`; shared annotations, reports, artifacts, conversations and Slack mappings persist in `lens_data`; traces and ingestion credentials persist in `clickhouse_data`
 

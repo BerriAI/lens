@@ -1,4 +1,7 @@
 {{- define "lens.deployment" -}}
+{{- if and .Values.agents.enabled (ne (int .Values.replicaCount) 1) -}}
+{{- fail "The agent workspace currently requires replicaCount=1 for its SQLite state and native bot ownership" -}}
+{{- end -}}
 apiVersion: apps/v1
 kind: Deployment
 metadata:
@@ -8,6 +11,10 @@ metadata:
     {{- include "lens.labels" . | nindent 4 }}
 spec:
   replicas: {{ .Values.replicaCount }}
+  {{- if .Values.agents.enabled }}
+  strategy:
+    type: Recreate
+  {{- end }}
   selector:
     matchLabels:
       {{- include "lens.selectorLabels" . | nindent 6 }}
@@ -61,6 +68,19 @@ spec:
             capabilities:
               drop: [ALL]
           env:
+            {{- if .Values.agents.enabled }}
+            - name: LENS_AGENT_DATABASE
+              value: /var/lib/lens/agents.db
+            - name: LENS_RUNTIME_URL
+              value: {{ printf "http://%s-agents:4320" (include "lens.fullname" .) | quote }}
+            - name: LENS_RUNTIME_LENS_URL
+              value: {{ printf "http://%s:%v/agent-runtime" (include "lens.fullname" .) .Values.service.port | quote }}
+            - name: LENS_RUNTIME_SECRET
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "lens.runtimeSecretName" . | quote }}
+                  key: {{ .Values.agents.runtimeSecret.key | quote }}
+            {{- end }}
             - name: LENS_MODE
               value: standalone
             - name: LENS_PUBLIC_URL
@@ -132,9 +152,18 @@ spec:
           resources:
             {{- toYaml .Values.resources | nindent 12 }}
           volumeMounts:
+            {{- if .Values.agents.enabled }}
+            - name: state
+              mountPath: /var/lib/lens
+            {{- end }}
             - name: tmp
               mountPath: /tmp
       volumes:
+        {{- if .Values.agents.enabled }}
+        - name: state
+          persistentVolumeClaim:
+            claimName: {{ include "lens.fullname" . }}-state
+        {{- end }}
         - name: tmp
           emptyDir:
             medium: Memory
