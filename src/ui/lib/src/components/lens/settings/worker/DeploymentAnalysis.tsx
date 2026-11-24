@@ -63,7 +63,7 @@ export function DeploymentAnalysis({
             <AnalysisModelsDialog models={configured} />
           </div>
           <p className="text-sm text-muted-foreground">
-            Automatic analysis sends selected trace content to the selected model's provider. Choose a model and
+            Automatic analysis sends selected trace content to the selected model's providers. Choose a model and
             monthly spending limit in Findings. Provider keys stay on the Lens server.
           </p>
           {!connected && (
