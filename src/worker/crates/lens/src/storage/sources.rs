@@ -410,9 +410,10 @@ fn sample_page(rows: Vec<LensSampleRow>, request: &SampleRequest<'_>) -> Result<
     } else {
         None
     };
-    let next_cursor = (rows.len() == request.page_size as usize)
-        .then(|| rows.last().map(|row| row.selection_key.clone()))
-        .flatten();
+    let next_cursor = (rows.len() == request.page_size as usize
+        && rows.last().is_some_and(|row| row.position < total))
+    .then(|| rows.last().map(|row| row.selection_key.clone()))
+    .flatten();
     let executions = rows.into_iter().map(execution).collect::<Result<_, _>>()?;
     Ok(Sample {
         executions,
@@ -503,7 +504,7 @@ mod tests {
 
     #[rstest]
     #[case::selected_first(false, 0, 1, Some(1), Some("cursor"))]
-    #[case::selected_last(false, 1, 1, None, Some("cursor"))]
+    #[case::selected_last(false, 1, 1, None, None)]
     #[case::preview_more(true, 1, 1, Some(2), Some("cursor"))]
     #[case::short_page(false, 0, 100, Some(1), None)]
     #[case::zero_page(false, 0, 0, None, None)]
@@ -517,7 +518,10 @@ mod tests {
     ) {
         let selection = ActivitySelection::default();
         let page = sample_page(
-            vec![row],
+            vec![LensSampleRow {
+                position: offset + 1,
+                ..row
+            }],
             &SampleRequest {
                 selection: &selection,
                 start: 0,

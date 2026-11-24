@@ -71,6 +71,7 @@ export interface AnalysisModelInfo {
 }
 
 export interface GatewayStatus {
+  supports_gateway_connect?: boolean;
   readonly configured: boolean;
   readonly connected: boolean;
   readonly login_connected?: boolean;

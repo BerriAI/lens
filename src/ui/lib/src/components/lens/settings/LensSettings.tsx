@@ -97,7 +97,6 @@ export function LensSettings({
   onSetup?: () => void;
   onOpenAlerts?: () => void;
 }) {
-  const standalone = useLensHost().surface === "standalone";
   return (
     <div aria-label="Settings" role="region" className="flex w-full flex-col">
       <LensPageHeader
@@ -111,7 +110,7 @@ export function LensSettings({
           onConnectProject={onConnectProject}
           onSetup={onSetup}
         />
-        {standalone && <GatewayConnection />}
+        <GatewayConnection />
         {onOpenAlerts && (
           <SettingsSection heading="Signals" description="Signal questions and Slack delivery are configured in Alerts.">
             <Button variant="outline" size="sm" onClick={onOpenAlerts}>Open Alerts</Button>

@@ -4,6 +4,32 @@
  */
 
 export interface paths {
+    "/lens/admin/gateway/connect": {
+        post: {
+            requestBody: {
+                content: {
+                    "application/json": Record<string, never>;
+                };
+            };
+            responses: {
+                200: {
+                    content: {
+                        "application/json": {
+                            configured: boolean;
+                            connected: boolean;
+                            login_connected: boolean;
+                            supports_gateway_connect: boolean;
+                            api_base: string | null;
+                            evaluation_models: number;
+                            analysis_models: number;
+                            error: string | null;
+                            last_refreshed: string | null;
+                        };
+                    };
+                };
+            };
+        };
+    };
     "/": {
         parameters: {
             query?: never;
