@@ -11,6 +11,8 @@ import { Markdown } from "../traces/detail/content/Markdown";
 import { assistantText, toolActivity } from "./messages";
 import type { workspaceApi } from "./api";
 
+import { ModelPicker } from "./ModelPicker";
+
 export type WorkspaceApi = ReturnType<typeof workspaceApi>;
 export const conversationKey = (scope: string, id: string | null) =>
   ["agent-workspace", scope, "conversation", id] as const;
@@ -24,6 +26,7 @@ export function Chat({
   onOpened,
   children,
   home = false,
+  defaultModel,
 }: {
   api: WorkspaceApi;
   scope: string;
@@ -33,13 +36,16 @@ export function Chat({
   onOpened: (id: string) => void;
   children?: ReactNode;
   home?: boolean;
+  defaultModel: string;
 }) {
   const client = useQueryClient();
+  const [model, setModel] = useState<string>();
   const [draft, setDraft] = useState("");
   const pending = useRef<{
     id: string;
     text: string;
     conversation: string | null;
+    model: string;
   } | null>(null);
   const bottom = useRef<HTMLDivElement>(null);
   const queryKey = conversationKey(scope, chatId);
@@ -67,16 +73,26 @@ export function Chat({
   const send = useMutation({
     mutationFn: async () => {
       const text = draft.trim();
-      if (!pending.current || pending.current.text !== text)
+      if (
+        !pending.current ||
+        pending.current.text !== text ||
+        pending.current.model !== (model ?? defaultModel)
+      )
         pending.current = {
           id: crypto.randomUUID(),
           text,
           conversation: chatId,
+          model: model ?? defaultModel,
         };
       const message = pending.current;
       if (!message.conversation)
         message.conversation = (
-          await api.createConversation(text.slice(0, 100), bot?.id, message.id)
+          await api.createConversation(
+            text.slice(0, 100),
+            bot?.id,
+            message.id,
+            message.model,
+          )
         ).id;
       await api.send(message.conversation, message.id, message.text);
       return message.conversation;
@@ -101,7 +117,7 @@ export function Chat({
     <form
       className={
         home && !chatId
-          ? "mb-8 w-full"
+          ? "mx-auto w-full max-w-3xl"
           : "mx-auto w-full max-w-3xl shrink-0 px-5 pt-2 pb-5 md:px-0"
       }
       onSubmit={(event) => {
@@ -142,6 +158,25 @@ export function Chat({
           }}
         />
         <div className="mt-2 flex items-center justify-end gap-2">
+          <div className="mr-auto min-w-0">
+            {!chatId && !bot ? (
+              <ModelPicker
+                api={api}
+                value={model ?? defaultModel}
+                onChange={setModel}
+                disabled={disabled || send.isPending}
+              />
+            ) : (
+              <span
+                className="block truncate text-xs text-muted-foreground"
+                title={
+                  state.data?.conversation.model ?? bot?.model ?? defaultModel
+                }
+              >
+                {state.data?.conversation.model ?? bot?.model ?? defaultModel}
+              </span>
+            )}
+          </div>
           {running && (
             <Button
               type="button"
@@ -172,10 +207,15 @@ export function Chat({
   );
   if (home && !chatId)
     return (
-      <div className="min-h-0 flex-1 overflow-y-auto px-5 py-7 md:px-8">
-        <div className="mx-auto w-full max-w-3xl">
+      <div className="flex min-h-0 flex-1 flex-col">
+        <div className="shrink-0 bg-card px-5 pt-5 pb-4 md:px-8">
           {composer}
-          {children}
+        </div>
+        <div
+          aria-label="Trace feed"
+          className="min-h-0 flex-1 overflow-y-auto px-5 pt-2 pb-6 md:px-8"
+        >
+          <div className="mx-auto w-full max-w-3xl">{children}</div>
         </div>
       </div>
     );

@@ -159,6 +159,11 @@ impl Host {
 }
 
 pub async fn serve() -> Result<(), Error> {
+    if !cfg!(target_os = "linux") {
+        return Err(Error::Invalid(
+            "Run native agents in the Linux agent container; host execution is disabled",
+        ));
+    }
     let secret = std::env::var("LENS_RUNTIME_SECRET")
         .map_err(|_| Error::Invalid("Set LENS_RUNTIME_SECRET"))?;
     if secret.len() < 32 {
@@ -179,7 +184,6 @@ pub async fn serve() -> Result<(), Error> {
         .route("/health", get(|| async { StatusCode::NO_CONTENT }))
         .route("/prompt", post(prompt))
         .route("/actors/{id}/stop", post(stop))
-        .route("/actors/{id}/file", post(file))
         .route("/actors/{id}/history", post(history))
         .route("/actors/{id}/ensure", post(ensure))
         .with_state(host);
@@ -227,6 +231,12 @@ async fn prompt(
         let mut native = slot.native.lock().await;
         let operation = async {
             let root = host.prepare(&prompt.config).await?;
+            if let Some(Native::Deepagents(process)) = native.as_mut()
+                && process.model != prompt.config.model
+            {
+                process.stop().await?;
+                *native = None;
+            }
             if native.as_mut().is_none_or(|native| !native.alive()) {
                 *native = Some(match prompt.config.runtime {
                     Runtime::Deepagents => {
@@ -282,87 +292,6 @@ async fn history(
     let slot = host.slot(&id).await;
     let reader = slot.history.lock().await.clone().ok_or(Error::NotFound)?;
     Ok(Json(reader.read(&input.native_id).await?))
-}
-
-#[derive(Deserialize)]
-struct FileRequest {
-    path: String,
-}
-async fn file(
-    State(host): State<Arc<Host>>,
-    headers: HeaderMap,
-    RoutePath(id): RoutePath<String>,
-    Json(input): Json<FileRequest>,
-) -> Result<Json<Value>, Error> {
-    use base64::{Engine, engine::general_purpose::STANDARD};
-    host.authorize(&headers)?;
-    if uuid::Uuid::parse_str(&id).is_err() {
-        return Err(Error::NotFound);
-    }
-    let work = host.root.join(id).join("work");
-    let content = tokio::task::spawn_blocking(move || read_workspace_file(&work, &input.path))
-        .await
-        .map_err(|_| Error::Runtime)??;
-    Ok(Json(json!({"data_base64":STANDARD.encode(content)})))
-}
-
-fn read_workspace_file(work: &Path, path: &str) -> Result<Vec<u8>, Error> {
-    use nix::{
-        fcntl::{OFlag, open, openat},
-        sys::stat::Mode,
-    };
-    use std::{fs::File, io::Read, os::unix::fs::MetadataExt, path::Component};
-    let parts = Path::new(path)
-        .components()
-        .map(|part| match part {
-            Component::Normal(part) => Ok(part),
-            _ => Err(Error::Invalid(
-                "Use a relative path inside your working directory",
-            )),
-        })
-        .collect::<Result<Vec<_>, _>>()?;
-    if parts.is_empty() {
-        return Err(Error::Invalid("Artifact path is empty"));
-    }
-    let flags = OFlag::O_RDONLY | OFlag::O_NOFOLLOW | OFlag::O_CLOEXEC;
-    let mut directory = File::from(
-        open(work, flags | OFlag::O_DIRECTORY, Mode::empty()).map_err(|_| Error::Forbidden)?,
-    );
-    let owner = directory.metadata()?.uid();
-    for part in &parts[..parts.len() - 1] {
-        directory = File::from(
-            openat(
-                &directory,
-                Path::new(part),
-                flags | OFlag::O_DIRECTORY,
-                Mode::empty(),
-            )
-            .map_err(|_| Error::Forbidden)?,
-        );
-    }
-    let file = File::from(
-        openat(
-            &directory,
-            Path::new(parts[parts.len() - 1]),
-            flags | OFlag::O_NONBLOCK,
-            Mode::empty(),
-        )
-        .map_err(|_| Error::Forbidden)?,
-    );
-    let meta = file.metadata()?;
-    if !meta.is_file()
-        || meta.uid() != owner
-        || meta.len() > crate::artifacts::MAX_ARTIFACT_BYTES as u64
-    {
-        return Err(Error::Forbidden);
-    }
-    let mut bytes = Vec::new();
-    file.take(crate::artifacts::MAX_ARTIFACT_BYTES as u64 + 1)
-        .read_to_end(&mut bytes)?;
-    if bytes.len() > crate::artifacts::MAX_ARTIFACT_BYTES {
-        return Err(Error::Invalid("Artifact exceeds 10 MiB"));
-    }
-    Ok(bytes)
 }
 
 async fn stop(
@@ -498,38 +427,211 @@ pub(super) async fn terminate(child: &mut Child) -> Result<(), Error> {
 
 #[cfg(test)]
 mod tests {
-    use super::read_workspace_file;
+    use super::*;
     use rstest::rstest;
+    use std::sync::atomic::{AtomicUsize, Ordering};
+    use wiremock::{
+        Mock, MockServer, ResponseTemplate,
+        matchers::{method, path, path_regex},
+    };
 
     #[rstest]
-    #[case::parent("../outside.txt")]
-    #[case::absolute("/etc/passwd")]
-    #[case::file_link("linked.txt")]
-    #[case::directory_link("linked-dir/outside.txt")]
-    #[case::directory("nested")]
-    fn artifact_reads_cannot_escape_the_working_directory(#[case] path: &str) {
-        let root = tempfile::tempdir().unwrap();
-        let work = root.path().join("work");
-        std::fs::create_dir_all(work.join("nested")).unwrap();
-        std::fs::write(root.path().join("outside.txt"), b"private fixture").unwrap();
-        std::os::unix::fs::symlink(root.path().join("outside.txt"), work.join("linked.txt"))
-            .unwrap();
-        std::os::unix::fs::symlink(root.path(), work.join("linked-dir")).unwrap();
-        assert!(read_workspace_file(&work, path).is_err());
-    }
-
-    #[rstest]
-    fn regular_workspace_files_can_be_published() {
-        let root = tempfile::tempdir().unwrap();
-        std::fs::create_dir(root.path().join("charts")).unwrap();
-        std::fs::write(
-            root.path().join("charts/data.csv"),
-            b"status,count\nfailed,3\n",
-        )
-        .unwrap();
-        assert_eq!(
-            read_workspace_file(root.path(), "charts/data.csv").unwrap(),
-            b"status,count\nfailed,3\n"
+    #[case::main(Runtime::Deepagents)]
+    #[case::bot(Runtime::Hermes)]
+    #[tokio::test]
+    #[ignore = "requires the Linux native agent image and isolated loopback"]
+    async fn native_model_inputs_exclude_host_execution(#[case] runtime: Runtime) {
+        let server = MockServer::start().await;
+        Mock::given(method("POST")).and(path("/mcp"))
+            .respond_with(|request: &wiremock::Request| {
+                let body: Value = request.body_json().unwrap();
+                let result = match body["method"].as_str().unwrap() {
+                    "initialize" => json!({"protocolVersion":body["params"]["protocolVersion"],"capabilities":{"tools":{}},"serverInfo":{"name":"fixture","version":"1"}}),
+                    "notifications/initialized" => return ResponseTemplate::new(202),
+                    "tools/list" => json!({"tools":[{"name":"run_python","description":"Run Python in the Lens sandbox","inputSchema":{"type":"object","properties":{"code":{"type":"string"}}}}]}),
+                    other => panic!("Unexpected MCP method {other}"),
+                };
+                ResponseTemplate::new(200).set_body_json(json!({"jsonrpc":"2.0","id":body["id"],"result":result}))
+            }).mount(&server).await;
+        Mock::given(method("GET")).and(path("/v1/models"))
+            .respond_with(ResponseTemplate::new(200).set_body_json(json!({"object":"list","data":[{"id":"fixture-model","object":"model","created":0,"owned_by":"fixture"}]})))
+            .mount(&server).await;
+        let marker = format!("/tmp/lens-unconfined-{}", uuid::Uuid::new_v4());
+        let command = format!("touch {marker}");
+        let deferred = matches!(runtime, Runtime::Hermes);
+        let round = AtomicUsize::new(0);
+        Mock::given(method("POST")).and(path_regex("^/v1/(chat/completions|responses)$"))
+            .respond_with(move |request: &wiremock::Request| {
+                let body: Value = request.body_json().unwrap();
+                let step = if body["tools"].is_array() { round.fetch_add(1, Ordering::SeqCst) } else { usize::MAX };
+                let call = match (deferred, step) {
+                    (true, 0) => Some(("find-sandbox", "tool_search", json!({"queries":["run_python"]}))),
+                    (true, 1) => Some(("blocked-execution", "tool_call", json!({"calls":[{"name":"terminal","arguments":{"command":command}}]}))),
+                    (false, 0) => Some(("blocked-execution", "execute", json!({"command":command}))),
+                    _ => None,
+                };
+                if request.url.path() == "/v1/responses" {
+                    let item = if let Some((id, name, arguments)) = &call {
+                        json!({"type":"function_call","id":"fc_fixture","call_id":id,"name":name,"arguments":arguments.to_string(),"status":"completed"})
+                    } else {
+                        json!({"type":"message","id":"msg_fixture","role":"assistant","status":"completed","content":[{"type":"output_text","text":"Completed","annotations":[]}]})
+                    };
+                    let response = json!({"id":"resp_fixture","object":"response","created_at":0,"status":"completed","model":"fixture-model","output":[item],"error":null,"incomplete_details":null,"parallel_tool_calls":false,"tool_choice":"auto","tools":[],"usage":{"input_tokens":1,"output_tokens":1,"total_tokens":2,"input_tokens_details":{"cached_tokens":0},"output_tokens_details":{"reasoning_tokens":0}}});
+                    if body["stream"] != true { return ResponseTemplate::new(200).set_body_json(response); }
+                    let events = [
+                        json!({"type":"response.created","response":response}),
+                        json!({"type":"response.output_item.added","output_index":0,"item":item}),
+                        json!({"type":"response.output_text.delta","output_index":0,"content_index":0,"item_id":"msg_fixture","delta":if call.is_none() {"Completed"} else {""}}),
+                        json!({"type":"response.completed","response":response}),
+                    ];
+                    return ResponseTemplate::new(200).insert_header("content-type","text/event-stream")
+                        .set_body_string(events.iter().enumerate().map(|(sequence, event)| {
+                            let mut event = event.clone(); event["sequence_number"] = json!(sequence);
+                            format!("event: {}\ndata: {event}\n\n",event["type"].as_str().unwrap())
+                        }).collect::<String>());
+                }
+                let message = if let Some((id, name, arguments)) = &call {
+                    json!({"role":"assistant","content":null,"tool_calls":[{"index":0,"id":id,"type":"function","function":{"name":name,"arguments":arguments.to_string()}}]})
+                } else { json!({"role":"assistant","content":"Completed"}) };
+                let reason = if call.is_some() {"tool_calls"} else {"stop"};
+                let mut response = json!({"id":"fixture","created":0,"model":"fixture-model","usage":{"prompt_tokens":1,"completion_tokens":1,"total_tokens":2}});
+                if body["stream"] == true {
+                    response["object"] = json!("chat.completion.chunk");
+                    response["choices"] = json!([{"index":0,"delta":message,"finish_reason":reason}]);
+                    ResponseTemplate::new(200).insert_header("content-type","text/event-stream")
+                        .set_body_string(format!("data: {response}\n\ndata: [DONE]\n\n"))
+                } else {
+                    response["object"] = json!("chat.completion");
+                    response["choices"] = json!([{"index":0,"message":message,"finish_reason":reason}]);
+                    ResponseTemplate::new(200).set_body_json(response)
+                }
+            }).mount(&server).await;
+        let directory = tempfile::tempdir().unwrap();
+        #[cfg(unix)]
+        {
+            use std::os::unix::fs::PermissionsExt;
+            std::fs::set_permissions(directory.path(), std::fs::Permissions::from_mode(0o711))
+                .unwrap();
+        }
+        let host = Host {
+            secret_hash: [0; 32],
+            root: directory.path().into(),
+            actors: Mutex::new(HashMap::new()),
+        };
+        let config = Config {
+            actor_id: uuid::Uuid::new_v4().to_string(),
+            uid: 100_001,
+            runtime,
+            instructions: "Analyze traces using Lens tools and sandboxed Python.".into(),
+            model: "fixture-model".into(),
+            lens_base: server.uri(),
+            token: "fixture-agent-token".into(),
+        };
+        let root = host.prepare(&config).await.unwrap();
+        let prompt = Prompt {
+            config: config.clone(),
+            conversation_id: uuid::Uuid::new_v4().to_string(),
+            native_id: None,
+            permanent: false,
+            turn_id: uuid::Uuid::new_v4().to_string(),
+            text: "Acknowledge the task.".into(),
+        };
+        let (events, mut receiver) = mpsc::channel(256);
+        let drain = tokio::spawn(async move { while receiver.recv().await.is_some() {} });
+        let result = match config.runtime {
+            Runtime::Deepagents => {
+                let mut native = acp::Process::start(&config, &root).await.unwrap();
+                let result = tokio::time::timeout(
+                    Duration::from_secs(45),
+                    native.prompt(&prompt, &root, &events),
+                )
+                .await;
+                native.stop().await.unwrap();
+                result
+            }
+            Runtime::Hermes => {
+                let mut native = hermes::Gateway::start(&config, &root).await.unwrap();
+                let result =
+                    tokio::time::timeout(Duration::from_secs(45), native.prompt(&prompt, &events))
+                        .await;
+                native.stop().await.unwrap();
+                result
+            }
+        };
+        drain.abort();
+        let result = result.expect("Native fixture turn timed out");
+        assert!(result.is_ok(), "Native fixture turn failed: {result:?}");
+        assert!(
+            !Path::new(&marker).exists(),
+            "A model-requested host command executed"
+        );
+        let requests = server.received_requests().await.unwrap();
+        assert!(
+            requests.iter().any(|request| {
+                request.url.path().starts_with("/v1/")
+                    && String::from_utf8_lossy(&request.body).contains(&config.instructions)
+            }),
+            "Workspace instructions did not reach the native model input"
+        );
+        assert!(
+            requests.iter().any(|request| {
+                request.body_json::<Value>().ok().is_some_and(|body| {
+                    body.get("messages")
+                        .or_else(|| body.get("input"))
+                        .and_then(Value::as_array)
+                        .is_some_and(|messages| {
+                            messages.iter().any(|message| {
+                                message["tool_call_id"] == "blocked-execution"
+                                    || (message["type"] == "function_call_output"
+                                        && message["call_id"] == "blocked-execution")
+                            })
+                        })
+                })
+            }),
+            "The refused tool call was not returned to the model"
+        );
+        let names: Vec<String> = requests
+            .iter()
+            .filter(|request| {
+                matches!(request.url.path(), "/v1/chat/completions" | "/v1/responses")
+            })
+            .flat_map(|request| {
+                request.body_json::<Value>().unwrap()["tools"]
+                    .as_array()
+                    .cloned()
+                    .unwrap_or_default()
+            })
+            .filter_map(|tool| {
+                tool["function"]["name"]
+                    .as_str()
+                    .or_else(|| tool["name"].as_str())
+                    .map(str::to_owned)
+            })
+            .collect();
+        assert!(
+            requests
+                .iter()
+                .any(|request| request.url.path().starts_with("/v1/")
+                    && String::from_utf8_lossy(&request.body).contains("run_python")),
+            "Sandbox tool missing from model input: {names:?}"
+        );
+        let forbidden = [
+            "execute",
+            "terminal",
+            "process_manage",
+            "execute_code",
+            "js_eval",
+            "write_file",
+            "edit_file",
+            "patch",
+            "delete",
+            "cronjob_manage",
+            "delegate_task",
+            "skill_manage",
+        ];
+        assert!(
+            !names.iter().any(|name| forbidden.contains(&name.as_str())),
+            "Host execution tool reached model input: {names:?}"
         );
     }
 }

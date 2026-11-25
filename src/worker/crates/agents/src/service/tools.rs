@@ -52,6 +52,14 @@ struct Query {
 }
 #[derive(Deserialize, JsonSchema)]
 #[serde(deny_unknown_fields)]
+struct Python {
+    code: String,
+    sql: Option<String>,
+    #[serde(default)]
+    data: Value,
+}
+#[derive(Deserialize, JsonSchema)]
+#[serde(deny_unknown_fields)]
 struct BotState {
     id: String,
     enabled: bool,
@@ -76,14 +84,16 @@ pub(super) fn catalog() -> Value {
         tool::<Batch>("annotate_traces", "Write up to 1000 typed annotations with evidence, atomically. One judgment per trace identity, producer and definition; reprocessing replaces your own judgment. Authorship is recorded by Lens. Unclassified traces are not successes.", false),
         tool::<AnnotationFilter>("query_annotations", "Find structured judgments across agents, optionally filtered by producer_id, definition_id/key, value, or trace identity. Returns annotations and next_cursor; pass next_cursor as after. Missing annotations mean no recorded classification.", true),
         tool::<ReportInput>("save_report", "Publish an evidence-backed investigation or other Markdown artifact linked to traces. Choose a stable ID to update your report without duplicates. Other agents can query it.", false),
-        tool::<crate::artifacts::PublishArtifact>("publish_artifact", "Publish a file from your working directory, such as a chart, CSV, JSON, or Markdown file. Pass a relative path. PNG, JPEG and WebP appear inline in report posts; other files are downloadable. Use the returned ID in save_report.artifact_ids. File IDs are immutable and retries are safe.", false),
+        tool::<crate::artifacts::PublishArtifact>("publish_artifact", "Publish a chart, CSV, JSON, Markdown or image by supplying its content directly. encoding defaults to utf8; use base64 for binary images. Prefer Vega-Lite v6 JSON with inline data (media_type application/vnd.vegalite.v6+json) for charts; Lens renders crisp SVG in its own theme. Leave styling and dimensions to Lens. Images appear inline; other files are downloadable. Use the returned ID in save_report.artifact_ids. File IDs are immutable and retries are safe.", false),
         tool::<Id>("get_artifact", "Read a report attachment by its ID, including media type and base64 file contents.", true),
         tool::<Id>("get_report", "Read a shared report and its trace evidence links.", true),
         tool::<Reports>("list_reports", "List report previews, optionally for one trace identity. Pages contain at most 50 reports. Continue with before set to the last updated_at, a colon, and id. Read full reports with get_report.", true),
         tool::<Query>("query_traces", "Run a SELECT-only analytical query over visible traces. Use trace_query_help first for schema and query constraints. The database enforces read-only access, scope and query limits.", true),
+        tool::<Python>("run_python", "Analyze, filter or group trace evidence using Python and its standard library in a disposable sandbox. Supply sql to load a SELECT-only query result directly as the variable data, or supply JSON data. Print your result. There is no network, shell, package installation, credentials, Lens storage or persistent filesystem. Limits: 30 seconds CPU, 60 seconds elapsed, 512 MiB memory and 4 MiB output per stream. Publish useful results separately with Lens tools.", true),
+        tool::<Empty>("current_time", "Read the current UTC time when deciding what evidence window or requested reporting cadence applies.", true),
         tool::<Search>("trace_query_help", "Read the trace SQL schema and query instructions. Traces cannot be changed.", true),
         tool::<Search>("list_bots", "Find named persistent bots and their producer IDs. Use the ID when querying annotations produced by a specific bot.", true),
-        tool::<BotInput>("create_bot", "Create a persistent Hermes bot with a standing task. It starts working and checks its ongoing task every ten minutes until paused; it can set its own native routines.", false),
+        tool::<BotInput>("create_bot", "Create a persistent Hermes bot with a standing task. It starts working and checks its ongoing task every ten minutes until paused; code execution uses the same sandbox as main sessions.", false),
         tool::<BotState>("set_bot_enabled", "Pause or resume a named bot's actual runtime, including its native scheduled work.", false),
         tool::<Search>("search_gateway_tools", "Discover connected tools through the configured LiteLLM MCP gateway. Search tool names and descriptions, then call a chosen tool by name.", true),
         tool::<Empty>("list_slack_threads", "List this agent's authorized Slack threads.", true),
@@ -230,6 +240,18 @@ pub(super) async fn call<B: TraceReader>(
             let input: Query = args(arguments)?;
             reader.query(query_scope, input.sql).await.map_err(|_| Error::Invalid("Trace query was rejected. Read trace_query_help for the supported schema and query rules"))
         }
+        "run_python" => {
+            let input: Python = args(arguments)?;
+            if input.sql.is_some() && !input.data.is_null() {
+                return Err(Error::Invalid("Supply either sql or data, not both"));
+            }
+            let data = match input.sql {
+                Some(sql) => reader.query(query_scope, sql).await.map_err(|_| Error::Invalid("Trace query was rejected. Read trace_query_help for the supported schema and query rules"))?,
+                None => input.data,
+            };
+            crate::sandbox::execute_code(&input.code, data).await
+        }
+        "current_time" => Ok(json!({"utc":chrono::Utc::now().to_rfc3339()})),
         "trace_query_help" => Ok(json!(
             reader.help(query_scope).await.map_err(|_| Error::Runtime)?
         )),

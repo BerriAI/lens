@@ -13,6 +13,7 @@ export const admin = {
 };
 export const main: WorkspaceAgent = {
   id: "main-agent",
+  model: null,
   name: "Lens",
   instructions: "",
   runtime: "deepagents",
@@ -21,6 +22,7 @@ export const main: WorkspaceAgent = {
 };
 export const bot: WorkspaceAgent = {
   id: "review-bot",
+  model: "bot-model",
   name: "Request reviewer",
   instructions: "Review new requests",
   runtime: "hermes",
@@ -29,6 +31,7 @@ export const bot: WorkspaceAgent = {
 };
 export const chat: AgentConversation = {
   id: "saved-chat",
+  model: "session-model",
   actor_id: main.id,
   title: "Investigate failed requests",
   native_id: "native-session",
@@ -60,6 +63,9 @@ export function workspaceNetwork(writable = true) {
   return vi.fn<typeof fetch>(async (input, init) => {
     const request = await readRequest(input, init);
     const { path } = request;
+    if (path === "/lens/workspace/models")
+      return Response.json(["test-model", "second-model"]);
+    if (path === "/lens/workspace/activity") return Response.json([]);
     if (path === "/lens/workspace")
       return Response.json({
         agents: [main, bot],

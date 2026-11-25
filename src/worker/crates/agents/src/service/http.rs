@@ -33,6 +33,8 @@ pub fn router<R: SessionRepository + 'static, B: TraceReader + 'static>(
 ) -> Router {
     Router::new()
         .route("/lens/workspace", get(workspace::<R, B>))
+        .route("/lens/workspace/models", get(workspace_models::<R, B>))
+        .route("/lens/workspace/activity", get(activity::<R, B>))
         .route("/lens/workspace/bots", post(create_bot::<R, B>))
         .route("/lens/workspace/bots/{id}", patch(bot_state::<R, B>))
         .route(
@@ -64,7 +66,10 @@ pub fn router<R: SessionRepository + 'static, B: TraceReader + 'static>(
         .route("/lens/workspace/reports", get(reports::<R, B>))
         .route("/lens/workspace/reports/{id}", get(report::<R, B>))
         .route("/lens/workspace/artifacts/{id}", get(artifact::<R, B>))
-        .route("/agent-runtime/mcp", post(mcp::<R, B>))
+        .route(
+            "/agent-runtime/mcp",
+            post(mcp::<R, B>).layer(axum::extract::DefaultBodyLimit::max(16 * 1024 * 1024)),
+        )
         .route("/agent-runtime/v1/models", get(models::<R, B>))
         .route(
             "/agent-runtime/v1/chat/completions",
@@ -108,6 +113,29 @@ async fn create_bot<R: SessionRepository, B>(
     Ok(Json(json!(app.control.create_bot(&access, &input).await?)))
 }
 
+async fn workspace_models<R: SessionRepository, B>(
+    State(app): State<Arc<App<R, B>>>,
+    headers: HeaderMap,
+) -> Result<Json<Vec<String>>, Error> {
+    access(&app, &headers, &Method::GET)
+        .await?
+        .require_write()?;
+    Ok(Json(app.control.available_models().await?))
+}
+
+async fn activity<R: SessionRepository, B>(
+    State(app): State<Arc<App<R, B>>>,
+    headers: HeaderMap,
+) -> Result<Json<Value>, Error> {
+    let access = access(&app, &headers, &Method::GET).await?;
+    Ok(Json(json!(
+        app.control
+            .store()
+            .annotation_activity(&access.workspace)
+            .await?
+    )))
+}
+
 #[derive(Deserialize)]
 #[serde(deny_unknown_fields)]
 struct Enabled {
@@ -147,6 +175,7 @@ async fn conversations<R: SessionRepository, B>(
 #[serde(deny_unknown_fields)]
 struct NewConversation {
     id: Option<String>,
+    model: Option<String>,
     actor_id: Option<String>,
     title: String,
 }
@@ -156,18 +185,30 @@ async fn create_conversation<R: SessionRepository, B>(
     Json(input): Json<NewConversation>,
 ) -> Result<Json<Value>, Error> {
     let access = access(&app, &headers, &Method::POST).await?;
+    access.require_write()?;
     let actor_id = match input.actor_id {
         Some(id) => id,
         None => app.control.main_agent(&access).await?.id,
     };
+    let actor = app
+        .control
+        .store()
+        .agent(&access.workspace, &actor_id)
+        .await?;
+    let model = if matches!(actor.runtime, crate::conversations::Runtime::Hermes) {
+        actor.model
+    } else {
+        Some(app.control.selected_model(input.model.as_deref()).await?)
+    };
     Ok(Json(json!(
         app.control
             .store()
-            .create_conversation_with_id(
+            .create_conversation_with_model(
                 &access,
                 &actor_id,
                 &input.title,
-                &input.id.unwrap_or_else(|| uuid::Uuid::new_v4().to_string())
+                &input.id.unwrap_or_else(|| uuid::Uuid::new_v4().to_string()),
+                model.as_deref(),
             )
             .await?
     )))
@@ -386,8 +427,9 @@ async fn models<R: SessionRepository, B>(
     headers: HeaderMap,
 ) -> Result<Json<Value>, Error> {
     app.control.authenticate(&headers).await?;
+    let models = app.control.available_models().await?;
     Ok(Json(
-        json!({"object":"list","data":[{"id":app.control.0.model,"object":"model"}]}),
+        json!({"object":"list","data":models.into_iter().map(|id|json!({"id":id,"object":"model"})).collect::<Vec<_>>()}),
     ))
 }
 async fn completions<R: SessionRepository, B>(
@@ -411,9 +453,12 @@ async fn inference<R, B>(
     path: &str,
 ) -> Result<Response, Error> {
     let agent = app.control.authenticate(headers).await?;
-    if body.get("model").and_then(Value::as_str) != Some(app.control.0.model.as_str()) {
-        return Err(Error::Forbidden);
-    }
+    crate::model::bounded_text(
+        body.get("model")
+            .and_then(Value::as_str)
+            .ok_or(Error::Invalid("Choose a model"))?,
+        256,
+    )?;
     validate_inference(&body)?;
     let object = body
         .as_object_mut()

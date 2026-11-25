@@ -31,7 +31,10 @@ it("switches between the main chats and the selected bot's chats", async () => {
   ).toBeVisible();
   const nav = within(screen.getByRole("navigation", { name: "Workspace" }));
   expect(
-    nav.getAllByRole("button").map((button) => button.textContent),
+    nav
+      .getAllByRole("button")
+      .map((button) => button.textContent)
+      .filter(Boolean),
   ).toEqual(["Home", "New Session", "Bots", "Traces"]);
   await user.click(nav.getByRole("button", { name: "Bots" }));
   await user.click(screen.getByRole("button", { name: bot.name, exact: true }));

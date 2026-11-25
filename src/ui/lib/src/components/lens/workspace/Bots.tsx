@@ -13,6 +13,7 @@ import {
   DialogTitle,
 } from "../../ui/dialog";
 import type { WorkspaceApi } from "./Chat";
+import { ModelPicker } from "./ModelPicker";
 
 export function Bots({
   bots,
@@ -35,18 +36,19 @@ export function Bots({
             refine its task, review its work, or change direction
           </p>
         </div>
-        {writable && (
-          <Button size="sm" onClick={onCreate}>
-            Create bot
-          </Button>
-        )}
       </div>
       {bots.length === 0 ? (
         <div className="rounded-lg border px-5 py-8">
-          <p className="text-sm">No bots yet</p>
+          {writable ? (
+            <Button size="sm" onClick={onCreate}>
+              Create a new bot
+            </Button>
+          ) : (
+            <p className="text-sm">No bots yet</p>
+          )}
           <p className="mt-2 max-w-lg text-sm text-muted-foreground">
             Try a bot that reviews new requests, annotates unsuccessful tasks,
-            and writes a report with evidence
+            or investigates something worth bringing to your attention
           </p>
         </div>
       ) : (
@@ -84,35 +86,42 @@ export function CreateBot({
   open,
   onOpenChange,
   onCreated,
+  defaultModel,
 }: {
   api: WorkspaceApi;
   open: boolean;
   onOpenChange: (open: boolean) => void;
   onCreated: (id: string) => void;
+  defaultModel: string;
 }) {
+  const [model, setModel] = useState<string>();
   const [name, setName] = useState("");
   const [instructions, setInstructions] = useState("");
   const request = useRef<{
     id: string;
     name: string;
     instructions: string;
+    model: string;
   } | null>(null);
   const create = useMutation({
     mutationFn: () => {
       if (
         !request.current ||
         request.current.name !== name.trim() ||
-        request.current.instructions !== instructions.trim()
+        request.current.instructions !== instructions.trim() ||
+        request.current.model !== (model ?? defaultModel)
       )
         request.current = {
           id: crypto.randomUUID(),
           name: name.trim(),
           instructions: instructions.trim(),
+          model: model ?? defaultModel,
         };
       return api.createBot(
         request.current.name,
         request.current.instructions,
         request.current.id,
+        request.current.model,
       );
     },
     onSuccess: (bot) => {
@@ -167,12 +176,18 @@ export function CreateBot({
               id="bot-task"
               value={instructions}
               onChange={(event) => setInstructions(event.target.value)}
-              placeholder="Review new traces for unsuccessful user tasks. Reuse the task outcome annotation and write a report with evidence each morning."
+              placeholder="Review new traces and tag unsuccessful user tasks using the shared task outcome annotation."
               rows={5}
               maxLength={32000}
               required
             />
           </div>
+          <ModelPicker
+            api={api}
+            value={model ?? defaultModel}
+            onChange={setModel}
+            disabled={create.isPending}
+          />
           <p className="text-xs leading-relaxed text-muted-foreground">
             Starts now and checks in every 10 minutes. It can use your
             workspace’s tools and publish annotations and reports. Traces stay

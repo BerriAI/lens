@@ -118,6 +118,17 @@ pub struct AnnotationPage {
     pub next_cursor: Option<i64>,
 }
 
+#[derive(Clone, Debug, Serialize)]
+pub struct AnnotationActivity {
+    pub producer_id: String,
+    pub producer_name: String,
+    pub definition_id: String,
+    pub definition_key: String,
+    pub value: Value,
+    pub count: i64,
+    pub updated_at: i64,
+}
+
 #[derive(Clone, Debug, Deserialize, Serialize, JsonSchema)]
 #[serde(deny_unknown_fields)]
 pub struct ReportInput {

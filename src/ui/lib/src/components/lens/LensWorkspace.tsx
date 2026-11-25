@@ -7,7 +7,7 @@ import {
   useQuery,
   useQueryClient,
 } from "@tanstack/react-query";
-import { Loader2, Pause, Play, Plus } from "lucide-react";
+import { Loader2, Pause, Play } from "lucide-react";
 import { useLensHost } from "../../host/LensHost";
 import { cn } from "../../lib/cva.config";
 import { Button } from "../ui/button";
@@ -20,11 +20,13 @@ import AgentTracesPage from "./traces/list/AgentTracesPage";
 import { LensPageActionsContext } from "./ui/LensPageHeader";
 import { workspaceApi } from "./workspace/api";
 import { useAgentWorkspaceRoute } from "./workspace/route";
-import { navigation, WorkspaceNavigation } from "./workspace/Navigation";
+import { WorkspaceNavigation } from "./workspace/Navigation";
 import { Chat } from "./workspace/Chat";
 import { SlackConnection } from "./workspace/Slack";
 import { Bots, CreateBot } from "./workspace/Bots";
 import { ReportFeed, ReportPanel, WorkspaceScope } from "./workspace/Results";
+
+import { ActivityPanel } from "./workspace/Activity";
 
 type WorkspaceProps = {
   accessToken: string;
@@ -108,12 +110,6 @@ function WorkspaceContent({
     void route.navigate(tab);
     host.navigation?.onNavigate();
   };
-  const title =
-    bot?.name ??
-    (route.chat
-      ? chats.data?.find((chat) => chat.id === route.chat)?.title
-      : undefined) ??
-    navigation.find((item) => item.tab === route.tab)?.title;
   return (
     <main
       className={cn(
@@ -136,6 +132,7 @@ function WorkspaceContent({
                   conversations={chats.data ?? []}
                   selectedChat={selectedChat}
                   writable={writable}
+                  onCreateBot={() => setCreatingBot(true)}
                   onNavigate={(tab) => {
                     navigate(tab);
                     close();
@@ -157,65 +154,31 @@ function WorkspaceContent({
             </LensSidebar>
             <div
               className={cn(
-                "flex min-h-0 min-w-0 flex-1 flex-col",
+                "flex min-h-0 min-w-0 flex-1 flex-col pt-12 md:pt-0",
                 !embedded && "lens-workspace-paper",
               )}
             >
-              <header className="lens-workspace-header flex min-h-14 shrink-0 flex-wrap items-center gap-3 border-b bg-card py-2 pr-4 pl-14 md:px-6">
-                <div className="flex min-w-0 flex-1 items-center gap-2 text-sm">
-                  <span
-                    aria-hidden="true"
-                    className="lens-breadcrumb-dot mr-1 size-1.5 shrink-0 rounded-full"
-                  />
-                  <h1 className="truncate font-medium">{title}</h1>
-                </div>
+              {route.tab === "traces" && (
                 <div
                   ref={setPageActions}
                   role="group"
-                  aria-label="Page actions"
-                  className="contents"
+                  aria-label="Trace actions"
+                  className="flex shrink-0 flex-wrap items-center justify-end gap-2 px-5 py-3 empty:hidden"
                 />
-                {selectedChat && writable && state.data?.slack_configured && (
-                  <SlackConnection
-                    key={selectedChat}
-                    api={api}
-                    scope={scope}
-                    chatId={selectedChat}
-                  />
+              )}
+              {!bot &&
+                selectedChat &&
+                writable &&
+                state.data?.slack_configured && (
+                  <div className="flex shrink-0 justify-end px-5 py-2">
+                    <SlackConnection
+                      key={selectedChat}
+                      api={api}
+                      scope={scope}
+                      chatId={selectedChat}
+                    />
+                  </div>
                 )}
-                {route.demo && (
-                  <span className="text-xs text-muted-foreground">
-                    Demo traces
-                  </span>
-                )}
-                {route.tab === "bots" && writable && (
-                  <>
-                    {bot && (
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        disabled={enabled.isPending}
-                        onClick={() => enabled.mutate()}
-                      >
-                        {bot.enabled ? (
-                          <Pause className="size-3.5" />
-                        ) : (
-                          <Play className="size-3.5" />
-                        )}
-                        {bot.enabled ? "Pause" : "Resume"}
-                      </Button>
-                    )}
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={() => setCreatingBot(true)}
-                    >
-                      <Plus className="size-3.5" />
-                      Create bot
-                    </Button>
-                  </>
-                )}
-              </header>
               {state.error && (
                 <div
                   role="alert"
@@ -270,14 +233,49 @@ function WorkspaceContent({
                 ) : (
                   <>
                     {bot && (
-                      <details className="shrink-0 border-b px-5 py-3 text-sm">
-                        <summary className="cursor-pointer text-muted-foreground">
-                          Standing task · {bot.enabled ? "Active" : "Paused"}
-                        </summary>
-                        <p className="mt-3 max-w-3xl whitespace-pre-wrap leading-relaxed">
-                          {bot.instructions}
-                        </p>
-                      </details>
+                      <div className="shrink-0 border-b px-5 py-3">
+                        <div className="flex items-center gap-3">
+                          <h2 className="min-w-0 flex-1 truncate text-sm font-medium">
+                            {bot.name}
+                          </h2>
+                          <span className="text-xs text-muted-foreground">
+                            {bot.enabled ? "Active" : "Paused"}
+                          </span>
+                          {selectedChat &&
+                            writable &&
+                            state.data?.slack_configured && (
+                              <SlackConnection
+                                key={selectedChat}
+                                api={api}
+                                scope={scope}
+                                chatId={selectedChat}
+                              />
+                            )}
+                          {writable && (
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              disabled={enabled.isPending}
+                              onClick={() => enabled.mutate()}
+                            >
+                              {bot.enabled ? (
+                                <Pause className="size-3.5" />
+                              ) : (
+                                <Play className="size-3.5" />
+                              )}
+                              {bot.enabled ? "Pause" : "Resume"}
+                            </Button>
+                          )}
+                        </div>
+                        <details className="mt-2 text-sm">
+                          <summary className="cursor-pointer text-muted-foreground">
+                            Standing task
+                          </summary>
+                          <p className="mt-3 max-w-3xl whitespace-pre-wrap leading-relaxed">
+                            {bot.instructions}
+                          </p>
+                        </details>
+                      </div>
                     )}
                     {state.isLoading || (bot && chats.isLoading) ? (
                       <p
@@ -289,6 +287,7 @@ function WorkspaceContent({
                       </p>
                     ) : (
                       <Chat
+                        defaultModel={state.data?.model ?? ""}
                         key={selectedChat ?? `new-${bot?.id ?? "main"}`}
                         api={api}
                         scope={scope}
@@ -340,12 +339,23 @@ function WorkspaceContent({
             </div>
           </div>
           <CreateBot
+            defaultModel={state.data?.model ?? ""}
             api={api}
             open={creatingBot}
             onOpenChange={setCreatingBot}
             onCreated={(id) => {
               refresh();
               void route.openBot(id);
+            }}
+          />
+          <ActivityPanel
+            api={api}
+            selection={route.annotations}
+            onClose={() => void route.openAnnotations(null)}
+            writable={writable}
+            onChat={(id) => {
+              refresh();
+              void route.openChat(id, null);
             }}
           />
           <ReportPanel

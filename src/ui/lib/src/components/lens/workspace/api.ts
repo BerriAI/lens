@@ -1,5 +1,8 @@
 import { fetchClient } from "../../../lib/http/api";
-import type { ConversationState } from "../../../lib/http/agentWorkspace";
+import type {
+  ConversationState,
+  AnnotationSelection,
+} from "../../../lib/http/agentWorkspace";
 
 const required = <T>(data: T | undefined): T => {
   if (data === undefined) throw new Error("Lens returned an empty response");
@@ -39,6 +42,21 @@ export function workspaceApi(accessToken: string) {
           })
         ).data,
       ),
+    activity: async () =>
+      required(
+        (await fetchClient.GET("/lens/workspace/activity", options)).data,
+      ),
+    queryAnnotations: async (filter: AnnotationSelection, after?: number) =>
+      required(
+        (
+          await fetchClient.POST("/lens/workspace/annotations/query", {
+            ...options,
+            body: { ...filter, after, limit: 100 },
+          })
+        ).data,
+      ),
+    models: async () =>
+      required((await fetchClient.GET("/lens/workspace/models", options)).data),
     state: async () =>
       required((await fetchClient.GET("/lens/workspace", options)).data),
     conversations: async (actor_id: string) =>
@@ -62,12 +80,17 @@ export function workspaceApi(accessToken: string) {
       );
       return { ...data, events: [...(previous?.events ?? []), ...data.events] };
     },
-    createConversation: async (title: string, actor_id?: string, id?: string) =>
+    createConversation: async (
+      title: string,
+      actor_id?: string,
+      id?: string,
+      model?: string,
+    ) =>
       required(
         (
           await fetchClient.POST("/lens/workspace/conversations", {
             ...options,
-            body: { title, actor_id, id },
+            body: { title, actor_id, id, model },
           })
         ).data,
       ),
@@ -93,12 +116,17 @@ export function workspaceApi(accessToken: string) {
           })
         ).data,
       ),
-    createBot: async (name: string, instructions: string, id: string) =>
+    createBot: async (
+      name: string,
+      instructions: string,
+      id: string,
+      model?: string,
+    ) =>
       required(
         (
           await fetchClient.POST("/lens/workspace/bots", {
             ...options,
-            body: { name, instructions, id },
+            body: { name, instructions, id, model },
           })
         ).data,
       ),

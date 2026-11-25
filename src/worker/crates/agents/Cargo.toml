@@ -30,6 +30,7 @@ subtle.workspace = true
 tokio-stream = "0.1"
 tokio-tungstenite = "0.24"
 sqlx = { workspace = true, features = ["sqlite", "runtime-tokio", "macros", "migrate"] }
+tempfile.workspace = true
 thiserror.workspace = true
 tokio = { workspace = true, features = ["fs", "process", "io-util", "sync", "time", "macros", "rt-multi-thread"] }
 uuid.workspace = true
@@ -37,7 +38,6 @@ url.workspace = true
 
 [dev-dependencies]
 rstest.workspace = true
-tempfile.workspace = true
 tokio = { workspace = true, features = ["macros", "rt-multi-thread"] }
 tower = { version = "=0.5.3", features = ["util"] }
 wiremock.workspace = true

@@ -13,7 +13,7 @@ COPY src/ui/ src/ui/
 RUN npm run build:ui
 
 FROM $LENS_BUILD_IMAGE AS builder
-RUN apk add --no-cache rust build-base cmake perl pkgconf openssl-dev git
+RUN apk add --no-cache rust build-base cmake perl pkgconf openssl-dev git libseccomp-dev jq
 WORKDIR /src
 COPY .cargo/ .cargo/
 COPY src/worker/ src/worker/
@@ -33,6 +33,27 @@ RUN --mount=type=cache,id=lens-cargo-registry,target=/root/.cargo/registry \
     cp /tmp/source-hashes target/source-hashes && \
     cargo build --locked --release -p litellm-lens -p lens-migrate -p lens-agents --bins && \
     mkdir /out && cp target/release/litellm-lens target/release/lens-migrate target/release/lens-agent-runtime /out/
+RUN cc -std=c11 -D_GNU_SOURCE -O2 -Wall -Wextra -Werror crates/lens/sandbox/python_policy.c -lseccomp -o /tmp/python-policy && \
+    /tmp/python-policy /tmp/python.seccomp
+
+FROM builder AS test-builder
+RUN --mount=type=cache,id=lens-cargo-registry,target=/root/.cargo/registry \
+    --mount=type=cache,id=lens-cargo-git,target=/root/.cargo/git \
+    --mount=type=cache,id=lens-cargo-target-${TARGETARCH},target=/src/src/worker/target \
+    cargo test --locked --release -p litellm-lens --test sandbox --no-run --message-format=json > /tmp/test-artifacts.json && \
+    jq -r 'select(.executable != null and .target.name == "sandbox") | .executable' /tmp/test-artifacts.json > /tmp/sandbox-artifact && \
+    test "$(wc -l < /tmp/sandbox-artifact)" -eq 1 && \
+    cp "$(cat /tmp/sandbox-artifact)" /tmp/lens-sandbox-tests && chmod 755 /tmp/lens-sandbox-tests
+
+FROM builder AS agent-test-builder
+RUN --mount=type=cache,id=lens-cargo-registry,target=/root/.cargo/registry \
+    --mount=type=cache,id=lens-cargo-git,target=/root/.cargo/git \
+    --mount=type=cache,id=lens-cargo-target-${TARGETARCH},target=/src/src/worker/target \
+    cargo test --locked --release -p lens-agents --lib --no-run --message-format=json > /tmp/agent-test-artifacts.json && \
+    jq -r 'select(.executable != null and .target.name == "lens_agents") | .executable' /tmp/agent-test-artifacts.json > /tmp/agent-artifact && \
+    test "$(wc -l < /tmp/agent-artifact)" -eq 1 && \
+    cp "$(cat /tmp/agent-artifact)" /tmp/lens-agent-tests && chmod 755 /tmp/lens-agent-tests
+
 FROM ghcr.io/astral-sh/uv:0.13.9@sha256:d3b601f0c7b118bc1753febf7c41cc80981df678445e0254284eecf84db79a7d AS uv
 
 FROM $LENS_RUNTIME_IMAGE AS native-deps
@@ -65,16 +86,31 @@ EXPOSE 4320
 HEALTHCHECK --interval=10s --timeout=3s --start-period=10s --retries=6 CMD curl --fail --silent http://127.0.0.1:4320/health > /dev/null || exit 1
 ENTRYPOINT ["/usr/local/bin/lens-agent-runtime"]
 
-FROM $LENS_RUNTIME_IMAGE AS runtime
+FROM agents AS agents-smoke
+COPY --from=agent-test-builder /tmp/lens-agent-tests /usr/local/bin/lens-agent-tests
+ENTRYPOINT ["/usr/local/bin/lens-agent-tests"]
+CMD ["--ignored", "--nocapture", "--test-threads=1"]
+
+FROM $LENS_RUNTIME_IMAGE AS service
 ARG LENS_VERSION=agent-first
-RUN apk add --no-cache libgcc libstdc++ openssl ca-certificates ca-certificates-bundle curl libatomic && \
+RUN apk add --no-cache python-3.13 setpriv libgcc libstdc++ openssl ca-certificates ca-certificates-bundle curl libatomic && \
     mkdir -p /var/lib/lens && chown 65532:65532 /var/lib/lens
 ENV LENS_VERSION=${LENS_VERSION} LENS_UI_DIRECTORY=/app/ui LENS_AGENT_DATABASE=/var/lib/lens/agents.db
 WORKDIR /app
 COPY --from=builder /out/litellm-lens /usr/local/bin/litellm-lens
 COPY --from=builder /out/lens-migrate /usr/local/bin/lens-migrate
+COPY --from=builder /tmp/python.seccomp /app/lens/python.seccomp
+COPY src/worker/crates/lens/sandbox/python_runtime.py /tmp/python_runtime.py
+RUN python3.13 -S /tmp/python_runtime.py /app/lens/python-runtime.json && rm /tmp/python_runtime.py
 COPY --from=ui-builder /src/src/ui/app/out/ /app/ui/
 USER 65532:65532
 EXPOSE 4318
 HEALTHCHECK --interval=10s --timeout=3s --start-period=30s --retries=6 CMD curl --fail --silent http://127.0.0.1:4318/health/ready > /dev/null || exit 1
 ENTRYPOINT ["/usr/local/bin/litellm-lens"]
+
+FROM service AS smoke
+COPY --from=test-builder /tmp/lens-sandbox-tests /usr/local/bin/lens-sandbox-tests
+ENTRYPOINT ["/usr/local/bin/lens-sandbox-tests"]
+CMD ["--ignored", "--nocapture", "--test-threads=1"]
+
+FROM service AS runtime

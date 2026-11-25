@@ -25,6 +25,9 @@ import { workspaceApi } from "./api";
 import type { WorkspaceApi } from "./Chat";
 import { useAgentWorkspaceRoute } from "./route";
 
+import { ActivityPost } from "./Activity";
+import { Chart, CHART_MEDIA_TYPE } from "./Chart";
+
 export const WorkspaceScope = createContext("");
 
 export function ReportFeed({
@@ -48,6 +51,28 @@ export function ReportFeed({
   error: Error | null;
   onRetry: () => void;
 }) {
+  const scope = useContext(WorkspaceScope);
+  const route = useAgentWorkspaceRoute();
+  const activity = useQuery({
+    queryKey: ["agent-workspace", scope, "activity"],
+    queryFn: api.activity,
+    enabled: !route.demo,
+    refetchInterval: 15000,
+  });
+  const updates = [
+    ...reports.map((report) => ({
+      kind: "report" as const,
+      report,
+      updated_at: report.updated_at,
+      key: report.id,
+    })),
+    ...(activity.data ?? []).map((item) => ({
+      kind: "annotation" as const,
+      item,
+      updated_at: item.updated_at,
+      key: JSON.stringify([item.producer_id, item.definition_id, item.value]),
+    })),
+  ].sort((a, b) => b.updated_at - a.updated_at);
   return (
     <section aria-label="Trace updates">
       <h2 className="mb-3 text-sm font-medium">From your traces</h2>
@@ -68,10 +93,10 @@ export function ReportFeed({
           </Button>
         </p>
       )}
-      {!loading && !error && reports.length === 0 && (
+      {!loading && !activity.isLoading && !error && updates.length === 0 && (
         <div className="border-t py-8">
           <p className="text-sm text-muted-foreground">
-            Reports and updates from your agents will appear here
+            Tags and reports from your agents will appear here
           </p>
           <p className="mt-2 text-sm text-muted-foreground">
             Ask Lens to look into your traces, or give a bot something to watch
@@ -79,20 +104,40 @@ export function ReportFeed({
         </div>
       )}
       <div className="space-y-3">
-        {reports.map((report) => (
-          <ReportPost
-            key={report.id}
-            api={api}
-            report={report}
-            author={
-              agents.find((agent) => agent.id === report.producer_id)?.name ??
-              "Lens"
-            }
-            onOpen={() => onOpen(report.id)}
-            writable={writable}
-            onChat={onChat}
-          />
-        ))}
+        {activity.error && (
+          <p role="alert" className="text-xs text-destructive">
+            Could not load tagging activity{" "}
+            <Button
+              variant="link"
+              size="sm"
+              onClick={() => void activity.refetch()}
+            >
+              Retry
+            </Button>
+          </p>
+        )}
+        {updates.map((update) =>
+          update.kind === "annotation" ? (
+            <ActivityPost
+              key={update.key}
+              activity={update.item}
+              onOpen={route.openAnnotations}
+            />
+          ) : (
+            <ReportPost
+              key={update.key}
+              api={api}
+              report={update.report}
+              author={
+                agents.find((agent) => agent.id === update.report.producer_id)
+                  ?.name ?? "Lens"
+              }
+              onOpen={() => onOpen(update.report.id)}
+              writable={writable}
+              onChat={onChat}
+            />
+          ),
+        )}
       </div>
     </section>
   );
@@ -351,6 +396,27 @@ function ReportArtifact({
       </p>
     );
   const url = `data:${content.data.media_type};base64,${content.data.data_base64}`;
+  if (info.media_type === CHART_MEDIA_TYPE) {
+    const text = new TextDecoder().decode(
+      Uint8Array.from(atob(content.data.data_base64), (value) =>
+        value.charCodeAt(0),
+      ),
+    );
+    return (
+      <figure>
+        <Chart content={text} compact={!!onOpen} label={info.filename} />
+        {!onOpen && (
+          <a
+            className="text-xs text-muted-foreground hover:text-primary"
+            href={url}
+            download={info.filename}
+          >
+            Download chart data
+          </a>
+        )}
+      </figure>
+    );
+  }
   if (onOpen)
     return (
       <button

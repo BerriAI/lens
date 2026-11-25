@@ -171,22 +171,6 @@ pub enum Error {
     EvidenceExecutionChanged,
     #[error("Trace content could not be read. Check Lens storage availability.")]
     EvidenceUnavailable,
-    #[error("Python computation cancelled")]
-    PythonCancelled,
-    #[error("Python exceeded its 60-second elapsed-time limit")]
-    PythonTimedOut,
-    #[error("Python analysis requires the Linux Lens image with Landlock and seccomp support")]
-    PythonUnsupportedPlatform,
-    #[error("Python exceeded its scratch directory-depth limit")]
-    PythonScratchTooDeep,
-    #[error("Python exceeded its scratch storage or file-count limit")]
-    PythonScratchTooLarge,
-    #[error("Python output exceeded 4 MiB on one stream. Print a smaller result.")]
-    PythonOutputTooLarge,
-    #[error("Python syscall policy is missing from the worker image")]
-    PythonPolicyMissing,
-    #[error("Python resource monitoring failed: {0}")]
-    PythonMonitorIo(#[source] std::io::Error),
     #[error(
         "The Lens task alone exceeds the model context window. Use a model with more context or shorten the investigation instructions."
     )]

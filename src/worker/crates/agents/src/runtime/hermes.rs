@@ -139,7 +139,12 @@ impl Gateway {
         let settings = json!({
             "_config_version":54,
             "model":{"default":config.model,"provider":"custom","base_url":"${OPENAI_BASE_URL}","api_key":"${OPENAI_API_KEY}"},
-            "terminal":{"backend":"local","cwd":root.join("work")},
+            "platform_toolsets":{
+                "api_server":["memory","todo","session_search","lens"],
+                "cli":["memory","todo","session_search","lens"],
+                "cron":["memory","todo","session_search","lens"]
+            },
+            "agent":{"disabled_toolsets":["terminal","file","code_execution","skills","browser","computer_use","cronjob","delegation","connections","project","catalog"]},
             "approvals":{"mode":"off"},
             "mcp_servers":{"lens":{"url":"${LENS_TOOLS_URL}","headers":{"Authorization":"Bearer ${LENS_AGENT_TOKEN}"},"trust":"full"}}
         });
@@ -203,7 +208,7 @@ impl Gateway {
     ) -> Result<(), Error> {
         let native_id = self.session(prompt).await?;
         if prompt.permanent && prompt.native_id.is_none() {
-            self.dispatch(&native_id, "heartbeat", "every 10m Continue your standing task using the latest instructions and corrections in this chat. Report meaningful results; remain quiet when nothing needs attention.").await?;
+            self.dispatch(&native_id, "heartbeat", "every 10m Continue your standing task using the latest instructions and corrections in this chat. Check the current time, new evidence and your prior work. Tagging can stand on its own. Publish a report when there is a useful result or the requested cadence calls for one; update the existing report for the same investigation. Remain quiet when nothing needs attention.").await?;
             emit(
                 events,
                 "bot_status",

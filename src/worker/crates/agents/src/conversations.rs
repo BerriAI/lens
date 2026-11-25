@@ -17,6 +17,7 @@ pub enum Runtime {
 #[derive(Clone, Serialize, Deserialize)]
 pub struct Agent {
     pub id: String,
+    pub model: Option<String>,
     pub name: String,
     pub instructions: String,
     pub runtime: Runtime,
@@ -36,6 +37,7 @@ pub struct Agent {
 #[serde(deny_unknown_fields)]
 pub struct BotInput {
     pub id: Option<String>,
+    pub model: Option<String>,
     pub name: String,
     pub instructions: String,
 }
@@ -43,6 +45,7 @@ pub struct BotInput {
 #[derive(Clone, Debug, Serialize, Deserialize, JsonSchema)]
 pub struct Conversation {
     pub id: String,
+    pub model: Option<String>,
     pub actor_id: String,
     pub title: String,
     pub native_id: Option<String>,
@@ -149,6 +152,9 @@ impl Store {
         access.require_write()?;
         bounded_text(&input.name, 100)?;
         bounded_text(&input.instructions, 32_000)?;
+        if let Some(model) = &input.model {
+            bounded_text(model, 256)?;
+        }
         let mut tx = self.0.begin_with("BEGIN IMMEDIATE").await?;
         if matches!(runtime, Runtime::Deepagents) {
             let existing: Option<String> = sqlx::query_scalar(
@@ -180,6 +186,7 @@ impl Store {
                 || existing.owner != access.owner
                 || existing.name != input.name
                 || existing.instructions != input.instructions
+                || existing.model != input.model
             {
                 return Err(Error::Conflict(
                     "This bot ID already belongs to another request",
@@ -187,19 +194,21 @@ impl Store {
             }
             return Ok(existing);
         }
-        sqlx::query("INSERT INTO actors(workspace,id,name,instructions,runtime,owner,scope,created_at) VALUES (?,?,?,?,?,?,?,?)")
+        sqlx::query("INSERT INTO actors(workspace,id,name,instructions,runtime,owner,scope,created_at,model) VALUES (?,?,?,?,?,?,?,?,?)")
             .bind(&access.workspace).bind(&id).bind(&input.name).bind(&input.instructions)
             .bind(match runtime { Runtime::Deepagents => "deepagents", Runtime::Hermes => "hermes" })
             .bind(&access.owner).bind(serde_json::to_string(&access.scope)?).bind(chrono::Utc::now().timestamp_millis())
+            .bind(&input.model)
             .execute(&mut *tx).await?;
         if matches!(runtime, Runtime::Hermes) {
             let now = chrono::Utc::now().timestamp_millis();
-            sqlx::query("INSERT INTO conversations VALUES (?,?,?,NULL,1,?,?)")
+            sqlx::query("INSERT INTO conversations(id,actor_id,title,native_id,permanent,created_at,updated_at,model) VALUES (?,?,?,NULL,1,?,?,?)")
                 .bind(uuid::Uuid::new_v4().to_string())
                 .bind(&id)
                 .bind("Bot Chat")
                 .bind(now)
                 .bind(now)
+                .bind(&input.model)
                 .execute(&mut *tx)
                 .await?;
         }
@@ -268,6 +277,18 @@ impl Store {
         title: &str,
         id: &str,
     ) -> Result<Conversation, Error> {
+        self.create_conversation_with_model(access, actor_id, title, id, None)
+            .await
+    }
+
+    pub async fn create_conversation_with_model(
+        &self,
+        access: &Access,
+        actor_id: &str,
+        title: &str,
+        id: &str,
+        model: Option<&str>,
+    ) -> Result<Conversation, Error> {
         access.require_write()?;
         if uuid::Uuid::parse_str(id).is_err() {
             return Err(Error::Invalid("Use a UUID idempotency key"));
@@ -277,21 +298,31 @@ impl Store {
         if matches!(actor.runtime, Runtime::Deepagents) && actor.owner != access.owner {
             return Err(Error::Forbidden);
         }
+        let model = if matches!(actor.runtime, Runtime::Hermes) {
+            actor.model.as_deref()
+        } else {
+            model.or(actor.model.as_deref())
+        };
+        if let Some(model) = model {
+            bounded_text(model, 256)?;
+        }
         let now = chrono::Utc::now().timestamp_millis();
         sqlx::query(
-            "INSERT INTO conversations VALUES (?,?,?,NULL,0,?,?) ON CONFLICT(id) DO NOTHING",
+            "INSERT INTO conversations(id,actor_id,title,native_id,permanent,created_at,updated_at,model) VALUES (?,?,?,NULL,0,?,?,?) ON CONFLICT(id) DO NOTHING",
         )
         .bind(id)
         .bind(actor_id)
         .bind(title)
         .bind(now)
         .bind(now)
+        .bind(model)
         .execute(&self.0)
         .await?;
         let conversation = self.conversation(access, id).await?;
         if conversation.actor_id != actor_id
             || conversation.title != title
             || conversation.permanent
+            || conversation.model.as_deref() != model
         {
             return Err(Error::Conflict(
                 "This conversation ID already belongs to another request",
@@ -461,6 +492,7 @@ impl Store {
 fn agent(row: &sqlx::sqlite::SqliteRow) -> Result<Agent, Error> {
     Ok(Agent {
         id: row.try_get("id")?,
+        model: row.try_get("model")?,
         name: row.try_get("name")?,
         instructions: row.try_get("instructions")?,
         runtime: match row.try_get::<&str, _>("runtime")? {
@@ -479,6 +511,7 @@ fn agent(row: &sqlx::sqlite::SqliteRow) -> Result<Agent, Error> {
 fn conversation(row: &sqlx::sqlite::SqliteRow) -> Result<Conversation, Error> {
     Ok(Conversation {
         id: row.try_get("id")?,
+        model: row.try_get("model")?,
         actor_id: row.try_get("actor_id")?,
         title: row.try_get("title")?,
         native_id: row.try_get("native_id")?,

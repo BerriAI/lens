@@ -398,6 +398,7 @@ mod tests {
                 &access,
                 &BotInput {
                     id: None,
+                    model: None,
                     name: "Reviewer".into(),
                     instructions: "Review requests".into(),
                 },

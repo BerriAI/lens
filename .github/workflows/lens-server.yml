@@ -118,6 +118,21 @@ jobs:
         run: docker build --build-arg LENS_VERSION=ci -f deploy/runtime/Dockerfile -t lens:ci .
       - name: Build native agents
         run: docker build --target agents -f deploy/runtime/Dockerfile -t lens-agents:ci .
+      - name: Verify confined code execution
+        run: |
+          docker build --target smoke -f deploy/runtime/Dockerfile -t lens-sandbox:ci .
+          timeout 180 docker run --rm --read-only --cap-drop ALL \
+            --security-opt no-new-privileges --network none --cpus 2 --memory 1g --pids-limit 32 \
+            --ulimit fsize=16777216:16777216 --tmpfs /tmp:rw,noexec,nosuid,size=256m \
+            lens-sandbox:ci
+      - name: Verify native model tool boundaries
+        run: |
+          docker build --target agents-smoke -f deploy/runtime/Dockerfile -t lens-agents-smoke:ci .
+          timeout 180 docker run --rm --read-only --cap-drop ALL \
+            --cap-add CHOWN --cap-add FOWNER --cap-add SETUID --cap-add SETGID --cap-add DAC_OVERRIDE --cap-add KILL \
+            --security-opt no-new-privileges --network none --cpus 2 --memory 2g --pids-limit 128 \
+            --ulimit fsize=67108864:67108864 --tmpfs /tmp:rw,nosuid,size=512m \
+            lens-agents-smoke:ci
       - name: Scan the native runtime for fixable high and critical vulnerabilities
         shell: bash
         run: |

@@ -1,0 +1,2 @@
+ALTER TABLE actors ADD COLUMN model TEXT;
+ALTER TABLE conversations ADD COLUMN model TEXT;

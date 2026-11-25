@@ -141,3 +141,131 @@ it("copies all annotation pages from the feed", async () => {
     trace_ref: "scope-1",
   });
 });
+
+it("keeps the chosen model in the new session request", async () => {
+  const user = userEvent.setup();
+  renderWithProviders(<LensWorkspace {...admin} />);
+  await user.click(await screen.findByRole("combobox", { name: "Model" }));
+  await user.type(
+    await screen.findByRole("combobox", { name: "Search models" }),
+    "second",
+  );
+  await user.click(await screen.findByRole("option", { name: "second-model" }));
+  fireEvent.change(screen.getByRole("textbox", { name: "Message Lens" }), {
+    target: { value: "Find failed requests" },
+  });
+  await user.click(screen.getByRole("button", { name: "Send message" }));
+  await waitFor(() =>
+    expect(screen.getByRole("textbox", { name: "Message Lens" })).toHaveValue(
+      "",
+    ),
+  );
+  const requests = await Promise.all(
+    network.mock.calls.map(([input, init]) => readRequest(input, init)),
+  );
+  expect(
+    requests.find(
+      ({ path, method }) =>
+        path === "/lens/workspace/conversations" && method === "POST",
+    )?.body,
+  ).toMatchObject({ model: "second-model" });
+});
+
+it("opens tagging activity without a report and queries the exact producer, definition and value", async () => {
+  const user = userEvent.setup();
+  const normal = network.getMockImplementation()!;
+  network.mockImplementation(async (input, init) => {
+    const request = await readRequest(input, init);
+    if (request.path === "/lens/workspace/reports") return Response.json([]);
+    if (request.path === "/lens/workspace/activity")
+      return Response.json([
+        {
+          producer_id: "bot-a",
+          producer_name: "Failure reviewer",
+          definition_id: "outcome",
+          definition_key: "task_outcome",
+          value: "failed",
+          count: 3,
+          updated_at: 1,
+        },
+      ]);
+    if (request.path === "/lens/workspace/annotations/query")
+      return Response.json({
+        annotations: [
+          {
+            trace: { trace_id: "failed-trace", trace_ref: "scope-a" },
+            producer_id: "bot-a",
+            producer_name: "Failure reviewer",
+            definition_id: "outcome",
+            definition_key: "task_outcome",
+            value: "failed",
+            evidence: "The requested checkout never completed",
+            updated_at: 1,
+          },
+        ],
+        next_cursor: null,
+      });
+    return normal(input, init);
+  });
+  renderWithProviders(<LensWorkspace {...admin} />);
+  await user.click(
+    await screen.findByRole("button", {
+      name: /Failure reviewer tagged 3 traces/,
+    }),
+  );
+  const panel = within(
+    await screen.findByRole("dialog", { name: "task_outcome: failed" }),
+  );
+  expect(
+    panel.getByText("The requested checkout never completed"),
+  ).toBeVisible();
+  expect(panel.getByRole("button", { name: "failed-trace" })).toBeVisible();
+  const requests = await Promise.all(
+    network.mock.calls.map(([input, init]) => readRequest(input, init)),
+  );
+  expect(
+    requests.find(({ path }) => path === "/lens/workspace/annotations/query")
+      ?.body,
+  ).toMatchObject({
+    producer_id: "bot-a",
+    definition_id: "outcome",
+    value: "failed",
+  });
+});
+
+it("creates a bot with the selected model from the sidebar plus", async () => {
+  const user = userEvent.setup();
+  const normal = network.getMockImplementation()!;
+  const created = vi.fn();
+  network.mockImplementation(async (input, init) => {
+    const request = await readRequest(input, init);
+    if (request.path === "/lens/workspace/bots") {
+      created(request.body);
+      return Response.json({ id: "created-bot" });
+    }
+    return normal(input, init);
+  });
+  renderWithProviders(<LensWorkspace {...admin} />);
+  await user.click(
+    await screen.findByRole("button", { name: "Bots", exact: true }),
+  );
+  await user.click(await screen.findByRole("button", { name: "Create bot" }));
+  const dialog = within(screen.getByRole("dialog", { name: "Create bot" }));
+  fireEvent.change(dialog.getByRole("textbox", { name: "Name" }), {
+    target: { value: "Outcome reviewer" },
+  });
+  fireEvent.change(dialog.getByRole("textbox", { name: "Task" }), {
+    target: { value: "Tag unsuccessful requests" },
+  });
+  await user.click(dialog.getByRole("combobox", { name: "Model" }));
+  await user.click(await screen.findByRole("option", { name: "second-model" }));
+  await user.click(dialog.getByRole("button", { name: "Create bot" }));
+  await waitFor(() =>
+    expect(created).toHaveBeenCalledWith(
+      expect.objectContaining({
+        name: "Outcome reviewer",
+        model: "second-model",
+      }),
+    ),
+  );
+});

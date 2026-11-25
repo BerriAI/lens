@@ -214,6 +214,18 @@ impl Store {
         Ok(input.len())
     }
 
+    pub async fn annotation_activity(
+        &self,
+        workspace: &str,
+    ) -> Result<Vec<AnnotationActivity>, Error> {
+        sqlx::query("SELECT a.producer_id,COALESCE(p.name,'Lens') AS producer_name,a.definition_id,json_extract(d.definition,'$.key') AS definition_key,a.value,count(*) AS count,max(a.updated_at) AS updated_at FROM annotations a JOIN definitions d ON d.workspace=a.workspace AND d.id=a.definition_id LEFT JOIN actors p ON p.id=a.producer_id AND p.workspace=a.workspace WHERE a.workspace=? GROUP BY a.producer_id,a.definition_id,a.value ORDER BY updated_at DESC,a.producer_id,a.definition_id,a.value LIMIT 100")
+            .bind(workspace).fetch_all(&self.0).await?.iter().map(|row| Ok(AnnotationActivity {
+                producer_id: row.try_get("producer_id")?, producer_name: row.try_get("producer_name")?,
+                definition_id: row.try_get("definition_id")?, definition_key: row.try_get("definition_key")?,
+                value: serde_json::from_str(row.try_get("value")?)?, count: row.try_get("count")?, updated_at: row.try_get("updated_at")?,
+            })).collect()
+    }
+
     pub async fn annotations(
         &self,
         workspace: &str,

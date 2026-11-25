@@ -24,6 +24,22 @@ pub enum Error {
     Authentication(#[from] lens_auth::Error),
     #[error("Agent workspace is unavailable")]
     Io(#[from] std::io::Error),
+    #[error("Python computation cancelled")]
+    PythonCancelled,
+    #[error("Python exceeded its 60-second elapsed-time limit")]
+    PythonTimedOut,
+    #[error("Python analysis requires the Linux Lens image with Landlock and seccomp support")]
+    PythonUnsupportedPlatform,
+    #[error("Python exceeded its scratch directory-depth limit")]
+    PythonScratchTooDeep,
+    #[error("Python exceeded its scratch storage or file-count limit")]
+    PythonScratchTooLarge,
+    #[error("Python output exceeded 4 MiB on one stream. Print a smaller result.")]
+    PythonOutputTooLarge,
+    #[error("Python syscall policy is missing from the worker image")]
+    PythonPolicyMissing,
+    #[error("Python resource monitoring failed: {0}")]
+    PythonMonitorIo(#[source] std::io::Error),
     #[error("Agent runtime is unavailable")]
     Runtime,
 }

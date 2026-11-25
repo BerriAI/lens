@@ -9,6 +9,7 @@ use tokio::{
 };
 
 pub(super) struct Process {
+    pub model: String,
     child: Child,
     input: ChildStdin,
     output: Lines<BufReader<ChildStdout>>,
@@ -38,6 +39,10 @@ impl Process {
             .env("DEEPAGENTS_HOME", root.join("profile"))
             .args([
                 "--acp",
+                "--allow-fs-tools",
+                "read_file",
+                "--no-interpreter",
+                "--no-tracing",
                 "--model",
                 &format!("openai:{}", config.model),
                 "--mcp-config",
@@ -49,6 +54,7 @@ impl Process {
         let input = child.stdin.take().ok_or(Error::Runtime)?;
         let output = BufReader::new(child.stdout.take().ok_or(Error::Runtime)?).lines();
         let mut process = Self {
+            model: config.model.clone(),
             child,
             input,
             output,
@@ -87,12 +93,15 @@ impl Process {
                 continue;
             };
             if value.get("method") == Some(&json!("session/request_permission")) {
+                let allowed = value
+                    .pointer("/params/toolCall/title")
+                    .and_then(Value::as_str)
+                    .is_some_and(permission_allowed);
+                let kind = if allowed { "allow_once" } else { "reject_once" };
                 let option = value
                     .pointer("/params/options")
                     .and_then(Value::as_array)
-                    .and_then(|options| {
-                        options.iter().find(|option| option["kind"] == "allow_once")
-                    })
+                    .and_then(|options| options.iter().find(|option| option["kind"] == kind))
                     .and_then(|option| option.get("optionId"));
                 let outcome = option.map_or_else(
                     || json!({"outcome":"cancelled"}),
@@ -155,6 +164,7 @@ impl Process {
             id
         };
         emit(events, "session", json!({"native_id":native_id})).await?;
+        self.request("session/set_config_option", json!({"sessionId":native_id,"configId":"model","value":format!("openai:{}", prompt.config.model)}), None).await?;
         let result = self.request("session/prompt", json!({"sessionId":native_id,"messageId":prompt.turn_id,"prompt":[{"type":"text","text":prompt.text}]}), Some(events)).await?;
         let kind = if result["stopReason"] == "end_turn" {
             "completed"
@@ -170,5 +180,30 @@ impl Process {
 
     pub async fn stop(&mut self) -> Result<(), Error> {
         terminate(&mut self.child).await
+    }
+}
+
+fn permission_allowed(title: &str) -> bool {
+    title.starts_with("lens_") || matches!(title, "task" | "Review Plan" | "compact_conversation")
+}
+
+#[cfg(test)]
+mod tests {
+    use super::permission_allowed;
+    use rstest::rstest;
+
+    #[rstest]
+    #[case::annotation("lens_annotate_traces", true)]
+    #[case::sandbox("lens_run_python", true)]
+    #[case::subagent("task", true)]
+    #[case::shell("Execute: `python code.py`", false)]
+    #[case::config_write("Write `config.toml`", false)]
+    #[case::future_tool("unknown_execution_tool", false)]
+    #[case::direct_network("fetch_url", false)]
+    fn only_workspace_and_planning_actions_are_approved(
+        #[case] title: &str,
+        #[case] expected: bool,
+    ) {
+        assert_eq!(permission_allowed(title), expected);
     }
 }

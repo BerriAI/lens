@@ -28,6 +28,7 @@ fn access() -> Access {
 fn input() -> BotInput {
     BotInput {
         id: Some(uuid::Uuid::new_v4().to_string()),
+        model: None,
         name: "Request reviewer".into(),
         instructions: "Review unsuccessful tasks".into(),
     }
@@ -193,4 +194,88 @@ async fn interrupted_turn_cannot_be_revived_by_late_runtime_events(
         store.turns(&access, &chat.id).await.unwrap()[0].status,
         "interrupted"
     );
+}
+
+#[rstest]
+#[case::session(Runtime::Deepagents, "session-model")]
+#[case::bot(Runtime::Hermes, "bot-model")]
+#[tokio::test]
+async fn selected_model_survives_reopen_and_bot_chats_inherit_it(
+    directory: TempDir,
+    access: Access,
+    input: BotInput,
+    #[case] runtime: Runtime,
+    #[case] expected: &str,
+) {
+    let path = directory.path().join("models.db");
+    let store = Store::open(&path).await.unwrap();
+    let input = BotInput {
+        model: Some("bot-model".into()),
+        ..input
+    };
+    let agent = store.create_agent(&access, &input, runtime).await.unwrap();
+    let id = uuid::Uuid::new_v4().to_string();
+    let chat = store
+        .create_conversation_with_model(
+            &access,
+            &agent.id,
+            "Model choice",
+            &id,
+            Some("session-model"),
+        )
+        .await
+        .unwrap();
+    assert_eq!(chat.model.as_deref(), Some(expected));
+    drop(store);
+    let reopened = Store::open(&path).await.unwrap();
+    assert_eq!(
+        reopened
+            .conversation(&access, &id)
+            .await
+            .unwrap()
+            .model
+            .as_deref(),
+        Some(expected)
+    );
+    assert_eq!(
+        reopened
+            .agent(&access.workspace, &agent.id)
+            .await
+            .unwrap()
+            .model,
+        input.model
+    );
+}
+
+#[rstest]
+#[tokio::test]
+async fn model_changes_cannot_reuse_a_session_request(
+    directory: TempDir,
+    access: Access,
+    input: BotInput,
+) {
+    let store = Store::open(&directory.path().join("models.db"))
+        .await
+        .unwrap();
+    let agent = store
+        .create_agent(&access, &input, Runtime::Deepagents)
+        .await
+        .unwrap();
+    let id = uuid::Uuid::new_v4().to_string();
+    store
+        .create_conversation_with_model(&access, &agent.id, "Model choice", &id, Some("model-one"))
+        .await
+        .unwrap();
+    assert!(matches!(
+        store
+            .create_conversation_with_model(
+                &access,
+                &agent.id,
+                "Model choice",
+                &id,
+                Some("model-two")
+            )
+            .await,
+        Err(Error::Conflict(_))
+    ));
 }

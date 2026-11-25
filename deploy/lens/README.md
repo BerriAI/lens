@@ -1,6 +1,6 @@
 # Run the agent-first Lens experiment
 
-This branch opens Lens on a chat composer and a feed of reports from your traces. Deep Agents runs ordinary chat sessions. Hermes runs persistent bots with their own conversation, memory, tools and schedules. Traces remain immutable; agents publish shared annotations, reports and attachments alongside them
+This branch opens Lens on a chat composer and a feed of tagging activity and reports from your traces. Deep Agents runs ordinary chat sessions. Hermes runs persistent bots with their own conversation, memory, tools and schedules. Traces remain immutable; agents publish shared annotations, reports and attachments alongside them
 
 This is a separate deployment candidate. Use an isolated installation and new state volumes to try it. Released Lens images do not include this experiment. For Kubernetes, use this checkout's [agent workspace chart settings](../../helm/lens/README.md#agent-workspace)
 
@@ -16,21 +16,25 @@ From this branch's checkout:
 
 The command builds both images and starts Lens, the native agent runtime and ClickHouse. Open [Lens](http://localhost:4318/ui/), then paste the generated `LENS_ADMIN_TOKEN` from `deploy/lens/.env` into the sign-in form. The file is private and survives restarts. It contains the local setup credential, storage password and runtime credential; it does not contain your gateway key
 
-Home has the chat composer and reports. **New Session** opens a separate main-agent conversation. **Bots** shows persistent agents and their chats. **Traces** retains the existing trace browser and connection instructions. Follow the tracing instructions there to send a run from your project
+Home keeps the chat composer pinned above a feed of tags and reports. Tag counts show current annotations, not newly processed traces; open a tag to see that bot’s matching traces and evidence. **New Session** opens a separate main-agent conversation. **Bots** shows persistent agents and their chats. **Traces** retains the existing trace browser and connection instructions. Follow the tracing instructions there to send a run from your project
 
 Once a trace is visible, ask Lens:
 
 > Review my recent traces for unsuccessful user tasks. Reuse an existing outcome definition if one fits, annotate the runs with evidence, and publish a report
 
-The report should appear on Home. Open it to inspect evidence, use **Copy for agent** to copy its full report and annotation context, or choose **Discuss with Lens** to start a chat that reads the saved report. Images appear inline and other attachments are downloadable
+The report should appear on Home. Open it to inspect evidence, use **Copy for agent** to copy its full report and annotation context, or choose **Discuss with Lens** to start a chat that reads the saved report. Charts use Vega-Lite JSON rendered as SVG with Lens typography and colors. Images appear inline and other attachments are downloadable
 
 ## Give a bot an ongoing task
 
-In **Bots**, choose **Create bot**, give it a name and describe its task. For example:
+Choose the **+** beside **Bots**, give it a name and describe its task. The model picker lists models available to the shared LiteLLM key. Each bot keeps its chosen model, including its heartbeat and all its chats. For example:
 
 > Review new requests for unsuccessful user tasks. Distinguish a recovered tool error from an unsuccessful final outcome. Reuse the existing outcome definition and write a report when there is something useful to flag
 
-The bot starts immediately. Hermes re-enters its permanent **Bot Chat** every ten minutes using the latest instructions and corrections. It can create its own native scheduled jobs. A heartbeat can use the model even when it produces no report. Use **Pause** to stop that bot's process and scheduled work; **Resume** restores its native state
+The bot starts immediately. Hermes re-enters its permanent **Bot Chat** every ten minutes using the latest instructions and corrections. A heartbeat can use the model even when it produces no report. Bots are prompted to consider the current time, previous work, new evidence and any cadence you request before publishing. Tagging does not require a report; report timing is agent judgment, not a fixed publication schedule. Use **Pause** in the bot’s task header to stop that bot's process and scheduled work; **Resume** restores its native state
+
+Both the main agent and bots can analyze trace query results with Python in the [existing Lens sandbox](../../docs/sandbox.md). They can filter, group, calculate statistics and produce chart data using the standard library. Code gets only the supplied data and disposable scratch space, with no network, credentials, shell or access to Lens storage. Native terminal, unrestricted code, file writes and script scheduling are disabled. Agents publish annotations and report attachments through Lens tools. Connected MCP and Slack tools retain the permissions of the shared workspace key; sandboxing code does not prevent misuse of an allowed tool
+
+Run native agents in the Linux container, including on macOS through Docker. Direct macOS execution is disabled. The sandbox fails closed when its policy or required Linux kernel support is missing
 
 Ask the main agent, “Show me the unsuccessful requests that Request reviewer found.” It looks up that bot's producer ID and queries the shared annotations. Definitions have stable keys, typed values and aliases. Bots can create new definitions, but cannot silently redefine an existing key. Meaning-based reuse still depends on their judgment; conflicting definitions are surfaced rather than silently combined
 
@@ -54,7 +58,7 @@ A bot can list its authorized threads and send updates there when asked. Outgoin
 
 ## Configure the deployment
 
-The default model is `openai/gpt-6.2-astra`; set `LENS_AGENT_MODEL` to another model available to the dedicated gateway key. Set `LENS_PUBLIC_URL` to the browser origin so agents produce working trace links. For another local port, set both `LENS_PORT` and `LENS_PUBLIC_URL`
+The workspace default model is `openai/gpt-6.2-astra`; set `LENS_AGENT_MODEL` to another model available to the dedicated gateway key. Choose a different model in the Home or New Session composer before sending the first message. The session keeps that selection when reopened; changing the workspace default affects new sessions and bots. Sessions created before model selection was available continue to use the workspace default. Set `LENS_PUBLIC_URL` to the browser origin so agents produce working trace links. For another local port, set both `LENS_PORT` and `LENS_PUBLIC_URL`
 
 To run previously built candidates, export both `LENS_IMAGE` and `LENS_AGENTS_IMAGE` with references from the same source revision, then run `./deploy/lens/start`. The public release tag is not an agent-first candidate
 

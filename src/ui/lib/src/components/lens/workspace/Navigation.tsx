@@ -32,6 +32,7 @@ export function WorkspaceNavigation({
   onBot,
   onChat,
   onNewChat,
+  onCreateBot,
   writable,
 }: {
   tab: WorkspaceTab;
@@ -44,6 +45,7 @@ export function WorkspaceNavigation({
   onBot: (id: string) => void;
   onChat: (id: string) => void;
   onNewChat: () => void;
+  onCreateBot: () => void;
   writable: boolean;
 }) {
   return (
@@ -58,7 +60,7 @@ export function WorkspaceNavigation({
             title={collapsed ? title : undefined}
             data-active={tab === item ? "" : undefined}
             className={cn(
-              "lens-nav-tab relative flex h-9 items-center gap-2.5 rounded-md px-2.5 text-left text-[13px] font-medium text-muted-foreground outline-none hover:bg-sidebar-accent/60 focus-visible:ring-2 focus-visible:ring-ring data-active:bg-sidebar-accent data-active:text-sidebar-accent-foreground",
+              "lens-nav-tab relative flex h-9 w-full min-w-0 shrink-0 items-center gap-2.5 rounded-md px-2.5 text-left text-[13px] font-medium text-muted-foreground outline-none hover:bg-sidebar-accent/60 focus-visible:ring-2 focus-visible:ring-ring data-active:bg-sidebar-accent data-active:text-sidebar-accent-foreground",
               collapsed && "justify-center px-0",
             )}
           >
@@ -71,9 +73,19 @@ export function WorkspaceNavigation({
         <div className="mt-6 min-h-0 flex-1 overflow-y-auto">
           {tab === "bots" && (
             <section aria-label="Bots" className="mb-5">
-              <h2 className="mb-2 px-2.5 text-xs text-muted-foreground">
-                Bots
-              </h2>
+              <div className="mb-1 flex items-center justify-between px-2.5">
+                <h2 className="text-xs text-muted-foreground">Bots</h2>
+                {writable && (
+                  <Button
+                    variant="ghost"
+                    size="icon-sm"
+                    aria-label="Create bot"
+                    onClick={onCreateBot}
+                  >
+                    <Plus className="size-3.5" />
+                  </Button>
+                )}
+              </div>
               {bots.map((bot) => (
                 <button
                   key={bot.id}

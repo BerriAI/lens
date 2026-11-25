@@ -28,6 +28,23 @@ fn succeeded(reply: &Value) {
 #[rstest]
 #[tokio::test]
 #[ignore = "requires the native Lens Linux image"]
+async fn workspace_agents_analyze_supplied_trace_results_in_the_shared_sandbox() {
+    let reply = lens_agents::sandbox::execute_code(
+        "import json\nprint(json.dumps([r['trace_id'] for r in data if r['status'] == 'failed']))",
+        json!([
+            {"trace_id":"trace-a","status":"ok"},
+            {"trace_id":"trace-b","status":"failed"}
+        ]),
+    )
+    .await
+    .unwrap();
+    succeeded(&reply);
+    assert_eq!(reply["stdout"], "[\"trace-b\"]\n");
+}
+
+#[rstest]
+#[tokio::test]
+#[ignore = "requires the native Lens Linux image"]
 async fn confined_python_can_analyze_evidence_with_the_standard_library(workspace: Workspace) {
     let reply = sandbox::execute(
         &workspace,

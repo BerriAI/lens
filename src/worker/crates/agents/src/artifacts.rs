@@ -16,9 +16,33 @@ pub const MAX_ARTIFACT_BYTES: usize = 10 * 1024 * 1024;
 #[serde(deny_unknown_fields)]
 pub struct PublishArtifact {
     pub id: String,
-    pub path: String,
+    pub content: String,
+    #[serde(default)]
+    pub encoding: ArtifactEncoding,
     pub filename: String,
     pub media_type: String,
+}
+
+#[derive(Default, Deserialize, JsonSchema)]
+#[serde(rename_all = "snake_case")]
+pub enum ArtifactEncoding {
+    #[default]
+    Utf8,
+    Base64,
+}
+
+impl PublishArtifact {
+    pub fn bytes(&self) -> Result<Vec<u8>, Error> {
+        if self.content.len() > MAX_ARTIFACT_BYTES * 4 / 3 + 4 {
+            return Err(Error::Invalid("Artifact exceeds 10 MiB"));
+        }
+        match self.encoding {
+            ArtifactEncoding::Utf8 => Ok(self.content.as_bytes().to_vec()),
+            ArtifactEncoding::Base64 => STANDARD
+                .decode(&self.content)
+                .map_err(|_| Error::Invalid("Artifact content is not valid base64")),
+        }
+    }
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug, JsonSchema)]
@@ -59,12 +83,16 @@ impl Store {
             "image/jpeg" => content.starts_with(b"\xff\xd8\xff"),
             "image/webp" => content.starts_with(b"RIFF") && content.get(8..12) == Some(b"WEBP"),
             "text/csv" | "text/plain" | "text/markdown" => std::str::from_utf8(content).is_ok(),
+            "application/vnd.vegalite.v6+json" => {
+                serde_json::from_slice::<serde_json::Map<String, serde_json::Value>>(content)
+                    .is_ok()
+            }
             "application/json" => serde_json::from_slice::<serde_json::Value>(content).is_ok(),
             _ => false,
         };
         if !valid {
             return Err(Error::Invalid(
-                "Publish a PNG, JPEG, WebP, UTF-8 text, CSV, Markdown or JSON artifact with its matching media type",
+                "Publish a PNG, JPEG, WebP, UTF-8 text, CSV, Markdown, Vega-Lite or JSON artifact with its matching media type",
             ));
         }
         let digest = format!("{:x}", Sha256::digest(content));
@@ -133,5 +161,33 @@ impl Store {
             .bind(workspace).bind(id).fetch_all(&self.0).await?.iter().map(|row|Ok(ArtifactInfo {
                 id:row.try_get("id")?,filename:row.try_get("filename")?,media_type:row.try_get("media_type")?,size:row.try_get::<u32,_>("size")? as usize,sha256:row.try_get("digest")?,
             })).collect()
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use rstest::rstest;
+
+    #[rstest]
+    #[case::text("utf8", "outcome,count\nfailed,3\n", b"outcome,count\nfailed,3\n".as_slice())]
+    #[case::binary("base64", "AAEC/w==", &[0, 1, 2, 255])]
+    fn artifact_content_is_decoded_without_reading_host_files(
+        #[case] encoding: &str,
+        #[case] content: &str,
+        #[case] expected: &[u8],
+    ) {
+        let input: PublishArtifact = serde_json::from_value(serde_json::json!({
+            "id":"fixture", "filename":"result", "media_type":"text/plain", "encoding":encoding, "content":content
+        })).unwrap();
+        assert_eq!(input.bytes().unwrap(), expected);
+    }
+
+    #[rstest]
+    fn artifact_publication_rejects_host_paths() {
+        let result = serde_json::from_value::<PublishArtifact>(serde_json::json!({
+            "id":"fixture", "filename":"result", "media_type":"text/plain", "path":"/etc/passwd"
+        }));
+        assert!(result.is_err());
     }
 }

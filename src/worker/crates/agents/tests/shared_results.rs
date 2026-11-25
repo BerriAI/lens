@@ -446,7 +446,8 @@ async fn report_attachments_are_immutable_scoped_and_atomic(directory: TempDir, 
         .unwrap();
     let file = PublishArtifact {
         id: "chart-data".into(),
-        path: "chart.csv".into(),
+        content: "status,count\nfailed,3\n".into(),
+        encoding: Default::default(),
         filename: "chart.csv".into(),
         media_type: "text/csv".into(),
     };
@@ -493,4 +494,62 @@ async fn report_attachments_are_immutable_scoped_and_atomic(directory: TempDir, 
             .id,
         file.id
     );
+}
+
+#[rstest]
+#[tokio::test]
+async fn activity_counts_current_tags_without_requiring_a_report(
+    directory: TempDir,
+    actor: Actor,
+    definition: DefinitionInput,
+) {
+    let store = Store::open(&directory.path().join("activity.db"))
+        .await
+        .unwrap();
+    let definition = store.create_definition(&actor, definition).await.unwrap();
+    store
+        .annotate(
+            &actor,
+            &[
+                judgment(&definition.id, "run-one", "failed"),
+                judgment(&definition.id, "run-two", "failed"),
+            ],
+        )
+        .await
+        .unwrap();
+    store
+        .annotate(&actor, &[judgment(&definition.id, "run-one", "succeeded")])
+        .await
+        .unwrap();
+    let failed = store
+        .annotation_activity(&actor.workspace)
+        .await
+        .unwrap()
+        .into_iter()
+        .find(|row| row.value == json!("failed"))
+        .unwrap();
+    assert_eq!(failed.count, 1);
+    assert_eq!(failed.producer_id, actor.producer_id);
+    assert_eq!(failed.definition_key, "task_outcome");
+    assert!(
+        store
+            .annotation_activity("another-workspace")
+            .await
+            .unwrap()
+            .is_empty()
+    );
+    let matches = store
+        .annotations(
+            &actor.workspace,
+            &AnnotationFilter {
+                definition_id: Some(failed.definition_id),
+                producer_id: Some(failed.producer_id),
+                value: Some(failed.value),
+                ..Default::default()
+            },
+        )
+        .await
+        .unwrap();
+    assert_eq!(matches.annotations.len() as i64, failed.count);
+    assert_eq!(matches.annotations[0].annotation.trace.trace_ref, "run-two");
 }

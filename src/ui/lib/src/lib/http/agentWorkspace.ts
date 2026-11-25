@@ -1,4 +1,5 @@
 export interface WorkspaceAgent {
+  model: string | null;
   id: string;
   name: string;
   instructions: string;
@@ -15,6 +16,7 @@ export interface AgentWorkspaceState {
 }
 
 export interface AgentConversation {
+  model: string | null;
   id: string;
   actor_id: string;
   title: string;
@@ -93,6 +95,21 @@ export interface TraceAnnotation {
   updated_at: number;
 }
 
+export interface AnnotationActivity {
+  producer_id: string;
+  producer_name: string;
+  definition_id: string;
+  definition_key: string;
+  value: string | number | boolean;
+  count: number;
+  updated_at: number;
+}
+export interface AnnotationSelection {
+  producer_id: string;
+  definition_id: string;
+  value: string | number | boolean;
+}
+
 type JsonResponse<T> = {
   responses: { 200: { content: { "application/json": T } } };
 };
@@ -101,8 +118,15 @@ type IdPath = { parameters: { path: { id: string } } };
 
 export interface AgentWorkspacePaths {
   "/lens/workspace": { get: JsonResponse<AgentWorkspaceState> };
+  "/lens/workspace/activity": { get: JsonResponse<AnnotationActivity[]> };
+  "/lens/workspace/models": { get: JsonResponse<string[]> };
   "/lens/workspace/bots": {
-    post: JsonBody<{ name: string; instructions: string; id: string }> &
+    post: JsonBody<{
+      name: string;
+      instructions: string;
+      id: string;
+      model?: string;
+    }> &
       JsonResponse<WorkspaceAgent>;
   };
   "/lens/workspace/bots/{id}": {
@@ -114,7 +138,12 @@ export interface AgentWorkspacePaths {
     get: { parameters: { query: { actor_id: string } } } & JsonResponse<
       AgentConversation[]
     >;
-    post: JsonBody<{ actor_id?: string; title: string; id?: string }> &
+    post: JsonBody<{
+      actor_id?: string;
+      title: string;
+      id?: string;
+      model?: string;
+    }> &
       JsonResponse<AgentConversation>;
   };
   "/lens/workspace/conversations/{id}": {
