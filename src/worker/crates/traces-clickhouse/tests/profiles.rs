@@ -205,11 +205,11 @@ fn parameters(profile: &str, preview: u8) -> LensSampleParams {
 #[case::coding("Coding",vec!["coding","earliest","resource-priority"])]
 #[case::workflows("Workflows",vec!["workflows"])]
 #[case::not_configured("Not configured",vec!["unclassified"])]
-#[case::unclassified_needs_a_taxonomy("Unclassified",vec![])]
+#[case::unclassified_includes_unconfigured_runs("Unclassified",vec!["unclassified"])]
 #[case::unknown("Not recorded",vec![])]
 #[case::recorded_id("recorded:Coding",vec!["coding","earliest","resource-priority"])]
 #[case::not_configured_id("unconfigured",vec!["unclassified"])]
-#[case::unclassified_id_needs_a_taxonomy("unclassified",vec![])]
+#[case::unclassified_id_includes_unconfigured_runs("unclassified",vec!["unclassified"])]
 #[case::recorded_category_named_like_an_id("recorded:unclassified",vec!["named-unclassified"])]
 #[tokio::test]
 async fn preview_and_actual_sampling_use_profile_precedence_and_tenant_identity(
@@ -264,6 +264,51 @@ async fn imported_finding_sources_must_belong_to_the_selected_profile(
             access: access(),
             trace_id: "coding".into(),
             trace_ref: coding.trace_ref.clone(),
+            agent_name: "assistant".into(),
+            selected_team: String::new(),
+            service: String::new(),
+            filter_keys: Vec::new(),
+            filter_values: Vec::new(),
+        },
+    )
+    .await?;
+    assert_eq!(!found.is_empty(), expected);
+    Ok(())
+}
+
+#[rstest]
+#[case::not_configured("Not configured", true)]
+#[case::not_configured_id("unconfigured", true)]
+#[case::unclassified_label("Unclassified", true)]
+#[case::unclassified_id("unclassified", true)]
+#[case::recorded("Coding", false)]
+#[tokio::test]
+async fn unconfigured_finding_sources_also_match_the_unclassified_profile(
+    #[future(awt)] profiled_database: TestResult<SeededDatabase>,
+    #[case] profile: &str,
+    #[case] expected: bool,
+) -> TestResult {
+    let fixture = profiled_database?;
+    let config = Config::new(DATABASE.into(), &fixture.database.url, 7)?;
+    let rows = fetch::<LensSample>(
+        &fixture.database.client,
+        config.storage().reader(),
+        &parameters("Not configured", 1),
+    )
+    .await?;
+    let run = rows
+        .iter()
+        .find(|row| row.trace_id == "unclassified")
+        .unwrap();
+    let found = fetch::<LensFindingSource>(
+        &fixture.database.client,
+        config.storage().reader(),
+        &LensFindingSourceParams {
+            taxonomy: Default::default(),
+            profile: profile.into(),
+            access: access(),
+            trace_id: "unclassified".into(),
+            trace_ref: run.trace_ref.clone(),
             agent_name: "assistant".into(),
             selected_team: String::new(),
             service: String::new(),
