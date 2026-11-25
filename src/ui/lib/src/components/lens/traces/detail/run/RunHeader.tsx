@@ -14,6 +14,8 @@ import {
 import { useState } from "react";
 import { useTimeout } from "usehooks-ts";
 
+import { useLensHost } from "../../../../../host/LensHost";
+import { gatewayFrameShareLocation } from "../../../../../host/gatewayFrame";
 import { Button } from "../../../../ui/button";
 import { ButtonGroup } from "../../../../ui/button-group";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "../../../../ui/dropdown-menu";
@@ -89,6 +91,7 @@ function RunIcon({ summary }: { summary: Summary }) {
 
 /** "Copy for agent" up front; the link and dataset actions sit behind its chevron. */
 function RunActions({ summary, handoff }: { summary: Summary; handoff: TraceHandoff }) {
+  const host = useLensHost();
   const canAddToDataset = useCanAddToDataset();
   const [copied, setCopied] = useState(false);
   const [addingToDataset, setAddingToDataset] = useState(false);
@@ -116,7 +119,13 @@ function RunActions({ summary, handoff }: { summary: Summary; handoff: TraceHand
           <DropdownMenuContent align="end" className="w-48">
             <DropdownMenuItem
               onClick={() =>
-                void copyToClipboard(traceShareUrl(traceRefOf(summary), window.location), "Trace link copied")
+                void copyToClipboard(
+                  traceShareUrl(
+                    traceRefOf(summary),
+                    host.gatewayFrameNavigation ? gatewayFrameShareLocation() : window.location,
+                  ),
+                  "Trace link copied",
+                )
               }
             >
               <Link />

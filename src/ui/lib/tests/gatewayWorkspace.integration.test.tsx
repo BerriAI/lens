@@ -148,7 +148,7 @@ it.each(["Authorization", "X-Gateway-Key"])(
   },
 );
 
-it("waits for fresh auth after a queryless reload of the same iframe", async () => {
+it("waits for fresh auth after remounting at a queryless URL with the same frame attribute", async () => {
   window.history.replaceState(null, "", "/gateway/lens/ui/?tab=traces");
   const page = renderWithProviders(<Workspace />, { searchParams: "?tab=traces" });
   authenticate();
@@ -163,12 +163,12 @@ it("waits for fresh auth after a queryless reload of the same iframe", async () 
   expect(screen.getByRole("status")).toHaveTextContent("Opening Lens");
   expect(network).not.toHaveBeenCalled();
 
-  const reloadedToken = "reloaded-dashboard-bearer";
-  authenticate({ type: "auth", accessToken: reloadedToken, headerName: "Authorization" });
+  const remountedToken = "remounted-dashboard-bearer";
+  authenticate({ type: "auth", accessToken: remountedToken, headerName: "Authorization" });
   expect(await screen.findByRole("heading", { name: "Traces" })).toBeVisible();
   expect(requests.length).toBeGreaterThan(0);
   for (const request of requests) {
-    expect(request.headers.get("Authorization")).toBe(`Bearer ${reloadedToken}`);
+    expect(request.headers.get("Authorization")).toBe(`Bearer ${remountedToken}`);
     expect(request.credentials).toBe("omit");
   }
 });

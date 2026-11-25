@@ -10,6 +10,7 @@ import userEvent from "@testing-library/user-event";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import { ApiError } from "../../../../../lib/http/client";
+import { LensHostProvider } from "../../../../../host/LensHost";
 
 import {
   renderWithProviders,
@@ -1196,6 +1197,50 @@ describe("RunView", () => {
       "http://proxy.test/v1/traces/t1?page_size=200",
     );
     expect(agentHandoffText("t1", "s1")).toContain("/v1/traces/t1/spans/s1");
+  });
+
+  it("copies a hosted run link through the dashboard without credentials or stale filters", async () => {
+    const previousUrl = window.location.href;
+    const origin = window.location.origin;
+    const trace = {
+      ...research,
+      summary: { ...research.summary, trace_ref: "run/ref +1" },
+    };
+    vi.mocked(agentTraceCall).mockResolvedValue(trace);
+    vi.stubGlobal("parent", {
+      location: new URL(`${origin}/gateway/ui/lens/?tab=home&token=parent-secret`),
+    });
+    window.history.replaceState(
+      null,
+      "",
+      "/gateway/lens/ui/?demo=true&span=s1&q=refund&token=child-secret",
+    );
+    try {
+      const user = userEvent.setup();
+      renderWithProviders(
+        <LensHostProvider host={{ gatewayFrameNavigation: true }}>
+          <RoutedRunView
+            traceId={trace.summary.trace_id}
+            accessToken="sk-test"
+            onBack={vi.fn()}
+          />
+        </LensHostProvider>,
+      );
+      fireEvent.click(
+        await screen.findByRole("button", { name: "More run actions" }),
+      );
+      await user.click(
+        await screen.findByRole("menuitem", { name: /copy link/i }),
+      );
+
+      expect(copyToClipboard).toHaveBeenCalledExactlyOnceWith(
+        `${origin}/gateway/ui/lens/?demo=true&trace=${trace.summary.trace_id}&trace_ref=run%2Fref+%2B1`,
+        "Trace link copied",
+      );
+    } finally {
+      vi.unstubAllGlobals();
+      window.history.replaceState(null, "", previousUrl);
+    }
   });
 
   it("copies a link that reopens just this run", async () => {
