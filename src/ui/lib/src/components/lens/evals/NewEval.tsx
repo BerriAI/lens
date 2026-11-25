@@ -18,6 +18,7 @@ import { useDatasets } from "../datasets/api";
 import { LensPageHeader } from "../ui/LensPageHeader";
 import { buildEvalSpec, EMPTY_DRAFT, type NewEvalDraft } from "./newEvalSpec";
 import { useSaveEval } from "./runs/api";
+import { HttpAgentForm, SELECT_CLASS } from "./HttpAgentForm";
 
 export function NewEval({
   onCancel,
@@ -76,9 +77,9 @@ export function NewEval({
       >
         <div className="lens-page-body grid max-w-3xl gap-4 text-sm">
           <p className="text-sm leading-6 text-muted-foreground">
-            Saving an eval does not execute your agent. Next, connect this eval
-            to your Python test or GitHub workflow to run its cases and see pass
-            or fail results
+            Choose an agent API or code entry point. Saving an eval does not
+            execute your agent. Run its cases locally or in CI to see results
+            here
           </p>
           <Section title="Eval">
             <Field label="Name">
@@ -135,6 +136,41 @@ export function NewEval({
                 onChange={(event) => set({ agent: event.target.value })}
               />
             </Field>
+          </Section>
+          <Section title="Agent execution">
+            <Field label="Execution type">
+              <select
+                className={SELECT_CLASS}
+                value={draft.execution}
+                onChange={(event) => {
+                  const execution =
+                    event.target.value === "http" ? "http" : "code";
+                  set({
+                    execution,
+                    ...(execution === "http"
+                      ? {
+                          taskCompleted: false,
+                          calledBefore: false,
+                          costPerCase: "",
+                          judge: true,
+                          prompt:
+                            draft.prompt ||
+                            "Does the answer satisfy the expected outcome for this case?",
+                        }
+                      : {}),
+                  });
+                }}
+              >
+                <option value="code">Code / SDK</option>
+                <option value="http">HTTP API</option>
+              </select>
+            </Field>
+            {draft.execution === "http" && (
+              <HttpAgentForm
+                draft={draft.api}
+                onChange={(change) => set({ api: { ...draft.api, ...change } })}
+              />
+            )}
           </Section>
           <Section title="Scorers">
             <Toggle

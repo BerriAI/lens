@@ -82,6 +82,7 @@ export function CaseCompare({ runId, runStatus, item, onBack }: CaseCompareProps
 function TrialResult({ trial, active, onBack }: { trial: TrialSteps; active: boolean; onBack: () => void }) {
   const [traceIndex, setTraceIndex] = useState(0);
   const trace = trial.traces?.[traceIndex];
+  const hasOutput = typeof trial.output === "string";
   return (
     <>
       {trial.error && (
@@ -120,7 +121,7 @@ function TrialResult({ trial, active, onBack }: { trial: TrialSteps; active: boo
       )}
       {trace ? (
         <CaseTrace key={`${trace.trace_id}:${trace.trace_ref}`} trace={trace} onBack={onBack} />
-      ) : (
+      ) : !hasOutput ? (
         <div className="space-y-2 p-5">
           <h4 className="text-sm font-medium">{active ? "Waiting for trace" : "Trace unavailable"}</h4>
           <p className="max-w-xl text-sm text-muted-foreground">
@@ -129,13 +130,13 @@ function TrialResult({ trial, active, onBack }: { trial: TrialSteps; active: boo
               : "This trial has no linked trace. Run the eval with tracing enabled to inspect the agent's input, output, and steps"}
           </p>
         </div>
-      )}
-      {(trial.output || trial.steps.length > 0) && (
-        <details className="border-t px-5 py-3 text-xs text-muted-foreground">
-          <summary className="cursor-pointer select-none font-medium">Recorded output and steps</summary>
-          {trial.output && (
+      ) : null}
+      {(hasOutput || trial.steps.length > 0) && (
+        <details open={!trace} className="border-t px-5 py-3 text-xs text-muted-foreground">
+          <summary className="cursor-pointer select-none font-medium">{trial.steps.length ? "Recorded output and steps" : "Agent output"}</summary>
+          {hasOutput && (
             <pre className="mt-3 max-h-56 overflow-auto whitespace-pre-wrap rounded-md bg-muted/30 p-3 text-foreground">
-              {trial.output}
+              {trial.output === "" ? "(empty string)" : trial.output}
             </pre>
           )}
           {trial.steps.length > 0 && (

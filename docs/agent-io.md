@@ -4,6 +4,10 @@ A saved eval defines which dataset to run, how to call the agent, and how to sco
 
 Use a server and [SDK](../src/sdk/README.md#run-a-saved-eval) that support contract 2. The API accepts the definition below at `PUT /lens/evals/{name}` with `X-Lens-Contract: 2`. Contract 1 keeps its existing trace-only response shapes and cannot write agent I/O contracts or direct outputs. The JSON declaration's own `version` is `1`
 
+In the Lens UI, open **Evals > New eval** and choose **HTTP API** under **Agent execution**. Select a dataset, name the local connection profile, and enter the POST path, request JSON, input pointers and output pointer. Choose polling for an API that returns a job ID. Add a trace mapping only when the agent exports matching traces
+
+After saving, **Connect your agent API** generates the connection profile and named-run command. Enter the agent origin and choose authentication, then copy the profile into your project's `pyproject.toml` and set the indicated environment variables. These local connection settings are not saved in Lens. **API setup** reopens the instructions on an existing eval. GitHub setup generates a workflow using `eval-name` for HTTP evals, without a Python task callback
+
 ## An agent that returns its answer immediately
 
 Save this as `eval.json`, replacing `dataset-id` with an existing Lens dataset ID and `revision` with the revision you want to run

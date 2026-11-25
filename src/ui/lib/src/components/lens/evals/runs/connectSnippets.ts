@@ -1,4 +1,5 @@
 import type { EvalDefinition, Scorer } from "./types";
+import type { ConnectionAuth } from "./httpConnection";
 
 export interface GitHubRepository {
   readonly owner: string;
@@ -18,6 +19,7 @@ export type SetupInput<T> =
   | { readonly ok: false; readonly error: string };
 
 export interface ConnectTarget {
+  readonly connectionAuth?: ConnectionAuth;
   readonly definition: EvalDefinition;
   readonly dataset: string;
   readonly revision: number;
@@ -176,6 +178,12 @@ export const evalFilePath = (target: ConnectTarget): string =>
   `evals/${evalModule(target.definition.name)}.py`;
 
 export function workflowSnippet(target: ConnectTarget): string {
+  const http = Boolean(target.definition.spec.agent_io);
+  const action = http ? "BerriAI/lens/src/sdk/action@bad22eb403ea402e00ee04c6e0c16d62693c4261" : ACTION;
+  const auth = target.connectionAuth ?? "bearer";
+  const agentEnvironment = http
+    ? `        env:\n          AGENT_BASE_URL: \${{ vars.AGENT_BASE_URL }}\n          LENS_VERSION: \${{ vars.LENS_VERSION }}\n${auth === "bearer" ? "          AGENT_API_KEY: ${{ secrets.AGENT_API_KEY }}\n" : ""}`
+    : "";
   const install = (target.installCommand?.trim() ?? "")
     .replaceAll("\r\n", "\n")
     .replaceAll("${{", "${{ '${{' }}")
@@ -208,11 +216,11 @@ ${target.reportViaApp ? "" : "  checks: write\n  pull-requests: write\n"}jobs:
       - uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065
         with:
           python-version: "3.12"
-${installStep}      - uses: ${ACTION}
-        with:
+${installStep}      - uses: ${action}
+${agentEnvironment}        with:
           api-key: \${{ secrets.LENS_API_KEY }}
           base-url: \${{ vars.LENS_BASE_URL }}
-          path: ${yamlString(evalFilePath(target))}
+          ${http ? `eval-name: ${yamlString(target.definition.name)}` : `path: ${yamlString(evalFilePath(target))}`}
           install-from-source: true
 ${target.reportViaApp ? "          report-via-app: true\n" : ""}`;
 }

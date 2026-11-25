@@ -16,6 +16,7 @@ import {
 import type { EvalRun } from "../evals/runs/types";
 import { CodeBlock } from "../onboarding/tracing/TracingSetupCard";
 import { useEvalRunRoute } from "../route";
+import { HttpAgentSetup } from "../evals/runs/HttpAgentSetup";
 
 function GitHubLink({ href, children }: { href: string; children: ReactNode }) {
   return (
@@ -32,6 +33,11 @@ function GitHubLink({ href, children }: { href: string; children: ReactNode }) {
 }
 
 export function WorkflowSetup({ target }: { target: ConnectTarget }) {
+  if (target.definition.spec.agent_io) return <HttpAgentSetup definition={target.definition} workflowTarget={target} />;
+  return <CodeWorkflowSetup target={target} />;
+}
+
+function CodeWorkflowSetup({ target }: { target: ConnectTarget }) {
   const files = [
     { path: ".github/workflows/lens.yml", body: workflowSnippet(target) },
     { path: "pyproject.toml", body: pyprojectSnippet(target) },

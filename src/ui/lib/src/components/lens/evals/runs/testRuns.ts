@@ -6,6 +6,16 @@ import type {
   ToolStep,
   TrialSteps,
 } from "./types";
+import type { AgentIo } from "../agentIo";
+
+export const httpAgentIo: AgentIo = {
+  version: 1,
+  connection: "agent-service",
+  submit: { method: "POST", path: "/invoke", accepted_status: 200, json: { input: "", request_id: "" } },
+  input: [{ source: "case.input", target: "/input" }, { source: "trial.request_id", target: "/request_id" }],
+  completion: { kind: "immediate" },
+  output: { pointer: "/output", require_nonempty: true },
+};
 
 export const diff = (
   case_id: string,

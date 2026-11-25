@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest";
+import { httpAgentIo } from "./testRuns";
 import {
   evalFilePath,
   evalModule,
@@ -345,10 +346,23 @@ describe("saved eval test snippets", () => {
       ...target.definition,
       spec: {
         ...target.definition.spec,
-        agent_io: { version: 1, connection: "agent-service" },
+        agent_io: httpAgentIo,
       },
     });
     expect(code).toContain('lens.evals.run("refund-gate").assert_passed()');
     expect(code).not.toContain("from my_agent import agent");
+  });
+
+  it.each(["bearer", "none"] as const)("runs the saved API eval in CI with %s authentication", (auth) => {
+    const code = workflowSnippet({
+      ...target,
+      connectionAuth: auth,
+      definition: { ...target.definition, spec: { ...target.definition.spec, agent_io: httpAgentIo } },
+    });
+    expect(code).toContain('eval-name: "refund-gate"');
+    expect(code).not.toContain("          path:");
+    expect(code).toContain("AGENT_BASE_URL: ${{ vars.AGENT_BASE_URL }}");
+    expect(code).toContain("LENS_VERSION: ${{ vars.LENS_VERSION }}");
+    expect(code.includes("AGENT_API_KEY:")).toBe(auth === "bearer");
   });
 });

@@ -49,4 +49,18 @@ describe("buildEvalSpec", () => {
     expect(result.ok).toBe(true);
     expect(result.ok && result.spec.trials).toBe(11);
   });
+
+  it("creates an output-only API eval with its saved mapping", () => {
+    expect(buildEvalSpec({ ...draft, execution: "http", taskCompleted: false, judge: true, prompt: "Is the answer correct?" }))
+      .toMatchObject({ ok: true, spec: { agent_io: { connection: "agent-service" }, scorers: [{ kind: "judge", prompt: "Is the answer correct?" }] } });
+  });
+
+  it.each([{ taskCompleted: true }, { calledBefore: true }, { costPerCase: "0.5" }])("requires traces for trace-dependent checks: %s", (change) => {
+    expect(buildEvalSpec({ ...draft, execution: "http", taskCompleted: false, judge: true, prompt: "Correct?", ...change }))
+      .toMatchObject({ ok: false, error: expect.stringContaining("need a trace mapping") });
+  });
+
+  it("allows tool and cost checks when a trace mapping is provided", () => {
+    expect(buildEvalSpec({ ...draft, execution: "http", api: { ...draft.api, trace: true }, costPerCase: "0.5" }).ok).toBe(true);
+  });
 });

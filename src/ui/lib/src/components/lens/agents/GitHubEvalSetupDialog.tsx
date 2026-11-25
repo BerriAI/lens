@@ -82,7 +82,7 @@ function GitHubSetup({
     if (!selected) return setError("Choose or create an eval for this agent");
     const dataset = datasets.data?.find((item) => item.id === selected.spec.dataset_id);
     if (!dataset) return setError("The eval’s dataset is unavailable. Check dataset access and try again");
-    const parsedTask = task.trim() ? parseTaskImport(task) : null;
+    const parsedTask = !selected.spec.agent_io && task.trim() ? parseTaskImport(task) : null;
     if (parsedTask && !parsedTask.ok) return setError(parsedTask.error);
     try {
       const url = new URL(baseUrl);
@@ -224,7 +224,7 @@ function GitHubSetup({
               Use the Lens API address your GitHub runner can reach, without /ui
             </p>
           </Field>
-          <details className="rounded-lg border p-3 text-sm">
+          {!selected?.spec.agent_io && <details className="rounded-lg border p-3 text-sm">
             <summary className="cursor-pointer font-medium">Agent runtime</summary>
             <div className="mt-3 space-y-3">
               <Field label="Existing eval task (optional)" id="github-task">
@@ -251,7 +251,7 @@ function GitHubSetup({
                 </p>
               </Field>
             </div>
-          </details>
+          </details>}
           {datasets.error && (
             <p role="alert" className="text-sm text-destructive">
               Could not load datasets{" "}

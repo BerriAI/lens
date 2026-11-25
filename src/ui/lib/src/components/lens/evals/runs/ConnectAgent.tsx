@@ -9,6 +9,7 @@ import { savedEvalTestSnippet } from "./connectSnippets";
 import { SetupAgentPrompt } from "../../onboarding/SetupAgentPrompt";
 import { useOptionalOnboarding } from "../../onboarding/OnboardingContext";
 import type { EvalDefinition } from "./types";
+import { HttpAgentSetup } from "./HttpAgentSetup";
 
 export interface ConnectAgentProps {
   readonly definition: EvalDefinition;
@@ -36,44 +37,48 @@ export function ConnectAgent({
           Saving it does not run your agent
         </p>
       </div>
-      <section
-        className="space-y-3 rounded-md border p-4"
-        aria-label="Run in your project"
-      >
-        <h3 className="font-medium">Run it in your project</h3>
-        <p className="text-xs leading-5 text-muted-foreground">
-          {definition.spec.agent_io
-            ? "The saved HTTP contract maps each case to your agent's input and output. Configure its local connection profile before running"
-            : "Write this Python test in your agent repository. Replace my_agent and the run call with your own entry point; return the actual output and trace ID"}
-        </p>
-        <p className="text-xs text-muted-foreground">
-          Install the Lens SDK and set LENS_BASE_URL and LENS_API_KEY, plus your
-          agent's model and tool credentials
-        </p>
-        <details>
-          <summary className="cursor-pointer text-xs font-medium">
-            Python test: tests/test_lens_eval.py
-          </summary>
-          <div className="mt-3">
-            <CodeBlock
-              code={savedEvalTestSnippet(definition)}
-              copyLabel="Copy Python test"
-            />
-          </div>
-        </details>
-        <CodeBlock
-          code="python -m pytest tests/test_lens_eval.py -v"
-          copyLabel="Copy test command"
-        />
-        <a
-          className="text-xs underline underline-offset-4"
-          href="https://github.com/BerriAI/lens/tree/main/src/sdk#lens-evals"
-          target="_blank"
-          rel="noreferrer"
+      {definition.spec.agent_io ? (
+        <HttpAgentSetup definition={definition} />
+      ) : (
+        <section
+          className="space-y-3 rounded-md border p-4"
+          aria-label="Run in your project"
         >
-          SDK setup guide
-        </a>
-      </section>
+          <h3 className="font-medium">Run it in your project</h3>
+          <p className="text-xs leading-5 text-muted-foreground">
+            Write this Python test in your agent repository. Replace my_agent
+            and the run call with your own entry point; return the actual output
+            and trace ID
+          </p>
+          <p className="text-xs text-muted-foreground">
+            Install the Lens SDK and set LENS_BASE_URL and LENS_API_KEY, plus
+            your agent's model and tool credentials
+          </p>
+          <details>
+            <summary className="cursor-pointer text-xs font-medium">
+              Python test: tests/test_lens_eval.py
+            </summary>
+            <div className="mt-3">
+              <CodeBlock
+                code={savedEvalTestSnippet(definition)}
+                copyLabel="Copy Python test"
+              />
+            </div>
+          </details>
+          <CodeBlock
+            code="python -m pytest tests/test_lens_eval.py -v"
+            copyLabel="Copy test command"
+          />
+          <a
+            className="text-xs underline underline-offset-4"
+            href="https://github.com/BerriAI/lens/tree/main/src/sdk#lens-evals"
+            target="_blank"
+            rel="noreferrer"
+          >
+            SDK setup guide
+          </a>
+        </section>
+      )}
       <div className="flex flex-wrap items-center justify-between gap-3 border-b pb-5">
         <div>
           <h3 className="font-medium">Run in GitHub Actions</h3>
@@ -92,15 +97,17 @@ export function ConnectAgent({
           </p>
         )}
       </div>
-      <SetupAgentPrompt
-        goal="evals"
-        evaluation={{
-          name: definition.name,
-          agent: definition.spec.agent,
-          dataset,
-          revision,
-        }}
-      />
+      {!definition.spec.agent_io && (
+        <SetupAgentPrompt
+          goal="evals"
+          evaluation={{
+            name: definition.name,
+            agent: definition.spec.agent,
+            dataset,
+            revision,
+          }}
+        />
+      )}
       {open && (
         <AgentGitHubDialog
           agent={definition.spec.agent}

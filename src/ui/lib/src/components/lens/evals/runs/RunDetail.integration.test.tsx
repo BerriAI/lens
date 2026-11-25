@@ -38,6 +38,16 @@ function serveRun(run: EvalRun, cases: readonly RunCase[]) {
 }
 
 describe("Eval case results", () => {
+  it.each([
+    ["Billing: duplicate charge", "Billing: duplicate charge"],
+    ["", "(empty string)"],
+  ])("shows recorded HTTP output without requiring a trace: %s", async (output, visible) => {
+    const result = { ...passed, trials: [trial(1, [], { output })] };
+    serveRun(completed, [result]);
+    renderWithLens(<RunDetail runId={completed.id} caseId={result.case_id} onBack={vi.fn()} onOpenCase={vi.fn()} />);
+    expect(await screen.findByText(visible)).toBeVisible();
+    expect(screen.queryByText("Trace unavailable")).not.toBeInTheDocument();
+  });
   it("should show failed run checks even when every case passes", async () => {
     const run = evalRun("policy-failed", {
       summary: summary({
