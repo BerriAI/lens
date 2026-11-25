@@ -1,0 +1,146 @@
+suite: Persistent agent workspace
+templates:
+  - resources.yaml
+release:
+  name: lens
+  namespace: lens
+tests:
+  - it: connects the core to a separate authenticated runtime and persistent state
+    set:
+      agents.enabled: true
+      service.port: 8080
+    documentSelector: {path: 'spec.template.spec.containers[0].name', value: lens}
+    asserts:
+      - equal:
+          path: spec.strategy.type
+          value: Recreate
+      - contains:
+          path: spec.template.spec.containers[0].env
+          content: {name: LENS_AGENT_DATABASE, value: /var/lib/lens/agents.db}
+      - contains:
+          path: spec.template.spec.containers[0].env
+          content: {name: LENS_RUNTIME_URL, value: 'http://lens-agents:4320'}
+      - contains:
+          path: spec.template.spec.containers[0].env
+          content: {name: LENS_RUNTIME_LENS_URL, value: 'http://lens:8080/agent-runtime'}
+      - contains:
+          path: spec.template.spec.containers[0].env
+          content:
+            name: LENS_RUNTIME_SECRET
+            valueFrom:
+              secretKeyRef: {name: lens-runtime, key: runtime-secret}
+      - equal:
+          path: spec.template.spec.initContainers[0].env
+          value: [{name: CLICKHOUSE_HOST, value: lens-clickhouse}]
+      - contains:
+          path: spec.template.spec.containers[0].volumeMounts
+          content: {name: state, mountPath: /var/lib/lens}
+      - contains:
+          path: spec.template.spec.volumes
+          content: {name: state, persistentVolumeClaim: {claimName: lens-state}}
+  - it: keeps gateway credentials out of the native runtime
+    set:
+      agents.enabled: true
+      agents.runtimeSecret: {name: supplied-runtime, key: token}
+      agents.image.digest: sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa
+      extraEnvFrom: [{secretRef: {name: workspace-inference}}]
+      gateway.enabled: true
+    documentSelector:
+      path: spec.template.spec.containers[0].name
+      value: agents
+    asserts:
+      - equal:
+          path: spec.replicas
+          value: 1
+      - equal:
+          path: spec.strategy.type
+          value: Recreate
+      - equal:
+          path: spec.template.spec.automountServiceAccountToken
+          value: false
+      - equal:
+          path: spec.template.spec.containers[0].env
+          value:
+            - name: LENS_RUNTIME_SECRET
+              valueFrom:
+                secretKeyRef: {name: supplied-runtime, key: token}
+      - notExists:
+          path: spec.template.spec.containers[0].envFrom
+      - equal:
+          path: spec.template.spec.containers[0].image
+          value: lens-agents@sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa
+      - contains:
+          path: spec.template.spec.volumes
+          content: {name: state, persistentVolumeClaim: {claimName: lens-native}}
+      - equal:
+          path: spec.template.spec.containers[0].securityContext
+          value:
+            runAsUser: 0
+            runAsGroup: 0
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities:
+              drop: [ALL]
+              add: [CHOWN, FOWNER, SETUID, SETGID, DAC_OVERRIDE, KILL]
+  - it: retains shared state on the selected storage class
+    set:
+      agents.enabled: true
+      agents.storageClassName: retained-storage
+      agents.sharedStorage: 8Gi
+    documentSelector: {path: metadata.name, value: lens-state}
+    asserts:
+      - equal:
+          path: metadata.annotations["helm.sh/resource-policy"]
+          value: keep
+      - equal:
+          path: spec.storageClassName
+          value: retained-storage
+      - equal:
+          path: spec.resources.requests.storage
+          value: 8Gi
+  - it: retains native sessions separately from shared state
+    set:
+      agents.enabled: true
+      agents.nativeStorage: 12Gi
+    documentSelector: {path: metadata.name, value: lens-native}
+    asserts:
+      - equal:
+          path: metadata.annotations["helm.sh/resource-policy"]
+          value: keep
+      - equal:
+          path: spec.resources.requests.storage
+          value: 12Gi
+      - notExists:
+          path: spec.storageClassName
+  - it: restricts native access to the core and public tools
+    set:
+      agents.enabled: true
+      fullnameOverride: workspace
+      instanceOverride: existing-owner
+    documentSelector: {path: spec.policyTypes, value: [Ingress, Egress]}
+    asserts:
+      - equal:
+          path: spec.ingress[0].from[0].podSelector.matchLabels
+          value:
+            app.kubernetes.io/instance: existing-owner
+            app.kubernetes.io/component: lens
+      - equal:
+          path: spec.egress[0].ports
+          value: [{protocol: TCP, port: 4318}]
+      - contains:
+          path: spec.egress[2].to[0].ipBlock.except
+          content: 169.254.0.0/16
+  - it: refuses multiple owners of SQLite and native bot state
+    set:
+      agents.enabled: true
+      replicaCount: 2
+    asserts:
+      - failedTemplate:
+          errorMessage: The agent workspace currently requires replicaCount=1 for its SQLite state and native bot ownership
+  - it: rejects malformed native image pins
+    set:
+      agents.enabled: true
+      agents.image.digest: sha256:untrusted
+    asserts:
+      - failedTemplate:
+          errorMessage: Lens image.digest must be sha256 followed by 64 lowercase hex characters

@@ -1,8 +1,8 @@
-name: lens
+name: lens-agents
 
 services:
   credentials:
-    image: ${LENS_IMAGE:-ghcr.io/berriai/lens:0.4.0}
+    image: ${LENS_IMAGE:-lens:agent-first}
     user: "0:0"
     entrypoint:
       - sh
@@ -13,21 +13,16 @@ services:
         chown "$$(stat -c %u:%g /setup)" /setup/.env
         cp /setup/.env /credentials/.env
         chown 65532:65532 /credentials/.env
-        lens_host="$${LENS_PUBLIC_URL#*://}"
-        case "$$LENS_SIGN_IN_LINK $$lens_host" in
-          "true localhost" | "true localhost"[:/]* | "true 127.0.0.1" | "true 127.0.0.1"[:/]* | "true [::1]"*)
-            echo "Open $${LENS_PUBLIC_URL%/}/ui/ and paste this setup token: $$(sed -n 's/^LENS_ADMIN_TOKEN=//p' /setup/.env)"
-            ;;
-          *)
-            echo "Open $${LENS_PUBLIC_URL%/}/ui/ and paste the LENS_ADMIN_TOKEN value from .env"
-            ;;
-        esac
+        mkdir -p /state
+        chown 65532:65532 /state
+        echo "Open $${LENS_PUBLIC_URL%/}/ui/ and paste the LENS_ADMIN_TOKEN value from .env"
     environment:
       LENS_PUBLIC_URL: ${LENS_PUBLIC_URL:-http://localhost:4318}
       LENS_SIGN_IN_LINK: ${LENS_SIGN_IN_LINK:-true}
     volumes:
       - .:/setup
       - credentials:/credentials
+      - lens_data:/state
     network_mode: none
     cap_drop: [ALL]
     cap_add: [CHOWN, DAC_OVERRIDE]
@@ -35,7 +30,7 @@ services:
     restart: "no"
 
   lens:
-    image: ${LENS_IMAGE:-ghcr.io/berriai/lens:0.4.0}
+    image: ${LENS_IMAGE:-lens:agent-first}
     env_file:
       - path: .env
         required: false
@@ -46,9 +41,17 @@ services:
         set -eu
         export LENS_ADMIN_TOKEN="$$(sed -n 's/^LENS_ADMIN_TOKEN=//p' /credentials/.env)"
         export CLICKHOUSE_PASSWORD="$$(sed -n 's/^CLICKHOUSE_PASSWORD=//p' /credentials/.env)"
-        exec /usr/local/bin/node /app/agent-chat/dist/supervisor.js "$$@"
+        export LENS_RUNTIME_SECRET="$$(sed -n 's/^LENS_RUNTIME_SECRET=//p' /credentials/.env)"
+        exec /usr/local/bin/litellm-lens "$$@"
       - lens
     environment:
+      LENS_RUNTIME_URL: http://agents:4320
+      LENS_RUNTIME_LENS_URL: http://lens:4318/agent-runtime
+      LITELLM_PROXY_API_BASE: ${LITELLM_PROXY_API_BASE:?Export the dedicated workspace gateway base}
+      LITELLM_PROXY_API_KEY: ${LITELLM_PROXY_API_KEY:?Export the dedicated workspace gateway key}
+      LENS_AGENT_MODEL: ${LENS_AGENT_MODEL:-openai/gpt-6.2-astra}
+      LENS_AGENT_SLACK_BOT_TOKEN: ${LENS_AGENT_SLACK_BOT_TOKEN:-}
+      LENS_AGENT_SLACK_APP_TOKEN: ${LENS_AGENT_SLACK_APP_TOKEN:-}
       LENS_MODE: standalone
       LENS_PUBLIC_URL: ${LENS_PUBLIC_URL:-http://localhost:4318}
       LENS_SIGNAL_ALERTS_UI_URL: ${LENS_SIGNAL_ALERTS_UI_URL:-}
@@ -59,12 +62,15 @@ services:
       AGENT_TRACING_RETENTION_DAYS: ${AGENT_TRACING_RETENTION_DAYS:-14}
     volumes:
       - credentials:/credentials:ro
+      - lens_data:/var/lib/lens
     ports:
       - "${LENS_BIND_ADDRESS:-127.0.0.1}:${LENS_PORT:-4318}:4318"
     depends_on:
       credentials:
         condition: service_completed_successfully
       clickhouse:
+        condition: service_healthy
+      agents:
         condition: service_healthy
     networks: [default, storage]
     mem_limit: 2g
@@ -76,6 +82,34 @@ services:
       - /tmp:rw,noexec,nosuid,size=${LENS_TMP_SIZE:-1g}
     cap_drop: [ALL]
     security_opt: [no-new-privileges:true]
+
+  agents:
+    image: ${LENS_AGENTS_IMAGE:-lens-agents:agent-first}
+    entrypoint:
+      - sh
+      - -c
+      - |
+        set -eu
+        export LENS_RUNTIME_SECRET="$$(sed -n 's/^LENS_RUNTIME_SECRET=//p' /credentials/.env)"
+        exec /usr/local/bin/lens-agent-runtime
+    volumes:
+      - credentials:/credentials:ro
+      - agent_data:/var/lib/lens-runtime
+    depends_on:
+      credentials:
+        condition: service_completed_successfully
+    networks: [default]
+    mem_limit: 4g
+    cpus: 2
+    pids_limit: 512
+    restart: unless-stopped
+    read_only: true
+    tmpfs:
+      - /tmp:rw,nosuid,size=512m
+    cap_drop: [ALL]
+    cap_add: [CHOWN, FOWNER, SETUID, SETGID, DAC_OVERRIDE, KILL]
+    security_opt: [no-new-privileges:true]
+
 
   clickhouse:
     image: clickhouse/clickhouse-server:26.9.6.6@sha256:eb4870e7ca7ed70c259eebfcfbee6cf797017f6b5436c2926bbbfe3d4d28486e
@@ -118,6 +152,8 @@ networks:
 volumes:
   clickhouse_data:
   credentials:
+  lens_data:
+  agent_data:
 
 configs:
   keeper:

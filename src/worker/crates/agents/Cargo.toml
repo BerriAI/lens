@@ -1,0 +1,44 @@
+[package]
+name = "lens-agents"
+version = "0.1.0"
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+
+[dependencies]
+agentchat = { git = "https://github.com/BerriAI/agentchat", rev = "5bffaf163af8bf92b92eb764b162803865c11898", features = ["slack"] }
+async-trait = "0.1"
+rmcp = { version = "=3.11.0", default-features = false, features = ["client", "transport-streamable-http-client-reqwest", "reqwest"] }
+base64.workspace = true
+axum = { workspace = true, features = ["json", "query"] }
+chrono = { version = "0.4", features = ["serde"] }
+futures-util.workspace = true
+lens-auth = { path = "../auth" }
+lens-contract = { path = "../contract" }
+lens-server = { path = "../server" }
+libc = "0.2"
+nix = { version = "0.30", features = ["signal", "process", "fs", "user"] }
+hmac = "0.12"
+litellm-traces.workspace = true
+reqwest.workspace = true
+ring = "0.17"
+reqwest-mcp = { package = "reqwest", version = "0.13", default-features = false, features = ["rustls", "json"] }
+schemars.workspace = true
+serde.workspace = true
+serde_json.workspace = true
+sha2.workspace = true
+subtle.workspace = true
+tokio-stream = "0.1"
+tokio-tungstenite = "0.24"
+sqlx = { workspace = true, features = ["sqlite", "runtime-tokio", "macros", "migrate"] }
+tempfile.workspace = true
+thiserror.workspace = true
+tokio = { workspace = true, features = ["fs", "process", "io-util", "sync", "time", "macros", "rt-multi-thread"] }
+uuid.workspace = true
+url.workspace = true
+
+[dev-dependencies]
+rstest.workspace = true
+tokio = { workspace = true, features = ["macros", "rt-multi-thread"] }
+tower = { version = "=0.5.3", features = ["util"] }
+wiremock.workspace = true

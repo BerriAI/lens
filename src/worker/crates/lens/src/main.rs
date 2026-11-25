@@ -104,86 +104,44 @@ async fn run() -> Result<(), litellm_lens::Error> {
         Some(token) => State::connected(storage, token),
         None => State::standalone(storage),
     });
-    let evals = api::EvalConfig {
-        judge: litellm_lens::eval_judge::GatewayJudge::new(
-            client.clone(),
-            config.public_url.clone(),
-            config.eval_judge_api_key.clone(),
-            config.eval_judge_model.clone(),
-        ),
-        public_url: config.public_url.to_string(),
-    };
-    let application = api::initialize(
+    let application = api::initialize_agents(
         &state,
         config.authentication,
-        config.datasets,
         config.traces,
-        evals,
-    )
-    .await?
-    .with_signal_alerts(&config.query_secret, config.signal_alerts_ui_url)?
-    .with_github(
-        config.github,
-        config.public_url.clone(),
         &config.query_secret,
-        config.github_service_url,
-        config.github_service_enabled,
-    )?
-    .with_models(
-        state.clone(),
-        litellm_lens::gateway::Models::new(
-            config.analysis_models,
-            config.evaluation_models,
-            config.gateway_inference,
-            config.gateway_models,
-        )?,
-        &config.query_secret,
+        config.ingestion_url,
+        config.release,
     )
-    .await?
-    .with_evaluations()?
-    .with_profiles(
-        state.clone(),
-        litellm_lens::task_profiles::discovery_defaults(|name| std::env::var(name).ok()),
-    )
-    .with_service(state.clone(), config.ingestion_url, config.release);
-    let eval_task = application.evals.start();
-    let optimization_task = application.optimizations.start();
+    .await?;
     let mut tasks = tokio::task::JoinSet::new();
     let credentials = application.credentials.clone();
     if !credentials.synchronize().await? {
         return Err(litellm_lens::Error::Unavailable);
     }
     tasks.spawn(credentials.serve());
-    let worker = application
-        .local_worker
-        .clone()
-        .ok_or(litellm_lens::Error::Unavailable)?;
-    if let Some(slack) = config.slack {
-        let notifications =
-            litellm_lens::slack::Notifications::new(slack, worker.repository.clone())?;
-        tasks.spawn(notifications.serve());
-    }
-    let (stop_analysis, analysis_stopping) = tokio::sync::watch::channel(false);
-    let mut analysis = tokio::spawn(worker.serve_until(analysis_stopping));
-    let signals = application
-        .signals_worker
-        .clone()
-        .ok_or(litellm_lens::Error::Unavailable)?;
-    tasks.spawn(signals.serve());
-    if let Some(rules) = application.alert_rules.clone() {
-        tasks.spawn(rules.serve());
-    }
-    if let Some(alerts) = application.signal_alerts.clone() {
-        tasks.spawn(alerts.serve());
-    }
-    if let Some(profiles) = application.profiles_worker.clone() {
-        tasks.spawn(profiles.serve());
-    }
     tasks.spawn(provision(state.clone()));
     tasks.spawn(litellm_lens::project_trace_summaries(state.clone()));
-    if litellm_lens::profiles::enabled()? {
-        tasks.spawn(litellm_lens::profiles::supervise(state.clone()));
-    }
+    let slack = application.control.clone();
+    tasks.spawn(async move {
+        loop {
+            if slack.serve_slack().await.is_err() {
+                tracing::warn!("Slack connection stopped; reconnecting");
+            }
+            tokio::time::sleep(Duration::from_secs(10)).await;
+        }
+    });
+    let control = application.control.clone();
+    control.restore().await?;
+    tasks.spawn(async move {
+        let mut interval = tokio::time::interval(Duration::from_secs(30));
+        interval.set_missed_tick_behavior(tokio::time::MissedTickBehavior::Skip);
+        loop {
+            interval.tick().await;
+            if control.reconcile().await.is_err() {
+                tracing::warn!("Some bots could not be restored; retrying");
+            }
+        }
+    });
     let routes = router(state).merge(application.router);
     let routes = if let Some(directory) = config.ui_directory {
         if !std::fs::metadata(directory.join("index.html"))?.is_file() {
@@ -199,13 +157,6 @@ async fn run() -> Result<(), litellm_lens::Error> {
         lens_server::routing::redirect_trailing_slash,
     ));
     let listener = tokio::net::TcpListener::bind(config.address).await?;
-    if let Some(link) = litellm_lens::config::sign_in_link(
-        |name| std::env::var(name).ok(),
-        &config.public_url,
-        &config.query_secret,
-    ) {
-        println!("Sign in: {link}");
-    }
     let (shutdown, stopping) = tokio::sync::oneshot::channel::<()>();
     let mut server = tokio::spawn(async move {
         axum::serve(listener, routes)
@@ -217,38 +168,18 @@ async fn run() -> Result<(), litellm_lens::Error> {
     let outcome = tokio::select! {
         _ = shutdown_signal() => Ok(()),
         _ = tasks.join_next() => Err(litellm_lens::Error::Unavailable),
-        _ = &mut analysis => Err(litellm_lens::Error::Unavailable),
         result = &mut server => {
             tasks.abort_all();
-            analysis.abort();
             return result.map_err(|_| litellm_lens::Error::Unavailable)?.map_err(Into::into);
         }
     };
     let _ = shutdown.send(());
-    let _ = stop_analysis.send(true);
-    if outcome.is_err() {
-        analysis.abort();
-    }
     tasks.abort_all();
-    eval_task.abort();
-    optimization_task.abort();
     while tasks.join_next().await.is_some() {}
-    let drained = async {
-        if outcome.is_ok() {
-            let _ = (&mut analysis).await;
-        }
-        let _ = (&mut server).await;
-    };
-    if tokio::time::timeout(Duration::from_secs(10), drained)
+    if tokio::time::timeout(Duration::from_secs(10), &mut server)
         .await
         .is_err()
     {
-        if outcome.is_ok() && !analysis.is_finished() {
-            tracing::warn!(
-                "Lens shutdown deadline passed before analysis drained; unreleased jobs wait for their lease to expire"
-            );
-        }
-        analysis.abort();
         server.abort();
     }
     outcome

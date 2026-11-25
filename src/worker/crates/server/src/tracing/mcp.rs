@@ -42,10 +42,10 @@ struct Call {
 }
 
 #[derive(Deserialize)]
-struct ToolCall {
-    name: String,
+pub struct ToolCall {
+    pub name: String,
     #[serde(default)]
-    arguments: Option<Value>,
+    pub arguments: Option<Value>,
 }
 
 #[derive(Deserialize)]
@@ -89,7 +89,7 @@ struct GetSpan {
     trace_ref: String,
 }
 
-fn tools() -> Value {
+pub fn tools() -> Value {
     let hours = json!({"type":"integer","minimum":1,"description":"How many hours back to look. Defaults to 24 and is capped at the Lens retention window."});
     let cursor = json!({"type":"string","maxLength":512,"description":"next_cursor from the previous page."});
     let trace_id = json!({"type":"string","description":"trace_id from list_traces."});
@@ -167,23 +167,23 @@ fn text<T: Serialize>(value: &T) -> Result<String, ToolError> {
     Ok(serde_json::to_string(value)?)
 }
 
-async fn call<R: SessionRepository, B: TraceReader>(
-    app: &App<R, B>,
+pub async fn call<B: TraceReader>(
+    reader: &B,
+    config: super::TraceConfig,
     scope: litellm_traces::query::named::ReadAccessParams,
     tool: ToolCall,
 ) -> Result<String, ToolError> {
     let now = Utc::now().timestamp_millis();
     let window = |hours: Option<u32>| {
         let hours = i64::from(hours.unwrap_or(DEFAULT_HOURS).max(1))
-            .min(app.config.retention_days.max(1).saturating_mul(24));
+            .min(config.retention_days.max(1).saturating_mul(24));
         now.saturating_sub(hours.saturating_mul(HOUR_MS))
     };
     match tool.name.as_str() {
         "list_agents" => {
             let request: ListAgents = arguments(tool.arguments)?;
-            let agents = app
-                .reader
-                .agents(scope, window(request.hours), now, app.config.agent_limit)
+            let agents = reader
+                .agents(scope, window(request.hours), now, config.agent_limit)
                 .await?;
             text(&super::TraceAgentList { agents })
         }
@@ -200,7 +200,7 @@ async fn call<R: SessionRepository, B: TraceReader>(
                 });
             }
             text(
-                &app.reader
+                &reader
                     .list(
                         scope,
                         request.agent.unwrap_or_default(),
@@ -209,7 +209,7 @@ async fn call<R: SessionRepository, B: TraceReader>(
                         window(request.hours),
                         now,
                         request.cursor,
-                        app.config.list_limit,
+                        config.list_limit,
                     )
                     .await?,
             )
@@ -226,7 +226,7 @@ async fn call<R: SessionRepository, B: TraceReader>(
                 )?,
             };
             text(
-                &app.reader
+                &reader
                     .trace(scope, request.trace_id, detail)
                     .await?
                     .ok_or(ToolError::Missing { resource: "Trace" })?,
@@ -244,7 +244,7 @@ async fn call<R: SessionRepository, B: TraceReader>(
                 )?,
             };
             text(
-                &app.reader
+                &reader
                     .conversation(scope, request.trace_id, conversation)
                     .await?
                     .ok_or(ToolError::Missing { resource: "Trace" })?,
@@ -256,7 +256,7 @@ async fn call<R: SessionRepository, B: TraceReader>(
                 trace_ref: request.trace_ref,
             };
             text(
-                &app.reader
+                &reader
                     .span(scope, request.trace_id, request.span_id, span)
                     .await?
                     .ok_or(ToolError::Missing { resource: "Span" })?,
@@ -303,7 +303,7 @@ async fn answer<R: SessionRepository, B: TraceReader>(
         "tools/list" => success(id, json!({"tools":tools()})),
         "tools/call" => match serde_json::from_value::<ToolCall>(call.params) {
             Ok(tool) => {
-                let (text, failed) = match self::call(app, scope, tool).await {
+                let (text, failed) = match self::call(&app.reader, app.config, scope, tool).await {
                     Ok(text) => (text, false),
                     Err(error) => (error.to_string(), true),
                 };

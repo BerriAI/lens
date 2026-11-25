@@ -1,30 +1,51 @@
 "use client";
 
-import { useState } from "react";
-import { STANDALONE_DOCS_URL, useLensHost, type LensHost } from "../../host/LensHost";
+import { useState, type ReactNode } from "react";
+import {
+  STANDALONE_DOCS_URL,
+  useLensHost,
+  type LensHost,
+} from "../../host/LensHost";
 import { useTheme } from "next-themes";
 import { useIsClient, useMediaQuery } from "usehooks-ts";
-import { ArrowUpRight, BookOpen, CalendarDays, ChevronsUpDown, LogOut, Moon, PanelLeftClose, PanelLeftOpen, Sun } from "lucide-react";
+import {
+  ArrowUpRight,
+  BookOpen,
+  CalendarDays,
+  ChevronsUpDown,
+  LogOut,
+  Moon,
+  PanelLeftClose,
+  PanelLeftOpen,
+  Sun,
+} from "lucide-react";
 import { Button } from "../ui/button";
-import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "../ui/dropdown-menu";
-import { Sheet, SheetContent, SheetDescription, SheetTitle, SheetTrigger } from "../ui/sheet";
-import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "../ui/tooltip";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "../ui/dropdown-menu";
+import {
+  Sheet,
+  SheetContent,
+  SheetDescription,
+  SheetTitle,
+  SheetTrigger,
+} from "../ui/sheet";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from "../ui/tooltip";
 import { cn } from "../../lib/cva.config";
-import { AgentPicker } from "./agents/AgentPicker";
-import { ALL_AGENTS } from "./traces/routing";
-import type { LensAgents } from "./agents/AgentScoped";
 import { LensBrand } from "./LensBrand";
-import { LensTabs } from "./LensTabs";
-import type { InvestigationActivity } from "./model/status";
-import type { LensList } from "./model/types";
-import type { LensTab } from "./route";
+import type { WorkspaceTab } from "./workspace/route";
 
 interface LensSidebarProps {
-  readonly agents: LensAgents;
-  readonly activity: InvestigationActivity;
-  readonly workers: LensList["workers"] | null;
-  readonly canViewAlerts: boolean;
-  readonly onNavigate: (tab: LensTab) => void;
+  readonly onNavigate: (tab: WorkspaceTab) => void;
+  readonly children: (collapsed: boolean, close: () => void) => ReactNode;
 }
 
 export function LensSidebar(props: LensSidebarProps) {
@@ -34,21 +55,17 @@ export function LensSidebar(props: LensSidebarProps) {
   const mobile = useMediaQuery("(max-width: 767px)", {
     initializeWithValue: false,
   });
-  const navigate = (tab: LensTab) => {
+  const navigate = (tab: WorkspaceTab) => {
     props.onNavigate(tab);
     setMobileOpen(false);
   };
   const navigation = (compact: boolean) => (
-    <SidebarNavigation
-      {...props}
-      collapsed={compact}
-      onNavigate={navigate}
-      onSelectAgent={(agent) => {
-        props.agents.select(agent);
+    <SidebarNavigation collapsed={compact}>
+      {props.children(compact, () => {
         setMobileOpen(false);
         host.navigation?.onNavigate();
-      }}
-    />
+      })}
+    </SidebarNavigation>
   );
   if (host.navigation) {
     const Container = host.navigation.Container;
@@ -67,7 +84,13 @@ export function LensSidebar(props: LensSidebarProps) {
     return (
       <Sheet open={mobileOpen} onOpenChange={setMobileOpen}>
         <SheetTrigger
-          render={<Button variant="ghost" size="icon-sm" className="absolute top-3 left-3 z-raised" />}
+          render={
+            <Button
+              variant="ghost"
+              size="icon-sm"
+              className="absolute top-3 left-3 z-raised"
+            />
+          }
           aria-label="Open navigation"
         >
           <PanelLeftOpen aria-hidden="true" className="size-4" />
@@ -78,7 +101,9 @@ export function LensSidebar(props: LensSidebarProps) {
           aria-describedby={undefined}
         >
           <SheetTitle className="sr-only">Lens navigation</SheetTitle>
-          <SheetDescription className="sr-only">Browse agents and your Lens workspace</SheetDescription>
+          <SheetDescription className="sr-only">
+            Browse agents and your Lens workspace
+          </SheetDescription>
           <Button
             variant="ghost"
             className="mb-5 h-12 w-fit px-2 hover:bg-transparent dark:hover:bg-transparent"
@@ -99,7 +124,12 @@ export function LensSidebar(props: LensSidebarProps) {
         collapsed ? "w-16 px-2" : "w-60",
       )}
     >
-      <div className={cn("mb-6 flex h-9 items-center gap-1", collapsed ? "justify-center" : "justify-between px-1")}>
+      <div
+        className={cn(
+          "mb-6 flex h-9 items-center gap-1",
+          collapsed ? "justify-center" : "justify-between px-1",
+        )}
+      >
         {!collapsed && (
           <Button
             variant="ghost"
@@ -118,7 +148,11 @@ export function LensSidebar(props: LensSidebarProps) {
           title={collapsed ? "Expand navigation" : "Collapse navigation"}
           onClick={() => setCollapsed(!collapsed)}
         >
-          {collapsed ? <PanelLeftOpen aria-hidden="true" /> : <PanelLeftClose aria-hidden="true" />}
+          {collapsed ? (
+            <PanelLeftOpen aria-hidden="true" />
+          ) : (
+            <PanelLeftClose aria-hidden="true" />
+          )}
         </Button>
       </div>
       {navigation(collapsed)}
@@ -127,41 +161,28 @@ export function LensSidebar(props: LensSidebarProps) {
 }
 
 function SidebarNavigation({
-  agents,
-  activity,
-  workers,
-  canViewAlerts,
   collapsed,
-  onNavigate,
-  onSelectAgent,
-}: LensSidebarProps & {
+  children,
+}: {
   readonly collapsed: boolean;
-  readonly onSelectAgent: (agent: string) => void;
+  readonly children: ReactNode;
 }) {
   const host = useLensHost();
   const standalone = host.surface === "standalone";
   return (
     <>
-      {!collapsed && (agents.agent || agents.all) && (
-        <div className="mb-4 min-w-0 [&>button]:h-10 [&>button]:w-full [&>button]:max-w-none [&>button]:justify-start [&>button]:border-0 [&>button]:bg-muted/50 [&>button]:px-2.5 [&>button]:text-[13px] [&>button>svg:last-child]:ml-auto">
-          <AgentPicker agent={agents.agent ?? ALL_AGENTS} agents={agents.list.agents} onSelect={onSelectAgent} />
-        </div>
-      )}
-      <LensTabs
-        orientation="vertical"
-        activity={activity}
-        workers={workers}
-        collapsed={collapsed}
-        canViewAlerts={canViewAlerts}
-        onNavigate={onNavigate}
-      />
+      <div className="flex min-h-0 flex-1 flex-col">{children}</div>
       {!host.navigation && (
         <div className="mt-4 border-t border-sidebar-border pt-3">
           <ThemeToggle collapsed={collapsed} />
         </div>
       )}
       <a
-        href={standalone ? STANDALONE_DOCS_URL : "https://docs.litellm.ai/docs/proxy/lens"}
+        href={
+          standalone
+            ? STANDALONE_DOCS_URL
+            : "https://docs.litellm.ai/docs/proxy/lens"
+        }
         onClick={host.navigation?.onNavigate}
         target="_blank"
         rel="noopener noreferrer"
@@ -173,7 +194,9 @@ function SidebarNavigation({
       >
         <BookOpen aria-hidden="true" className="size-4" />
         <span className={cn(collapsed && "sr-only")}>Documentation</span>
-        {!collapsed && <ArrowUpRight aria-hidden="true" className="ml-auto size-3.5" />}
+        {!collapsed && (
+          <ArrowUpRight aria-hidden="true" className="ml-auto size-3.5" />
+        )}
       </a>
       <TooltipProvider>
         <Tooltip>
@@ -202,7 +225,9 @@ function SidebarNavigation({
           </TooltipContent>
         </Tooltip>
       </TooltipProvider>
-      {!host.navigation && host.user && <UserMenu user={host.user} collapsed={collapsed} />}
+      {!host.navigation && host.user && (
+        <UserMenu user={host.user} collapsed={collapsed} />
+      )}
     </>
   );
 }
@@ -247,10 +272,17 @@ function UserMenu({
           {!collapsed && (
             <>
               <span className="flex min-w-0 flex-col">
-                <span className="truncate text-[13px] text-foreground">{user.name}</span>
-                <span className="truncate text-xs text-muted-foreground">{role}</span>
+                <span className="truncate text-[13px] text-foreground">
+                  {user.name}
+                </span>
+                <span className="truncate text-xs text-muted-foreground">
+                  {role}
+                </span>
               </span>
-              <ChevronsUpDown aria-hidden="true" className="ml-auto size-3.5 shrink-0 text-muted-foreground" />
+              <ChevronsUpDown
+                aria-hidden="true"
+                className="ml-auto size-3.5 shrink-0 text-muted-foreground"
+              />
             </>
           )}
         </DropdownMenuTrigger>

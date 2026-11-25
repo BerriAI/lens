@@ -70,3 +70,7 @@ annotations:
 app.kubernetes.io/name: {{ .Values.nameOverride }}
 app.kubernetes.io/managed-by: {{ .Release.Service }}
 {{- end -}}
+
+{{- define "lens.runtimeSecretName" -}}
+{{- .Values.agents.runtimeSecret.name | default (printf "%s-runtime" (include "lens.fullname" .)) -}}
+{{- end -}}

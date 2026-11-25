@@ -67,3 +67,23 @@ extraEnvFrom: []
 nodeSelector: {}
 tolerations: []
 affinity: {}
+agents:
+  enabled: false
+  image:
+    repository: lens-agents
+    tag: agent-first
+    digest: ""
+    pullPolicy: IfNotPresent
+  runtimeSecret:
+    name: ""
+    key: runtime-secret
+  storageClassName: null
+  sharedStorage: 5Gi
+  nativeStorage: 10Gi
+  resources:
+    requests:
+      cpu: 500m
+      memory: 2Gi
+    limits:
+      cpu: "2"
+      memory: 4Gi

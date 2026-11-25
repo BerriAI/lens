@@ -10,10 +10,9 @@
 !src/cli/**
 !src/ui/
 !src/ui/**
-!src/agent/
-!src/agent/**
-!src/agent-chat/
-!src/agent-chat/**
+!deploy/
+!deploy/runtime/
+!deploy/runtime/deepagents.lock
 **/node_modules/
 **/target/
 **/.next/

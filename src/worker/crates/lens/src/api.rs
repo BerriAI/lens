@@ -357,3 +357,86 @@ pub async fn initialize(
         authentication,
     })
 }
+
+pub struct AgentApplication {
+    pub router: Router,
+    pub credentials: Arc<LocalCredentials<IngestionKeys>>,
+    pub control: lens_agents::service::Control,
+}
+
+pub async fn initialize_agents(
+    state: &Arc<State>,
+    settings: Settings,
+    traces: TraceConfig,
+    seed: &str,
+    ingestion_url: String,
+    release: String,
+) -> Result<AgentApplication, Error> {
+    state.storage.ensure_schema().await?;
+    let connection = state.storage.config.storage();
+    let store = ClickHouseState::new(state.storage.client.clone(), connection.reader().clone());
+    store
+        .initialize(&format!("/lens/{}", connection.database()))
+        .await?;
+    let authentication = Arc::new(Authentication {
+        settings,
+        sessions: Sessions(store.clone()),
+    });
+    authentication.refresh_gateway().await?;
+    let ingestion = Ingestion(IngestionKeys(store));
+    let credentials = Arc::new(LocalCredentials::new(
+        ingestion.clone(),
+        state.credentials.clone(),
+    ));
+    let path =
+        std::env::var("LENS_AGENT_DATABASE").unwrap_or_else(|_| "/var/lib/lens/agents.db".into());
+    let database = lens_agents::store::Store::open(std::path::Path::new(&path)).await?;
+    let control = lens_agents::service::Control::from_env(database, seed)?;
+    let router = lens_server::sessions::router_with_auth(authentication.clone())
+        .merge(lens_server::tracing::router(
+            authentication.clone(),
+            TraceApi(state.clone()),
+            traces,
+        ))
+        .merge(lens_server::ingestion::router(
+            authentication.clone(),
+            ingestion,
+            credentials.clone(),
+        ))
+        .merge(lens_agents::service::router(
+            authentication.clone(),
+            TraceApi(state.clone()),
+            traces,
+            control.clone(),
+        ))
+        .merge(lens_server::service::router(
+            authentication.clone(),
+            LocalService {
+                state: state.clone(),
+                url: ingestion_url,
+                release,
+                gateway_connected: {
+                    let authentication = authentication.clone();
+                    Box::new(move || authentication.settings.gateway_connected())
+                },
+            },
+        ));
+    let connected = authentication.clone();
+    state.service_token_connected_by(move || connected.settings.connected_service_token());
+    tokio::spawn(async move {
+        let mut tick =
+            tokio::time::interval_at(tokio::time::Instant::now() + GATEWAY_RELOAD, GATEWAY_RELOAD);
+        loop {
+            tick.tick().await;
+            if authentication.refresh_gateway().await.is_err() {
+                tracing::warn!("Lens could not refresh gateway authentication");
+            }
+        }
+    });
+    state.schema_ready.store(true, Ordering::Release);
+    Ok(AgentApplication {
+        router,
+        credentials,
+        control,
+    })
+}

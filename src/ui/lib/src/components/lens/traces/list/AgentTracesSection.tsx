@@ -4,7 +4,6 @@ import moment from "moment";
 import { skipToken, useQuery } from "@tanstack/react-query";
 import {
   ChartNoAxesColumn,
-  ChartPie,
   ChevronDown,
   ChevronUp,
   List,
@@ -56,7 +55,6 @@ import {
 } from "./useAgentTraces";
 import { WaitingForTraces } from "../../onboarding/WaitingForTraces";
 import styles from "../TraceAppearance.module.css";
-import { useLensRoute } from "../../route";
 
 const DRAWER_WIDTH_KEY = "litellm.agentTraces.drawerWidth";
 
@@ -78,6 +76,7 @@ interface AgentTracesSectionProps {
   readOnly?: boolean;
   canMintTracingKey?: boolean;
   canViewFindings?: boolean;
+  agentWorkspace?: boolean;
   onSetUpSignals?: () => void;
   onConnectAgent?: () => void;
 }
@@ -160,11 +159,11 @@ export function AgentTracesSection({
   readOnly = false,
   canMintTracingKey = false,
   canViewFindings,
+  agentWorkspace = false,
   onSetUpSignals,
   onConnectAgent,
 }: AgentTracesSectionProps) {
   const live = useTracesLive();
-  const route = useLensRoute();
   const {
     trace: openTrace,
     openTrace: openRun,
@@ -212,7 +211,7 @@ export function AgentTracesSection({
     () => (zoom ? filterByWindow(filtered, zoom) : filtered),
     [filtered, zoom],
   );
-  const feedback = useTraceFeedback(accessToken, runs, isActive);
+  const feedback = useTraceFeedback(accessToken, agentWorkspace ? [] : runs, isActive);
   const runRefs = useMemo(() => runs.map(traceRefOf), [runs]);
   const findings = useTraceFindings(
     accessToken,
@@ -311,6 +310,7 @@ export function AgentTracesSection({
               onBack={() => openRun(null)}
               embedded
               showSignals={signalSetup.on}
+              agentWorkspace={agentWorkspace}
             />
           )}
         </Inspector.Panel>
@@ -321,14 +321,6 @@ export function AgentTracesSection({
           range={zoom ?? window}
           busy={traces.isPlaceholder}
         >
-          <Button
-            variant="ghost"
-            size="sm"
-            className="rounded-none border-l px-3 text-xs"
-            onClick={() => route.setTab("profiles")}
-          >
-            <ChartPie aria-hidden="true" className="size-3.5" /> Task profiles
-          </Button>
           <TracingSetupAction
             available={traces.traces.length > 0}
             live={live}

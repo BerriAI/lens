@@ -1,394 +1,216 @@
-import { fireEvent, screen, waitFor, within } from "@testing-library/react";
+import { screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { beforeEach, describe, expect, it, vi } from "vitest";
-import { renderWithProviders, testQueryClient } from "../../../tests/test-utils";
-import { requestPath } from "../../../tests/lens-test-utils";
+import { ThemeProvider } from "next-themes";
+import { beforeEach, expect, it, vi } from "vitest";
+import {
+  renderWithProviders,
+  testQueryClient,
+} from "../../../tests/test-utils";
+import {
+  admin,
+  bot,
+  workspaceNetwork,
+} from "../../../tests/lens-workspace-utils";
 import { LensWorkspace } from "./LensWorkspace";
 import { LensHostProvider } from "../../host/LensHost";
-import { DEFAULT_SIGNAL_THRESHOLD } from "./model/signals";
 
-const admin = { accessToken: "test-token", userRole: "Admin", readOnly: false };
-vi.mock("./traces/list/AgentTracesPage", () => ({
-  default: ({ isActive }: { isActive: boolean }) => <div>Trace polling {isActive ? "active" : "paused"}</div>,
-}));
-vi.mock("./investigations/InvestigationsView", () => ({
-  InvestigationsView: ({ readOnly }: { readOnly: boolean }) => (
-    <div>{readOnly ? "Read-only investigations" : "Manage investigations"}</div>
-  ),
-}));
+beforeEach(() => {
+  testQueryClient.clear();
+  window.localStorage.clear();
+  window.sessionStorage.clear();
+  Element.prototype.scrollIntoView = vi.fn();
+  vi.stubGlobal("fetch", workspaceNetwork());
+});
 
-describe("Lens navigation", () => {
-  beforeEach(() => {
-    testQueryClient.clear();
-    window.localStorage.clear();
-    window.sessionStorage.clear();
-    vi.stubGlobal(
-      "fetch",
-      vi.fn(async (input) => {
-        const path = requestPath(input);
-        if (path === "/lens/admin/signals/overview")
-          return Response.json({
-            since: new Date().toISOString(),
-            limit: 500,
-            truncated: false,
-            evaluated: 0,
-            failed: 0,
-            partial: 0,
-            matches: [],
-          });
-        if (path === "/lens/admin/alerts/rules/overview")
-          return Response.json({
-            since: new Date().toISOString(),
-            limit: 500,
-            truncated: false,
-            matches: [],
-          });
-        if (path === "/lens/admin/alerts/rules")
-          return Response.json({ revision: 0, rules: [] });
-        if (path === "/v1/traces") return Response.json({ data: [{}] });
-        if (path === "/lens") return Response.json({ lenses: [], workers: [], tracing_enabled: true });
-        return Response.json({ traces: true, requests: false, data: [] });
-      }),
-    );
+it("switches between the main chats and the selected bot's chats", async () => {
+  const user = userEvent.setup();
+  const onUrlUpdate = vi.fn();
+  renderWithProviders(<LensWorkspace {...admin} />, { onUrlUpdate });
+  expect(
+    await screen.findByRole("button", { name: "Investigate failed requests" }),
+  ).toBeVisible();
+  const nav = within(screen.getByRole("navigation", { name: "Workspace" }));
+  expect(
+    nav
+      .getAllByRole("button")
+      .map((button) => button.textContent)
+      .filter(Boolean),
+  ).toEqual(["Home", "New Session", "Bots", "Traces"]);
+  await user.click(nav.getByRole("button", { name: "Bots" }));
+  await user.click(screen.getByRole("button", { name: bot.name, exact: true }));
+  expect(await screen.findByRole("button", { name: "Bot Chat" })).toBeVisible();
+  expect(
+    screen.getByRole("textbox", { name: "Message Request reviewer" }),
+  ).toBeEnabled();
+  expect(
+    screen.queryByRole("button", { name: "Investigate failed requests" }),
+  ).not.toBeInTheDocument();
+  await user.click(nav.getByRole("button", { name: "New Session" }));
+  expect(
+    await screen.findByRole("textbox", { name: "Message Lens" }),
+  ).toBeEnabled();
+  await waitFor(() =>
+    expect(onUrlUpdate.mock.lastCall?.[0].searchParams.get("tab")).toBe(
+      "new_session",
+    ),
+  );
+});
+
+it("keeps navigation and footer links accessible when collapsed", async () => {
+  const user = userEvent.setup();
+  renderWithProviders(<LensWorkspace {...admin} />);
+  await user.click(screen.getByRole("button", { name: "Collapse navigation" }));
+  expect(
+    screen.getByRole("button", { name: "Bots", exact: true }),
+  ).toHaveAttribute("title", "Bots");
+  expect(screen.getByRole("link", { name: "Documentation" })).toBeVisible();
+  expect(screen.getByRole("link", { name: "Book a call" })).toHaveAttribute(
+    "rel",
+    "noopener noreferrer",
+  );
+  await user.click(screen.getByRole("button", { name: "Bots", exact: true }));
+  expect(
+    await screen.findByRole("heading", { name: "Give a bot an ongoing task" }),
+  ).toBeVisible();
+});
+
+it("should show the signed in user in the sidebar and log out from its menu", async () => {
+  const user = userEvent.setup();
+  const signOut = vi.fn();
+  const view = renderWithProviders(
+    <LensHostProvider
+      host={{
+        surface: "standalone",
+        user: {
+          name: "viewer@example.com",
+          role: "proxy_admin_viewer",
+          signOut,
+        },
+      }}
+    >
+      <LensWorkspace accessToken="" userRole="proxy_admin_viewer" readOnly />
+    </LensHostProvider>,
+  );
+  const sidebar = within(
+    await screen.findByRole("complementary", { name: "Lens navigation" }),
+  );
+  const account = sidebar.getByRole("button", {
+    name: "Account: viewer@example.com, Admin Viewer",
   });
+  expect(account).toHaveTextContent("VI");
+  expect(within(account).getByText("viewer@example.com")).toBeVisible();
+  expect(within(account).getByText("Admin Viewer")).toBeVisible();
+  expect(
+    screen.queryByRole("menuitem", { name: "Logout" }),
+  ).not.toBeInTheDocument();
+  await user.click(account);
+  await user.click(await screen.findByRole("menuitem", { name: "Logout" }));
+  expect(signOut).toHaveBeenCalledOnce();
 
-  it("offers a founder call from expanded and collapsed navigation", async () => {
-    const user = userEvent.setup();
-    renderWithProviders(<LensWorkspace {...admin} />, {
-      searchParams: "?tab=traces",
+  await user.click(
+    sidebar.getByRole("button", { name: "Collapse navigation" }),
+  );
+  const collapsed = sidebar.getByRole("button", {
+    name: "Account: viewer@example.com, Admin Viewer",
+  });
+  expect(
+    within(collapsed).queryByText("viewer@example.com"),
+  ).not.toBeInTheDocument();
+  await user.click(collapsed);
+  await user.click(await screen.findByRole("menuitem", { name: "Logout" }));
+  expect(signOut).toHaveBeenCalledTimes(2);
+
+  view.rerender(
+    <LensHostProvider host={{ surface: "standalone" }}>
+      <LensWorkspace accessToken="" userRole="proxy_admin_viewer" readOnly />
+    </LensHostProvider>,
+  );
+  expect(sidebar.getByRole("link", { name: "Documentation" })).toBeVisible();
+  expect(
+    sidebar.queryByRole("button", { name: /^Account:/ }),
+  ).not.toBeInTheDocument();
+});
+
+it("should switch color themes from the sidebar and restore the saved preference after reopening", async () => {
+  const user = userEvent.setup();
+  const initialClassName = document.documentElement.className;
+  const initialColorScheme = document.documentElement.style.colorScheme;
+  const storageKey = "lens-theme-test";
+  const workspace = (
+    <ThemeProvider
+      attribute="class"
+      defaultTheme="light"
+      storageKey={storageKey}
+    >
+      <LensWorkspace
+        accessToken="live-token"
+        userRole="Admin"
+        readOnly={false}
+      />
+    </ThemeProvider>
+  );
+
+  try {
+    const first = renderWithProviders(workspace, {
+      searchParams: "?tab=home",
     });
-    const booking = screen.getByRole("link", { name: "Book a call" });
-    expect(booking).toHaveAttribute(
-      "href",
-      "https://calendly.com/d/dtr8-nnr-3yy/litellm-product-team-feedback",
+    expect(document.documentElement).toHaveClass("light");
+    expect(screen.getByRole("button", { name: "Light mode" })).toHaveAttribute(
+      "aria-pressed",
+      "true",
     );
-    expect(booking).toHaveAttribute("target", "_blank");
-    expect(booking).toHaveAttribute("rel", "noopener noreferrer");
-    await user.hover(booking);
-    expect(
-      await screen.findByText("Book a call with LiteLLM founders"),
-    ).toBeVisible();
-    await user.unhover(booking);
+    await user.click(screen.getByRole("button", { name: "Dark mode" }));
+    expect(document.documentElement).toHaveClass("dark");
+    expect(screen.getByRole("button", { name: "Dark mode" })).toHaveAttribute(
+      "aria-pressed",
+      "true",
+    );
+    expect(screen.getByRole("button", { name: "Light mode" })).toHaveAttribute(
+      "aria-pressed",
+      "false",
+    );
+    expect(window.localStorage.getItem(storageKey)).toBe("dark");
+
+    first.unmount();
+    document.documentElement.classList.remove("dark");
+    const reopened = renderWithProviders(workspace, {
+      searchParams: "?tab=home",
+    });
+    expect(document.documentElement).toHaveClass("dark");
+    expect(screen.getByRole("button", { name: "Dark mode" })).toHaveAttribute(
+      "aria-pressed",
+      "true",
+    );
+    await user.click(screen.getByRole("button", { name: "Light mode" }));
+    expect(document.documentElement).toHaveClass("light");
+    expect(document.documentElement).not.toHaveClass("dark");
+    expect(screen.getByRole("button", { name: "Light mode" })).toHaveAttribute(
+      "aria-pressed",
+      "true",
+    );
+    expect(screen.getByRole("button", { name: "Dark mode" })).toHaveAttribute(
+      "aria-pressed",
+      "false",
+    );
+    expect(window.localStorage.getItem(storageKey)).toBe("light");
+
     await user.click(
       screen.getByRole("button", { name: "Collapse navigation" }),
     );
-    expect(screen.getByRole("link", { name: "Book a call" })).toBeVisible();
-    await user.hover(screen.getByRole("link", { name: "Book a call" }));
-    expect(
-      await screen.findByText("Book a call with LiteLLM founders"),
-    ).toBeVisible();
-  });
-
-  it("keeps traces accessible and hides the separate investigations tab", async () => {
-    const user = userEvent.setup();
-    const onUrlUpdate = vi.fn();
-    renderWithProviders(<LensWorkspace {...admin} />, {
-      onUrlUpdate,
-      searchParams: "?tab=traces",
-    });
-    expect(screen.getByRole("tab", { name: "Traces" })).toHaveAttribute("aria-selected", "true");
-    expect(await screen.findByText("Trace polling active")).toBeVisible();
-    expect(screen.queryByRole("tab", { name: "Investigations" })).not.toBeInTheDocument();
-    await user.click(screen.getByRole("tab", { name: "Findings" }));
-    expect(await screen.findByRole("region", { name: "Findings settings" })).toBeVisible();
-    expect(screen.getByText("Trace polling paused")).not.toBeVisible();
-    expect(onUrlUpdate.mock.lastCall?.[0].searchParams.get("tab")).toBe("findings");
-    await user.click(screen.getByRole("tab", { name: "Traces" }));
-    expect(await screen.findByText("Trace polling active")).toBeVisible();
-  });
-
-  it("should open existing lens links on Findings", async () => {
-    renderWithProviders(<LensWorkspace {...admin} />, {
-      searchParams: "?lens=saved-lens",
-    });
-    expect(screen.queryByRole("tab", { name: "Investigations" })).not.toBeInTheDocument();
-    expect(await screen.findByRole("region", { name: "Findings settings" })).toBeVisible();
-  });
-
-  it("should connect a model from global Findings without selecting an agent", async () => {
-    const user = userEvent.setup();
-    renderWithProviders(<LensWorkspace {...admin} />, {
-      searchParams: "?tab=findings",
-    });
-    expect(await screen.findByText("Connect an analysis model to start receiving findings.")).toBeVisible();
-    await user.click(screen.getByRole("button", { name: "Connect model" }));
-    expect(await screen.findByRole("region", { name: "Settings" })).toBeVisible();
-    expect(screen.getByRole("tab", { name: "Settings" })).toHaveAttribute("aria-selected", "true");
-  });
-
-  it("honors an explicit traces tab even when a saved investigation is in the URL", async () => {
-    renderWithProviders(<LensWorkspace {...admin} />, {
-      searchParams: "?tab=traces&lens=saved-lens",
-    });
-    expect(screen.getByRole("tab", { name: "Traces" })).toHaveAttribute("aria-selected", "true");
-    expect(await screen.findByText("Trace polling active")).toBeVisible();
-  });
-
-  it("filters matches, links to the selected trace and Signal, and keeps configuration and Slack together", async () => {
-    const user = userEvent.setup();
-    const onUrlUpdate = vi.fn();
-    const at = "2026-11-20T04:00:00Z";
-    const flag = { signal_id: "timeout", name: "Provider timeout", score: 0.9 };
-    const other = { signal_id: "refusal", name: "Wrong refusal", score: 0.8 };
-    const alerts = {
-      since: at, limit: 500, truncated: true, evaluated: 2, failed: 1, partial: 1,
-      matches: [
-        { trace_id: "timed-out-trace", trace_ref: "project-a", classified_at: at, flags: [flag] },
-        { trace_id: "refused-trace", trace_ref: "project-b", classified_at: at, flags: [other, flag] },
-      ],
-    };
-    const original = vi.mocked(fetch).getMockImplementation()!;
-    vi.mocked(fetch).mockImplementation((input, init) => {
-      const path = requestPath(input);
-      if (path === "/lens/admin/signals/overview") return Promise.resolve(Response.json(alerts));
-      if (path === "/lens/admin/traces/signals")
-        return Promise.resolve(
-          Response.json([
-            {
-              ...alerts.matches[0],
-              status: "classified",
-              flags: [
-                {
-                  ...flag,
-                  evidence: { quote: "The request timed out without a retry", span_id: "failed-attempt" },
-                },
-              ],
-            },
-          ]),
-        );
-      if (path === "/lens/admin/signals")
-        return Promise.resolve(
-          Response.json({
-            model: "judge",
-            threshold: 0.7,
-            signals: [{ id: "timeout", name: flag.name, question: "Did an upstream attempt time out?" }],
-          }),
-        );
-      if (path === "/lens/admin/signals/alerts")
-        return Promise.resolve(
-          Response.json({ connected: false, enabled: false, revision: 0, signal_ids: [] }),
-        );
-      return original(input, init);
-    });
-    renderWithProviders(<LensWorkspace {...admin} />, { searchParams: "?tab=traces", onUrlUpdate });
-    await user.click(screen.getByRole("tab", { name: "Alerts" }));
-    expect(
-      await screen.findByText("Model signal counts cover only the latest 500 results in this window."),
-    ).toBeVisible();
-    const topActions = within(screen.getByRole("group", { name: "Page actions" }));
-    expect(topActions.getByRole("button", { name: "Configure alerts" })).toBeVisible();
-    expect(topActions.getByRole("button", { name: "Slack notifications", exact: true })).toBeVisible();
-    const summary = within(screen.getByRole("region", { name: "Last 24 hours" }));
-    expect(summary.getByText("3")).toBeVisible();
-    expect(summary.getByText("Provider timeout")).toBeVisible();
-    expect(summary.getByText("2 of 3 alerts")).toBeVisible();
-    await user.click(screen.getByRole("button", { name: "Filter Provider timeout, 2 alerts" }));
-    expect(
-      screen.queryByRole("button", { name: "Open Wrong refusal in trace refused-trace" }),
-    ).not.toBeInTheDocument();
-    await user.click(screen.getByRole("button", { name: "Clear filters" }));
-    const chart = within(screen.getByRole("region", { name: "Alerts over time" }));
-    await user.click(chart.getAllByRole("button", { name: /: 0 alerts$/ })[0]);
-    expect(await screen.findByText("No matches for these filters")).toBeVisible();
-    await user.click(screen.getByRole("button", { name: "Clear filters" }));
-    await user.click(screen.getByRole("button", { name: "Configure alerts" }));
-    const modelSettings = within(screen.getByRole("tabpanel", { name: "Model signals" }));
-    expect(await modelSettings.findByRole("spinbutton", { name: "Match threshold" })).toHaveValue(70);
-    expect(screen.getByRole("tab", { name: "Model signals" })).toHaveAttribute("aria-selected", "true");
-    fireEvent.change(modelSettings.getByRole("spinbutton", { name: "Match threshold" }), {
-      target: { value: "80" },
-    });
-    await user.click(screen.getByRole("tab", { name: "Rules", exact: true }));
-    expect(screen.getByRole("tab", { name: "Rules", exact: true })).toHaveAttribute("aria-selected", "true");
-    expect(screen.queryByRole("tabpanel", { name: "Model signals" })).not.toBeInTheDocument();
-    await user.click(await screen.findByRole("button", { name: "Add rule" }));
-    await user.click(await screen.findByRole("menuitem", { name: "Run duration" }));
-    fireEvent.change(screen.getByRole("spinbutton", { name: "Run duration in minutes" }), {
-      target: { value: "12" },
-    });
-    await waitFor(() =>
-      expect(onUrlUpdate.mock.lastCall?.[0].searchParams.get("alert_settings")).toBe("rules"),
+    await user.click(
+      screen.getByRole("button", { name: "Toggle color theme" }),
     );
-    await user.click(screen.getByRole("tab", { name: "Model signals" }));
-    expect(modelSettings.getByRole("spinbutton", { name: "Match threshold" })).toHaveValue(80);
-    await user.click(screen.getByRole("tab", { name: "Rules", exact: true }));
-    expect(screen.getByRole("spinbutton", { name: "Run duration in minutes" })).toHaveValue(12);
-    await user.click(screen.getByRole("button", { name: "Close", exact: true }));
-    await user.click(screen.getByRole("button", { name: "Slack notifications", exact: true }));
-    expect(await screen.findByLabelText("Slack webhook URL")).toBeVisible();
-    await user.click(screen.getByRole("button", { name: "Close", exact: true }));
-    expect(screen.getByRole("button", { name: "Open Wrong refusal in trace refused-trace" })).toBeVisible();
-    await user.click(screen.getByRole("combobox", { name: "Filter by alert" }));
-    await user.click(await screen.findByRole("option", { name: "Provider timeout", exact: true }));
-    expect(
-      screen.queryByRole("button", { name: "Open Wrong refusal in trace refused-trace" }),
-    ).not.toBeInTheDocument();
-    fireEvent.change(screen.getByRole("textbox", { name: "Search matches" }), {
-      target: { value: "missing" },
-    });
-    expect(await screen.findByText("No matches for these filters")).toBeVisible();
-    await user.click(screen.getByRole("button", { name: "Clear filters" }));
-    await user.click(screen.getByRole("button", { name: "Open Provider timeout in trace timed-out-trace" }));
-    const evidence = within(await screen.findByRole("dialog", { name: "Alert evidence" }));
-    expect(evidence.getByText("timed-out-trace")).toBeVisible();
-    expect(await evidence.findByText("The request timed out without a retry")).toBeVisible();
-    await user.click(evidence.getByRole("button", { name: "Open trace", exact: true }));
-    await waitFor(() =>
-      expect(Object.fromEntries(onUrlUpdate.mock.lastCall?.[0].searchParams)).toMatchObject({
-        tab: "traces",
-        trace: "timed-out-trace",
-        trace_ref: "project-a",
-        signal: "timeout",
-      }),
+    expect(document.documentElement).toHaveClass("dark");
+    expect(window.localStorage.getItem(storageKey)).toBe("dark");
+    await user.click(screen.getByRole("button", { name: "Expand navigation" }));
+    expect(screen.getByRole("button", { name: "Dark mode" })).toHaveAttribute(
+      "aria-pressed",
+      "true",
     );
-  });
-
-  it("opens rule configuration directly from a link", async () => {
-    renderWithProviders(<LensWorkspace {...admin} />, {
-      searchParams: "?tab=alerts&alert_settings=rules",
-    });
-    expect(screen.getByRole("tab", { name: "Rules", exact: true })).toHaveAttribute("aria-selected", "true");
-    expect(await screen.findByRole("button", { name: "Add rule" })).toBeVisible();
-  });
-
-  it.each([
-    { kind: "run_duration", name: "Run exceeds 1 min", span: "latest-step" },
-    { kind: "model_error", name: "Model error", span: "failed-call" },
-  ])("opens the matching step for $name without model signal evidence", async ({ kind, name, span }) => {
-    const user = userEvent.setup();
-    const onUrlUpdate = vi.fn();
-    const original = vi.mocked(fetch).getMockImplementation()!;
-    vi.mocked(fetch).mockImplementation((input, init) => {
-      const path = requestPath(input);
-      if (path === "/lens/admin/signals/overview")
-        return Promise.resolve(
-          Response.json({
-            since: "2026-11-20T00:00:00Z",
-            limit: 500,
-            truncated: false,
-            evaluated: 0,
-            failed: 0,
-            partial: 0,
-            matches: [],
-          }),
-        );
-      if (path === "/lens/admin/alerts/rules/overview")
-        return Promise.resolve(
-          Response.json({
-            since: "2026-11-20T00:00:00Z",
-            limit: 500,
-            truncated: false,
-            matches: [
-              {
-                kind,
-                rule_id: "configured-rule",
-                trace_id: "rule-trace",
-                trace_ref: "scoped-run",
-                span_id: span,
-                detected_at: "2026-11-20T01:00:00Z",
-                duration_ms: 62004,
-                threshold_minutes: 1,
-              },
-            ],
-          }),
-        );
-      return original(input, init);
-    });
-    renderWithProviders(<LensWorkspace {...admin} />, {
-      searchParams: "?tab=alerts&signal=old-signal&view=thread&steps_q=old-filter&errors=true",
-      onUrlUpdate,
-    });
-    await user.click(await screen.findByRole("button", { name: `Open ${name} in trace rule-trace` }));
-    const evidence = within(await screen.findByRole("dialog", { name: "Alert evidence" }));
-    expect(evidence.getByText("Rule matched")).toBeVisible();
-    await user.click(evidence.getByRole("button", { name: "Open trace", exact: true }));
-    await waitFor(() =>
-      expect(Object.fromEntries(onUrlUpdate.mock.lastCall?.[0].searchParams)).toEqual({
-        tab: "traces",
-        trace: "rule-trace",
-        trace_ref: "scoped-run",
-        span,
-      }),
-    );
-  });
-
-  it("keeps demo Signal and Slack settings available without requesting live activity", async () => {
-    const user = userEvent.setup();
-    renderWithProviders(<LensWorkspace {...admin} />, { searchParams: "?demo=true&tab=alerts" });
-    expect(await screen.findByText("No alerts in this window")).toBeVisible();
-    await user.click(screen.getByRole("button", { name: "Configure alerts" }));
-    expect(await screen.findByRole("spinbutton", { name: "Match threshold" })).toHaveValue(
-      DEFAULT_SIGNAL_THRESHOLD * 100,
-    );
-    await user.click(screen.getByRole("button", { name: "Close", exact: true }));
-    await user.click(screen.getByRole("button", { name: "Slack notifications", exact: true }));
-    expect(await screen.findByLabelText("Slack webhook URL")).toBeVisible();
-    expect(
-      vi.mocked(fetch).mock.calls.some(([input]) => requestPath(input).startsWith("/lens/admin/signals")),
-    ).toBe(false);
-  });
-
-  it("shows a read-only empty dashboard for a Gateway admin viewer", async () => {
-    const original = vi.mocked(fetch).getMockImplementation()!;
-    vi.mocked(fetch).mockImplementation((input, init) =>
-      requestPath(input) === "/lens/admin/signals/overview"
-        ? Promise.resolve(
-            Response.json({
-              since: "2026-11-20T04:00:00Z",
-              limit: 500,
-              truncated: false,
-              evaluated: 1,
-              failed: 0,
-              partial: 0,
-              matches: [],
-            }),
-          )
-        : original(input, init),
-    );
-    renderWithProviders(
-      <LensHostProvider host={{ surface: "embedded" }}>
-        <LensWorkspace {...admin} userRole="Admin Viewer" readOnly />
-      </LensHostProvider>,
-      { searchParams: "?tab=alerts" },
-    );
-    expect(await screen.findByText("No alerts in this window")).toBeVisible();
-    expect(screen.queryByRole("button", { name: "Configure alerts" })).not.toBeInTheDocument();
-    expect(screen.queryByRole("dialog", { name: "Configure alerts" })).not.toBeInTheDocument();
-  });
-
-  it("does not request deployment-wide alerts when a team user follows an Alerts link", async () => {
-    renderWithProviders(<LensWorkspace {...admin} userRole="Internal User" />, {
-      searchParams: "?tab=alerts",
-    });
-    expect(await screen.findByRole("tab", { name: "Home", selected: true })).toBeVisible();
-    expect(screen.queryByRole("tab", { name: "Alerts" })).not.toBeInTheDocument();
-    expect(
-      vi.mocked(fetch).mock.calls.some(([input]) => requestPath(input) === "/lens/admin/signals/overview"),
-    ).toBe(false);
-  });
-
-  it.each(["Internal User", "Internal Viewer", "Org Admin"])(
-    "preserves trace access without granting investigations to %s",
-    async (userRole) => {
-      const user = userEvent.setup();
-      renderWithProviders(<LensWorkspace {...admin} userRole={userRole} />, { searchParams: "?tab=traces" });
-      expect(await screen.findByText("Trace polling active")).toBeVisible();
-      await user.click(screen.getByRole("tab", { name: "Findings" }));
-      expect(screen.getByText(/Findings require proxy administrator access/)).toBeVisible();
-      expect(screen.queryByText("Manage investigations")).not.toBeInTheDocument();
-    },
-  );
-
-  it.each([
-    { userRole: "Admin Viewer", readOnly: false },
-    { userRole: "Admin", readOnly: true },
-  ])("should preserve read-only Findings access for $userRole with readOnly=$readOnly", async (session) => {
-    renderWithProviders(<LensWorkspace {...admin} {...session} />, {
-      searchParams: "?tab=investigations",
-    });
-    expect(await screen.findByRole("region", { name: "Findings settings" })).toBeVisible();
-    expect(screen.queryByRole("button", { name: "Findings settings" })).not.toBeInTheDocument();
-    expect(screen.queryByRole("button", { name: "Connect model" })).not.toBeInTheDocument();
-    expect(screen.queryByText("Manage investigations")).not.toBeInTheDocument();
-  });
+    reopened.unmount();
+  } finally {
+    document.documentElement.className = initialClassName;
+    document.documentElement.style.colorScheme = initialColorScheme;
+    window.localStorage.removeItem(storageKey);
+  }
 });

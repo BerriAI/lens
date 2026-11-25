@@ -116,6 +116,23 @@ jobs:
       - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
       - name: Build standalone Lens
         run: docker build --build-arg LENS_VERSION=ci -f deploy/runtime/Dockerfile -t lens:ci .
+      - name: Build native agents
+        run: docker build --target agents -f deploy/runtime/Dockerfile -t lens-agents:ci .
+      - name: Verify confined code execution
+        run: |
+          docker build --target smoke -f deploy/runtime/Dockerfile -t lens-sandbox:ci .
+          timeout 180 docker run --rm --read-only --cap-drop ALL \
+            --security-opt no-new-privileges --network none --cpus 2 --memory 1g --pids-limit 32 \
+            --ulimit fsize=16777216:16777216 --tmpfs /tmp:rw,noexec,nosuid,size=256m \
+            lens-sandbox:ci
+      - name: Verify native model tool boundaries
+        run: |
+          docker build --target agents-smoke -f deploy/runtime/Dockerfile -t lens-agents-smoke:ci .
+          timeout 180 docker run --rm --read-only --cap-drop ALL \
+            --cap-add CHOWN --cap-add FOWNER --cap-add SETUID --cap-add SETGID --cap-add DAC_OVERRIDE --cap-add KILL \
+            --security-opt no-new-privileges --network none --cpus 2 --memory 2g --pids-limit 128 \
+            --ulimit fsize=67108864:67108864 --tmpfs /tmp:rw,nosuid,size=512m \
+            lens-agents-smoke:ci
       - name: Scan the native runtime for fixable high and critical vulnerabilities
         shell: bash
         run: |
@@ -130,69 +147,19 @@ jobs:
           printf '%s  %s\n' "$checksum" "$RUNNER_TEMP/grype.tar.gz" | sha256sum --check
           tar -xzf "$RUNNER_TEMP/grype.tar.gz" -C "$RUNNER_TEMP" grype
           "$RUNNER_TEMP/grype" lens:ci --only-fixed --fail-on high --output json > "$RUNNER_TEMP/lens-vulnerabilities.json"
+          "$RUNNER_TEMP/grype" lens-agents:ci --only-fixed --fail-on high --output json > "$RUNNER_TEMP/lens-agent-vulnerabilities.json"
       - name: Retain the native vulnerability report
         if: always()
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
         with:
           name: lens-vulnerabilities-${{ runner.arch }}
-          path: ${{ runner.temp }}/lens-vulnerabilities.json
+          path: ${{ runner.temp }}/*vulnerabilities.json
           if-no-files-found: warn
       - name: Check start script image selection
         run: deploy/lens/start-test.sh
       - name: Start and restart with ClickHouse
-        run: deploy/lens/smoke.sh lens:ci ci
-      - name: Start with plain Docker Compose
+        run: deploy/lens/smoke.sh lens:ci ci lens-agents:ci
+      - name: Check native runtime entry points
         run: |
-          set -euo pipefail
-          trap 'docker compose logs --tail 60 || true; docker compose down --volumes; rm -f deploy/lens/.env' EXIT
-          LENS_IMAGE=lens:ci docker compose up --detach --wait --wait-timeout 180
-          curl --fail --silent --output /dev/null http://localhost:4318/health/ready
-          test "$(stat -c %u deploy/lens/.env)" = "$(id -u)"
-          lens_token="$(sed -n 's/^LENS_ADMIN_TOKEN=//p' deploy/lens/.env)"
-          curl --fail --silent --output /dev/null --header "Authorization: Bearer $lens_token" http://localhost:4318/lens
-          test "$(curl --silent --output /dev/null --write-out '%{http_code}' http://localhost:4318/lens)" = 401
-          test "$(docker compose logs --no-log-prefix lens | sed -n 's|^Sign in: http://localhost:4318/ui/#token=||p' | tail -n 1)" = "$lens_token"
-      - name: Start from the Compose file alone
-        run: |
-          set -euo pipefail
-          lens_alone="$(mktemp -d)"
-          cp deploy/lens/compose.yaml "$lens_alone/compose.yaml"
-          cd "$lens_alone"
-          trap 'docker compose logs --tail 60 || true; docker compose down --volumes' EXIT
-          LENS_IMAGE=lens:ci docker compose up --detach --wait --wait-timeout 180
-          lens_token="$(sed -n 's/^LENS_ADMIN_TOKEN=//p' .env)"
-          curl --fail --silent --output /dev/null --header "Authorization: Bearer $lens_token" http://localhost:4318/lens
-          docker compose logs -n1 credentials | grep --fixed-strings --quiet "http://localhost:4318/ui/ and paste this setup token: $lens_token"
-          for lens_setting in LENS_SIGN_IN_LINK=false LENS_PUBLIC_URL=https://lens.example.com LENS_PUBLIC_URL=http://localhost.example.com; do
-            lens_line="$(env "$lens_setting" LENS_IMAGE=lens:ci docker compose run --rm credentials)"
-            grep --quiet "/ui/ and paste the LENS_ADMIN_TOKEN value from .env" <<<"$lens_line"
-            if grep --fixed-strings --quiet "$lens_token" <<<"$lens_line"; then exit 1; fi
-          done
-      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020
-        with:
-          node-version: 24.14.1
-      - name: Recover populated deployment
-        run: node deploy/lens/recovery-smoke.mjs lens:ci
-      - name: Check authentication and storage outage recovery
-        run: node deploy/lens/qualify-runtime.mjs lens:ci
-      - name: Migrate a read-only PostgreSQL fixture using the packaged command
-        run: node deploy/lens/qualify-migration.mjs lens:ci
-      - uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065
-        with:
-          python-version: '3.11'
-      - name: Build and qualify the SDK wheel against the packaged service
-        env:
-          RUSTUP_TOOLCHAIN: 1.99.0
-        run: |
-          rustup toolchain install 1.99.0 --profile minimal
-          python -m pip install uv==0.10.9
-          uv build --wheel --project src/sdk --out-dir "$RUNNER_TEMP/lens-sdk"
-          node deploy/lens/qualify-sdk.mjs lens:ci "$RUNNER_TEMP"/lens-sdk/*.whl
-      - name: Build calculation sandbox tests
-        run: docker build --target smoke --build-arg LENS_VERSION=ci -f deploy/runtime/Dockerfile -t lens:smoke .
-      - name: Check calculation confinement on the native kernel
-        run: >-
-          docker run --rm --read-only --cap-drop ALL
-          --security-opt no-new-privileges --network none
-          --pids-limit 128 --memory 2g --cpus 2
-          --tmpfs /tmp:rw,noexec,nosuid,size=1g lens:smoke
+          docker run --rm --entrypoint /opt/hermes/.venv/bin/hermes lens-agents:ci --version
+          docker run --rm --entrypoint /opt/deepagents/bin/dcode lens-agents:ci --version
