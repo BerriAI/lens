@@ -200,6 +200,10 @@ async fn a_host_can_tell_that_this_lens_mounted_the_ui_for_it(
 ) {
     let response = mounted(built.0, "/ui/", mount).await;
     assert_eq!(
+        response.headers()[lens_server::ui::AUTH_HEADER],
+        "bearer-v1"
+    );
+    assert_eq!(
         response
             .headers()
             .get(lens_server::ui::MOUNT_HEADER)

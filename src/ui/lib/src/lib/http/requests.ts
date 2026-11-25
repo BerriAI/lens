@@ -1,5 +1,7 @@
 import { createApiClient } from "./client";
-import { getAuthHeaderName, getRequestBaseUrl, reportError, resolveRequestPath } from "./runtime";
+import {
+  getAuthHeaderName, getAuthToken, getRequestBaseUrl, getRequestCredentials, reportError, resolveRequestPath,
+} from "./runtime";
 import type {
   Trace,
   TracePage,
@@ -19,6 +21,8 @@ export const apiClient = createApiClient({
   getBaseUrl: getRequestBaseUrl,
   resolvePath: resolveRequestPath,
   getAuthHeaderName,
+  getAuthToken,
+  getCredentials: getRequestCredentials,
   onError: reportError,
 });
 export const modelCostMap = (

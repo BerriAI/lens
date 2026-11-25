@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, type FormEvent } from "react";
+import { useEffect, useMemo, useState, type FormEvent } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useTheme } from "next-themes";
 import { parseAsBoolean, useQueryState } from "nuqs";
@@ -12,11 +12,13 @@ import {
   LensHostProvider,
   LensWorkspace,
   type LensHost,
+  type GatewayFrameAuth,
   takeSignInToken,
 } from "@litellm/lens-ui";
 import litellmMonogram from "../../lib/public/assets/logos/litellm_monogram.svg";
 import { ApiError, createApiClient } from "@litellm/lens-ui/http";
 import { toast } from "sonner";
+import { useGatewayAuth } from "./gatewayAuth";
 
 const gatewayApiRoot = () =>
   typeof window === "undefined"
@@ -49,18 +51,49 @@ const gatewayConnectedSchema = z.object({
   gateway_environment: z.array(z.string()),
 });
 
-configureLensHttp({
-  getBaseUrl: baseUrl,
-  getAuthToken: () => null,
-  resolvePath,
-});
+function configureWorkspaceAuth(auth: GatewayFrameAuth | null) {
+  configureLensHttp({
+    getBaseUrl: baseUrl,
+    getAuthToken: () => auth?.accessToken ?? null,
+    getAuthHeaderName: () => auth?.headerName ?? "Authorization",
+    credentials: auth ? "omit" : undefined,
+    resolvePath,
+  });
+}
+
+configureWorkspaceAuth(null);
 
 export function Workspace() {
+  const gateway = useGatewayAuth(configureWorkspaceAuth);
+  if (gateway.status === "waiting") return <OpeningLens />;
+  if (gateway.status === "unavailable")
+    return (
+      <HostedUnavailable
+        detail="LiteLLM did not provide its sign-in. Retry, or reload the dashboard."
+        onRetry={gateway.retry}
+      />
+    );
+  return <SessionWorkspace auth={gateway.auth} />;
+}
+
+function SessionWorkspace({ auth }: { auth: GatewayFrameAuth | null }) {
   const [demo] = useQueryState("demo", parseAsBoolean.withDefault(false));
   const [linkRejected, setLinkRejected] = useState(false);
+  const sessionApi = useMemo(
+    () =>
+      auth
+        ? createApiClient({
+            getBaseUrl: baseUrl,
+            resolvePath,
+            getAuthHeaderName: () => auth.headerName,
+            getCredentials: () => "omit",
+          })
+        : api,
+    [auth],
+  );
   const session = useQuery({
     queryKey: sessionKey,
-    queryFn: async () => {
+    queryFn: async ({ signal }) => {
       const token =
         gatewayApiRoot() === null
           ? takeSignInToken(window.location, window.history)
@@ -78,7 +111,12 @@ export function Workspace() {
             })
         : null;
       return sessionSchema.parse(
-        signedIn ?? (await api.get("/auth/session", { cache: "no-store" })),
+        signedIn ??
+          (await sessionApi.get("/auth/session", {
+            cache: "no-store",
+            accessToken: auth?.accessToken,
+            signal,
+          })),
       );
     },
     enabled: !demo,
@@ -108,15 +146,11 @@ export function Workspace() {
     await client.resetQueries({ queryKey: sessionKey });
   };
   if (demo) return <Surface userRole="proxy_admin_viewer" readOnly />;
-  if (session.isPending)
-    return (
-      <p role="status" className="p-8 text-sm text-muted-foreground">
-        Opening Lens…
-      </p>
-    );
+  if (session.isPending) return <OpeningLens />;
   if (session.data)
     return (
       <Surface
+        accessToken={auth?.accessToken ?? ""}
         userRole={session.data.user_role}
         readOnly={session.data.user_role === "proxy_admin_viewer"}
         user={
@@ -132,25 +166,15 @@ export function Workspace() {
     );
   if (gatewayApiRoot() !== null)
     return (
-      <main className="lens-workspace mx-auto my-16 w-[calc(100%-2rem)] max-w-md overflow-hidden rounded-xl border bg-card">
-        <header className="lens-page-header">
-          <h1 className="lens-page-title">Lens is not available</h1>
-        </header>
-        <div className="lens-page-body flex flex-col gap-4">
-          <p className="text-sm text-muted-foreground">
-            {session.error instanceof ApiError &&
-            [401, 403].includes(session.error.status)
-              ? "Sign in to LiteLLM again, then reload this page."
-              : "LiteLLM could not reach Lens. Check that Lens is running, then retry."}
-          </p>
-          <button
-            className="rounded-md border px-3 py-2 text-sm"
-            onClick={() => void session.refetch()}
-          >
-            Retry
-          </button>
-        </div>
-      </main>
+      <HostedUnavailable
+        detail={
+          session.error instanceof ApiError &&
+          [401, 403].includes(session.error.status)
+            ? "Sign in to LiteLLM again, then reload this page."
+            : "LiteLLM could not reach Lens. Check that Lens is running, then retry."
+        }
+        onRetry={() => void session.refetch()}
+      />
     );
   if (session.error instanceof ApiError && session.error.status === 401)
     return <SignIn linkRejected={linkRejected} />;
@@ -177,11 +201,43 @@ export function Workspace() {
   );
 }
 
+function OpeningLens() {
+  return (
+    <p role="status" className="p-8 text-sm text-muted-foreground">
+      Opening Lens…
+    </p>
+  );
+}
+
+function HostedUnavailable({
+  detail,
+  onRetry,
+}: {
+  detail: string;
+  onRetry: () => void;
+}) {
+  return (
+    <main className="lens-workspace mx-auto my-16 w-[calc(100%-2rem)] max-w-md overflow-hidden rounded-xl border bg-card">
+      <header className="lens-page-header">
+        <h1 className="lens-page-title">Lens is not available</h1>
+      </header>
+      <div className="lens-page-body flex flex-col gap-4">
+        <p className="text-sm text-muted-foreground">{detail}</p>
+        <button className="rounded-md border px-3 py-2 text-sm" onClick={onRetry}>
+          Retry
+        </button>
+      </div>
+    </main>
+  );
+}
+
 function Surface({
+  accessToken = "",
   userRole,
   readOnly,
   user,
 }: {
+  accessToken?: string;
   userRole: string;
   readOnly: boolean;
   user?: LensHost["user"];
@@ -193,11 +249,15 @@ function Surface({
         host={{
           analysis: "deployment",
           surface: "standalone",
-          gatewayFrameNavigation: Boolean(forcedTheme),
+          gatewayFrameNavigation: Boolean(accessToken) || Boolean(forcedTheme),
           user,
         }}
       >
-        <LensWorkspace accessToken="" userRole={userRole} readOnly={readOnly} />
+        <LensWorkspace
+          accessToken={accessToken}
+          userRole={userRole}
+          readOnly={readOnly}
+        />
       </LensHostProvider>
     </div>
   );

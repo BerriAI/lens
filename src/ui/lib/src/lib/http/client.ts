@@ -119,6 +119,8 @@ export interface ApiClientConfig {
   resolvePath?: (path: string) => string;
   /** Resolves the auth header name at call time. Defaults to "Authorization". */
   getAuthHeaderName?: () => string;
+  getAuthToken?: () => string | null;
+  getCredentials?: () => RequestCredentials | undefined;
   /** Invoked with the derived message right before a non-2xx response throws. Fire-and-forget. */
   onError?: (message: string) => void | Promise<void>;
   /** Injectable fetch implementation; defaults to the global. */
@@ -152,7 +154,7 @@ const appendQuery = (url: string, query: QueryParams | undefined): string => {
 };
 
 export function createApiClient(config: ApiClientConfig): ApiClient {
-  const { getBaseUrl, resolvePath, getAuthHeaderName, onError, fetchImpl } = config;
+  const { getBaseUrl, resolvePath, getAuthHeaderName, getAuthToken, getCredentials, onError, fetchImpl } = config;
   const doFetch: typeof fetch = (input, init) => (fetchImpl ?? fetch)(input, init);
 
   async function fetchChecked(method: HttpMethod, path: string, options: RequestOptions = {}): Promise<Response> {
@@ -165,15 +167,18 @@ export function createApiClient(config: ApiClientConfig): ApiClient {
     if (rawBody === undefined) {
       headers["Content-Type"] = "application/json";
     }
-    if (accessToken) {
+    const token = accessToken ?? getAuthToken?.();
+    if (token) {
       const headerName = getAuthHeaderName ? getAuthHeaderName() : "Authorization";
-      headers[headerName] = `Bearer ${accessToken}`;
+      headers[headerName] = `Bearer ${token}`;
     }
     if (extraHeaders) {
       Object.assign(headers, extraHeaders);
     }
 
-    const init: RequestInit = { method, headers, signal, credentials, redirect, cache };
+    const init: RequestInit = {
+      method, headers, signal, credentials: getCredentials?.() ?? credentials, redirect, cache,
+    };
     if (rawBody !== undefined) {
       init.body = rawBody;
     } else if (body !== undefined) {
