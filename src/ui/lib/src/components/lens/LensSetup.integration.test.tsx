@@ -1,4 +1,4 @@
-import { fireEvent, screen, within } from "@testing-library/react";
+import { fireEvent, screen, within, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { beforeEach, expect, it, vi } from "vitest";
 import {
@@ -59,6 +59,9 @@ it("allows non-admins to read shared reports without starting agents", async () 
   expect(
     screen.queryByRole("button", { name: "Create bot" }),
   ).not.toBeInTheDocument();
+  expect(
+    screen.queryByRole("button", { name: "Connect Slack" }),
+  ).not.toBeInTheDocument();
   const requests = await Promise.all(
     network.mock.calls.map(([input, init]) => readRequest(input, init)),
   );
@@ -107,4 +110,91 @@ it("creates a bot with the standing task and model selected in the form", async 
     instructions: "Find unsuccessful user tasks and publish evidence",
     model: "second-model",
   });
+});
+
+it("connects Slack from Home and keeps tokens out of browser storage", async () => {
+  const user = userEvent.setup();
+  const network = workspaceNetwork();
+  const normal = network.getMockImplementation()!;
+  const submitted = vi.fn();
+  network.mockImplementation(async (input, init) => {
+    const request = await readRequest(input, init);
+    if (request.path === "/lens/workspace/slack") {
+      if (request.method === "POST") submitted(request.body);
+      return Response.json({
+        configured: submitted.mock.calls.length > 0,
+        connected: submitted.mock.calls.length > 0,
+      });
+    }
+    return normal(input, init);
+  });
+  vi.stubGlobal("fetch", network);
+  renderWithProviders(<LensWorkspace {...admin} />);
+  await user.click(
+    await screen.findByRole("button", { name: "Connect Slack" }),
+  );
+  const dialog = within(
+    await screen.findByRole("dialog", { name: "Connect Slack" }),
+  );
+  expect(
+    await dialog.findByRole("link", { name: "Create Slack app" }),
+  ).toHaveAttribute("href", expect.stringContaining("manifest_json="));
+  fireEvent.change(dialog.getByLabelText("Bot token"), {
+    target: { value: "xoxb-fixture-token" },
+  });
+  fireEvent.change(dialog.getByLabelText("App-level token"), {
+    target: { value: "xapp-fixture-token" },
+  });
+  await user.click(dialog.getByRole("button", { name: "Connect Slack" }));
+  expect(await dialog.findByText(/Slack is connected/)).toBeVisible();
+  expect(submitted).toHaveBeenCalledExactlyOnceWith({
+    bot_token: "xoxb-fixture-token",
+    app_token: "xapp-fixture-token",
+  });
+  expect(JSON.stringify(window.localStorage)).not.toContain("fixture-token");
+  expect(JSON.stringify(window.sessionStorage)).not.toContain("fixture-token");
+  expect(dialog.queryByLabelText("Bot token")).not.toBeInTheDocument();
+});
+
+it("keeps a failed Slack setup editable and clears credentials when closed", async () => {
+  const user = userEvent.setup();
+  const network = workspaceNetwork();
+  const normal = network.getMockImplementation()!;
+  network.mockImplementation(async (input, init) => {
+    const request = await readRequest(input, init);
+    if (request.path === "/lens/workspace/slack" && request.method === "POST")
+      return Response.json(
+        { detail: "Slack rejected the app-level token" },
+        { status: 422 },
+      );
+    return normal(input, init);
+  });
+  vi.stubGlobal("fetch", network);
+  renderWithProviders(<LensWorkspace {...admin} />);
+  await user.click(
+    await screen.findByRole("button", { name: "Connect Slack" }),
+  );
+  const dialog = within(
+    await screen.findByRole("dialog", { name: "Connect Slack" }),
+  );
+  fireEvent.change(await dialog.findByLabelText("Bot token"), {
+    target: { value: "xoxb-fixture-token" },
+  });
+  fireEvent.change(dialog.getByLabelText("App-level token"), {
+    target: { value: "xapp-fixture-token" },
+  });
+  await user.click(dialog.getByRole("button", { name: "Connect Slack" }));
+  expect(await dialog.findByRole("alert")).toHaveTextContent(
+    "Slack rejected the app-level token",
+  );
+  expect(dialog.getByLabelText("Bot token")).toHaveValue("xoxb-fixture-token");
+  await user.keyboard("{Escape}");
+  await waitFor(() =>
+    expect(screen.queryByRole("dialog")).not.toBeInTheDocument(),
+  );
+  await user.click(screen.getByRole("button", { name: "Connect Slack" }));
+  const reopened = within(
+    await screen.findByRole("dialog", { name: "Connect Slack" }),
+  );
+  expect(await reopened.findByLabelText("Bot token")).toHaveValue("");
 });

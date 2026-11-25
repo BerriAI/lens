@@ -1,3 +1,5 @@
+pub mod setup;
+
 use std::{collections::HashMap, sync::Arc, time::Duration};
 
 use agentchat::{
@@ -237,21 +239,38 @@ impl Bridge {
             .filter(|v| !v.is_empty());
         match (bot, app) {
             (None, None) => Ok(None),
-            (Some(bot), Some(app)) => {
-                let state = Arc::new(SlackState::new(store));
-                let mut config = SlackConfig::new(bot, app);
-                config.ack_emoji = None;
-                let slack = Slack::with_thread_subscriptions(config, state.clone())
-                    .map_err(|_| Error::Invalid("Slack configuration is invalid"))?;
-                Ok(Some(Arc::new(Self {
-                    slack: Arc::new(slack),
-                    app: Arc::new(AgentChat::with_state(state)),
-                })))
-            }
+            (Some(bot), Some(app)) => Self::new(
+                store,
+                setup::Credentials {
+                    bot_token: bot,
+                    app_token: app,
+                },
+            )
+            .map(Some),
             _ => Err(Error::Invalid(
                 "Set both LENS_AGENT_SLACK_BOT_TOKEN and LENS_AGENT_SLACK_APP_TOKEN",
             )),
         }
+    }
+
+    pub fn new(store: Store, credentials: setup::Credentials) -> Result<Arc<Self>, Error> {
+        let state = Arc::new(SlackState::new(store));
+        let mut config = SlackConfig::new(credentials.bot_token, credentials.app_token);
+        config.ack_emoji = None;
+        let slack = Slack::with_thread_subscriptions(config, state.clone())
+            .map_err(|_| Error::Invalid("Slack configuration is invalid"))?;
+        Ok(Arc::new(Self {
+            slack: Arc::new(slack),
+            app: Arc::new(AgentChat::with_state(state)),
+        }))
+    }
+
+    pub fn connected(&self) -> bool {
+        self.slack.is_connected()
+    }
+
+    pub fn stop(&self) {
+        self.slack.request_close();
     }
 
     pub async fn run(self: Arc<Self>, control: Control) -> Result<(), Error> {

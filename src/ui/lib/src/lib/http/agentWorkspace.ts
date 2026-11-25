@@ -117,6 +117,11 @@ type JsonBody<T> = { requestBody: { content: { "application/json": T } } };
 type IdPath = { parameters: { path: { id: string } } };
 
 export interface AgentWorkspacePaths {
+  "/lens/workspace/slack": {
+    get: JsonResponse<{ configured: boolean; connected: boolean }>;
+    post: JsonBody<{ bot_token: string; app_token: string }> &
+      JsonResponse<{ configured: boolean; connected: boolean }>;
+  };
   "/lens/workspace": { get: JsonResponse<AgentWorkspaceState> };
   "/lens/workspace/activity": { get: JsonResponse<AnnotationActivity[]> };
   "/lens/workspace/models": { get: JsonResponse<string[]> };

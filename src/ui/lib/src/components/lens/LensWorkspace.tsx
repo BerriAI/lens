@@ -125,6 +125,15 @@ function WorkspaceContent({
             <LensSidebar onNavigate={navigate}>
               {(collapsed, close) => (
                 <WorkspaceNavigation
+                  footer={
+                    writable ? (
+                      <SlackConnection
+                        api={api}
+                        scope={scope}
+                        compact={collapsed}
+                      />
+                    ) : undefined
+                  }
                   tab={route.tab}
                   collapsed={collapsed}
                   bots={bots}
@@ -166,19 +175,16 @@ function WorkspaceContent({
                   className="flex shrink-0 flex-wrap items-center justify-end gap-2 px-5 py-3 empty:hidden"
                 />
               )}
-              {!bot &&
-                selectedChat &&
-                writable &&
-                state.data?.slack_configured && (
-                  <div className="flex shrink-0 justify-end px-5 py-2">
-                    <SlackConnection
-                      key={selectedChat}
-                      api={api}
-                      scope={scope}
-                      chatId={selectedChat}
-                    />
-                  </div>
-                )}
+              {!bot && selectedChat && writable && (
+                <div className="flex shrink-0 justify-end px-5 py-2">
+                  <SlackConnection
+                    key={selectedChat}
+                    api={api}
+                    scope={scope}
+                    chatId={selectedChat}
+                  />
+                </div>
+              )}
               {state.error && (
                 <div
                   role="alert"
@@ -241,16 +247,14 @@ function WorkspaceContent({
                           <span className="text-xs text-muted-foreground">
                             {bot.enabled ? "Active" : "Paused"}
                           </span>
-                          {selectedChat &&
-                            writable &&
-                            state.data?.slack_configured && (
-                              <SlackConnection
-                                key={selectedChat}
-                                api={api}
-                                scope={scope}
-                                chatId={selectedChat}
-                              />
-                            )}
+                          {selectedChat && writable && (
+                            <SlackConnection
+                              key={selectedChat}
+                              api={api}
+                              scope={scope}
+                              chatId={selectedChat}
+                            />
+                          )}
                           {writable && (
                             <Button
                               variant="outline"

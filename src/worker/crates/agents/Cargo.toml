@@ -21,6 +21,7 @@ nix = { version = "0.30", features = ["signal", "process", "fs", "user"] }
 hmac = "0.12"
 litellm-traces.workspace = true
 reqwest.workspace = true
+ring = "0.17"
 reqwest-mcp = { package = "reqwest", version = "0.13", default-features = false, features = ["rustls", "json"] }
 schemars.workspace = true
 serde.workspace = true

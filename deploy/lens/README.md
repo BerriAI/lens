@@ -44,13 +44,9 @@ Main chats belong to their creator. Bot chats and results are shared in the admi
 
 Skip this section if you only need the Lens UI. Slack uses the AgentChat Rust SDK with Socket Mode, so no public webhook is required
 
-Create or select a Slack app with Socket Mode enabled. Give its app-level token `connections:write`. Give the bot `app_mentions:read`, `chat:write`, and the history scopes for the conversation types you intend to use (`channels:history`, `groups:history`, `im:history`, or `mpim:history`). Subscribe to `app_mention` and the corresponding message events, install the app, and invite it to the intended channel
+Choose **Connect Slack** at the bottom of the Lens sidebar. **Create Slack app** opens Slack with the required bot scopes, events and Socket Mode already selected. Choose your workspace and install the app. Copy its Bot User OAuth Token from **OAuth & Permissions** into Lens. In Slack's **Basic Information**, generate an App-Level Token with `connections:write` and paste that into the other field
 
-Load the tokens through `LENS_AGENT_SLACK_BOT_TOKEN` and `LENS_AGENT_SLACK_APP_TOKEN`, then apply the configuration:
-
-```sh
-docker compose -f deploy/lens/compose.yaml up --detach --wait
-```
+Choose **Connect Slack** in the form. Lens validates both credentials, encrypts them in its persistent state, and connects immediately without a restart or deployment change. Wait for **Slack is connected**. Existing environment-based configuration still works; a connection saved in Lens takes precedence. Keep the runtime secret with your state backups because it protects the saved Slack credentials
 
 Open an existing chat in Lens and choose **Slack**. Generate a link code, then mention the Slack app with the displayed `lens link …` command in the intended thread within ten minutes. This connects that thread to the same Lens conversation and native session. Only the person who linked it can steer the agent through that thread
 
@@ -87,7 +83,7 @@ This stops the experiment and retains its volumes. Keep all three data volumes a
 | Gateway environment is missing | Export the two gateway variables in the shell running Compose |
 | Models work but MCP discovery is denied | Grant the dedicated key the intended MCP servers in LiteLLM |
 | A bot says the runtime is unavailable | Check `agents` health and logs, then resume the bot |
-| Slack is absent from the chat header | Configure both Slack tokens and recreate the Lens service |
+| Slack is not connected | Open **Connect Slack** in the sidebar, check the app setup and save valid tokens |
 | Existing `.env` lacks `LENS_RUNTIME_SECRET` | Use a fresh experiment directory or add a new private random runtime credential while preserving existing credentials |
 | A trace link opens the wrong host | Set `LENS_PUBLIC_URL` to the actual browser origin and recreate Lens |
 

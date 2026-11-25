@@ -34,6 +34,10 @@ pub fn router<R: SessionRepository + 'static, B: TraceReader + 'static>(
     Router::new()
         .route("/lens/workspace", get(workspace::<R, B>))
         .route("/lens/workspace/models", get(workspace_models::<R, B>))
+        .route(
+            "/lens/workspace/slack",
+            get(slack_status::<R, B>).post(connect_slack::<R, B>),
+        )
         .route("/lens/workspace/activity", get(activity::<R, B>))
         .route("/lens/workspace/bots", post(create_bot::<R, B>))
         .route("/lens/workspace/bots/{id}", patch(bot_state::<R, B>))
@@ -102,6 +106,26 @@ async fn workspace<R: SessionRepository, B>(
     Ok(Json(
         json!({"agents":app.control.store().agents(&access).await?,"model":app.control.0.model,"writable":access.writable,"slack_configured":app.control.slack_configured()}),
     ))
+}
+
+async fn slack_status<R: SessionRepository, B>(
+    State(app): State<Arc<App<R, B>>>,
+    headers: HeaderMap,
+) -> Result<Json<Value>, Error> {
+    access(&app, &headers, &Method::GET)
+        .await?
+        .require_write()?;
+    Ok(Json(app.control.slack_status()))
+}
+
+async fn connect_slack<R: SessionRepository, B>(
+    State(app): State<Arc<App<R, B>>>,
+    headers: HeaderMap,
+    Json(input): Json<crate::slack::setup::Credentials>,
+) -> Result<Json<Value>, Error> {
+    let access = access(&app, &headers, &Method::POST).await?;
+    app.control.connect_slack(&access, input).await?;
+    Ok(Json(json!({"configured":true,"connected":false})))
 }
 
 async fn create_bot<R: SessionRepository, B>(

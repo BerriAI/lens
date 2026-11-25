@@ -63,6 +63,8 @@ export function workspaceNetwork(writable = true) {
   return vi.fn<typeof fetch>(async (input, init) => {
     const request = await readRequest(input, init);
     const { path } = request;
+    if (path === "/lens/workspace/slack")
+      return Response.json({ configured: false, connected: false });
     if (path === "/lens/workspace/models")
       return Response.json(["test-model", "second-model"]);
     if (path === "/lens/workspace/activity") return Response.json([]);

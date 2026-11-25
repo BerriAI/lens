@@ -15,6 +15,17 @@ export function workspaceApi(accessToken: string) {
     credentials: "include" as const,
   };
   return {
+    slackStatus: async () =>
+      required((await fetchClient.GET("/lens/workspace/slack", options)).data),
+    connectSlack: async (bot_token: string, app_token: string) =>
+      required(
+        (
+          await fetchClient.POST("/lens/workspace/slack", {
+            ...options,
+            body: { bot_token, app_token },
+          })
+        ).data,
+      ),
     slackLink: async (id: string) =>
       required(
         (

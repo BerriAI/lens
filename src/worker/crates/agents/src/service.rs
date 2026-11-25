@@ -7,7 +7,7 @@ use reqwest::Client;
 use serde_json::{Value, json};
 use sha2::Sha256;
 use std::{collections::HashMap, sync::Arc, time::Duration};
-use tokio::sync::Mutex;
+use tokio::sync::{Mutex, watch};
 
 use crate::{
     Error,
@@ -24,7 +24,8 @@ const MAIN_INSTRUCTIONS: &str = "You are an agent in Lens. Help the user explore
 pub struct Control(Arc<Inner>);
 struct Inner {
     store: Store,
-    slack: Option<Arc<crate::slack::Bridge>>,
+    slack: std::sync::RwLock<Option<Arc<crate::slack::Bridge>>>,
+    slack_changed: watch::Sender<()>,
     client: Client,
     runtime_url: String,
     runtime_secret: String,
@@ -48,7 +49,8 @@ impl Control {
                 ))
         };
         Ok(Self(Arc::new(Inner {
-            slack: crate::slack::Bridge::from_env(store.clone())?,
+            slack: std::sync::RwLock::new(crate::slack::Bridge::from_env(store.clone())?),
+            slack_changed: watch::channel(()).0,
             store,
             client: Client::builder()
                 .redirect(reqwest::redirect::Policy::none())
@@ -499,16 +501,55 @@ impl Control {
     }
 
     pub fn slack_configured(&self) -> bool {
-        self.0.slack.is_some()
+        self.0.slack.read().is_ok_and(|bridge| bridge.is_some())
+    }
+
+    pub fn slack_status(&self) -> Value {
+        let bridge = self.0.slack.read().ok();
+        json!({"configured": bridge.as_ref().is_some_and(|b| b.is_some()),
+            "connected": bridge.as_ref().and_then(|b| b.as_ref()).is_some_and(|b| b.connected())})
+    }
+
+    pub async fn connect_slack(
+        &self,
+        access: &Access,
+        credentials: crate::slack::setup::Credentials,
+    ) -> Result<(), Error> {
+        access.require_write()?;
+        credentials
+            .validate(&self.0.client, "https://slack.com/api")
+            .await?;
+        self.store()
+            .save_slack_credentials(&credentials, &self.0.runtime_secret)
+            .await?;
+        self.0.slack_changed.send_replace(());
+        Ok(())
     }
 
     pub async fn serve_slack(&self) -> Result<(), Error> {
-        if let Some(bridge) = &self.0.slack {
-            bridge.clone().run(self.clone()).await?;
-        } else {
-            std::future::pending::<()>().await;
+        let mut changes = self.0.slack_changed.subscribe();
+        loop {
+            let bridge = match self
+                .store()
+                .slack_credentials(&self.0.runtime_secret)
+                .await?
+            {
+                Some(credentials) => Some(crate::slack::Bridge::new(
+                    self.store().clone(),
+                    credentials,
+                )?),
+                None => crate::slack::Bridge::from_env(self.store().clone())?,
+            };
+            *self.0.slack.write().map_err(|_| Error::Runtime)? = bridge.clone();
+            if let Some(bridge) = bridge {
+                tokio::select! {
+                    result = bridge.clone().run(self.clone()) => { bridge.stop(); return result; }
+                    changed = changes.changed() => { bridge.stop(); changed.map_err(|_| Error::Runtime)?; }
+                }
+            } else {
+                changes.changed().await.map_err(|_| Error::Runtime)?;
+            }
         }
-        Ok(())
     }
 
     pub(crate) async fn reply_text(
@@ -551,12 +592,14 @@ impl Control {
         agent: &Agent,
         input: crate::slack::SlackMessage,
     ) -> Result<Value, Error> {
-        self.0
+        let bridge = self
+            .0
             .slack
-            .as_ref()
-            .ok_or(Error::Invalid("Slack is not configured"))?
-            .send(self.store(), agent, input)
-            .await
+            .read()
+            .map_err(|_| Error::Runtime)?
+            .clone()
+            .ok_or(Error::Invalid("Slack is not configured"))?;
+        bridge.send(self.store(), agent, input).await
     }
 
     fn actor(agent: &Agent) -> Actor {
@@ -638,7 +681,8 @@ mod tests {
     fn control(store: Store, endpoint: &str) -> Control {
         Control(Arc::new(Inner {
             store,
-            slack: None,
+            slack: std::sync::RwLock::new(None),
+            slack_changed: watch::channel(()).0,
             client: Client::new(),
             runtime_url: endpoint.into(),
             runtime_secret: "fixture-runtime-secret".into(),
@@ -650,6 +694,49 @@ mod tests {
             signing_key: b"fixture-signing-key".to_vec(),
             turns: Mutex::new(HashMap::new()),
         }))
+    }
+
+    #[rstest]
+    #[tokio::test]
+    async fn non_admin_cannot_configure_slack(directory: tempfile::TempDir) {
+        let control = control(
+            Store::open(&directory.path().join("state.db"))
+                .await
+                .unwrap(),
+            "https://example.test",
+        );
+        let access = Access {
+            workspace: "global".into(),
+            owner: "viewer".into(),
+            scope: ReadAccessParams {
+                all_teams: true,
+                user_id: String::new(),
+                team_ids: vec![],
+            },
+            writable: false,
+        };
+        let result = control
+            .connect_slack(
+                &access,
+                crate::slack::setup::Credentials {
+                    bot_token: "xoxb-fixture".into(),
+                    app_token: "xapp-fixture".into(),
+                },
+            )
+            .await;
+        assert!(matches!(result, Err(Error::Forbidden)));
+        assert!(
+            control
+                .store()
+                .slack_credentials("fixture-runtime-secret")
+                .await
+                .unwrap()
+                .is_none()
+        );
+        assert_eq!(
+            control.slack_status(),
+            json!({"configured":false,"connected":false})
+        );
     }
 
     #[rstest]

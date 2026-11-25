@@ -1,3 +1,4 @@
+import type { ReactNode } from "react";
 import {
   Activity,
   Bot,
@@ -34,6 +35,7 @@ export function WorkspaceNavigation({
   onNewChat,
   onCreateBot,
   writable,
+  footer,
 }: {
   tab: WorkspaceTab;
   collapsed: boolean;
@@ -47,6 +49,7 @@ export function WorkspaceNavigation({
   onNewChat: () => void;
   onCreateBot: () => void;
   writable: boolean;
+  footer?: ReactNode;
 }) {
   return (
     <>
@@ -160,6 +163,7 @@ export function WorkspaceNavigation({
           )}
         </div>
       )}
+      {footer && <div className="mt-auto shrink-0 pt-4">{footer}</div>}
     </>
   );
 }
