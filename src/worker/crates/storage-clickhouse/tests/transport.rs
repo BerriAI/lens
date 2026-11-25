@@ -2,7 +2,67 @@ use std::collections::BTreeMap;
 
 use litellm_http::Client;
 use litellm_storage_clickhouse::{Connection, Error, Query, execute_read, insert_encoded_rows};
-use rstest::rstest;
+use rstest::{fixture, rstest};
+use testcontainers_modules::{
+    clickhouse::ClickHouse,
+    testcontainers::{ContainerAsync, ImageExt, runners::AsyncRunner},
+};
+
+#[fixture]
+async fn clickhouse() -> ContainerAsync<ClickHouse> {
+    ClickHouse::default()
+        .with_tag(
+            "26.9.6.6@sha256:eb4870e7ca7ed70c259eebfcfbee6cf797017f6b5436c2926bbbfe3d4d28486e",
+        )
+        .with_env_var("CLICKHOUSE_SKIP_USER_SETUP", "1")
+        .start()
+        .await
+        .expect("ClickHouse")
+}
+
+#[derive(Debug, PartialEq, serde::Serialize, serde::Deserialize)]
+struct BoundValues {
+    text: String,
+    strings: Vec<String>,
+}
+
+struct Echo;
+
+impl Query for Echo {
+    type Params = BoundValues;
+    type Row = BoundValues;
+    const SQL: &'static str = "SELECT {text:String} AS text, {strings:Array(String)} AS strings";
+}
+
+#[rstest]
+#[case::escaped_values("雪\tline\nbreak\r\0\\'&=+".into(), vec!["a'b".into(), "雪\\\n&=+".into()])]
+#[case::large_scalar("value-".repeat(20_000), Vec::new())]
+#[case::large_id_list(
+    "profile lookup".into(),
+    (0..160).map(|index| format!("response-{index}-{}", "x".repeat(512))).collect()
+)]
+#[tokio::test]
+async fn bound_values_round_trip_without_url_size_limits(
+    #[future(awt)] clickhouse: ContainerAsync<ClickHouse>,
+    #[case] text: String,
+    #[case] strings: Vec<String>,
+) {
+    let url = format!(
+        "http://{}:{}",
+        clickhouse.get_host().await.unwrap(),
+        clickhouse.get_host_port_ipv4(8123).await.unwrap()
+    );
+    let values = BoundValues { text, strings };
+    let rows = litellm_storage_clickhouse::fetch::<Echo>(
+        &Client::no_redirect_for_test(),
+        &Connection::parse(&url).unwrap(),
+        &values,
+    )
+    .await
+    .expect("bound values reach ClickHouse");
+
+    assert_eq!(rows, vec![values]);
+}
 
 #[rstest]
 #[case::invalid_database("db; DROP DATABASE default", "spend_logs", true)]
@@ -71,16 +131,26 @@ async fn typed_fetch_encodes_parameters_and_validates_rows(
     use litellm_storage_clickhouse::{fetch, fetch_json};
     use wiremock::{
         Mock, MockServer, ResponseTemplate,
-        matchers::{body_string, query_param},
+        matchers::{body_string_contains, query_param},
     };
 
     let server = MockServer::start().await;
-    Mock::given(body_string(TypedQuery::SQL))
-        .and(query_param("param_signed", i64::MIN.to_string()))
-        .and(query_param("param_unsigned", u64::MAX.to_string()))
-        .and(query_param("param_float", "12.5"))
-        .and(query_param("param_text", "line\\nbreak"))
-        .and(query_param("param_strings", "['a\\'b','雪']"))
+    Mock::given(body_string_contains(TypedQuery::SQL))
+        .and(body_string_contains(format!(
+            "name=\"param_signed\"\r\n\r\n{}\r\n",
+            i64::MIN
+        )))
+        .and(body_string_contains(format!(
+            "name=\"param_unsigned\"\r\n\r\n{}\r\n",
+            u64::MAX
+        )))
+        .and(body_string_contains("name=\"param_float\"\r\n\r\n12.5\r\n"))
+        .and(body_string_contains(
+            "name=\"param_text\"\r\n\r\nline\\nbreak\r\n",
+        ))
+        .and(body_string_contains(
+            "name=\"param_strings\"\r\n\r\n['a\\'b','雪']\r\n",
+        ))
         .and(query_param("readonly", "1"))
         .and(query_param("max_result_rows", "0"))
         .respond_with(ResponseTemplate::new(200).set_body_string(body))

@@ -186,12 +186,20 @@ async fn agent_picker_query_preserves_scope_through_the_internal_read_route() {
     Mock::given(method("POST"))
         .and(body_string_contains("FROM agent_traces_by_key"))
         .and(body_string_contains("o.AgentName"))
-        .and(query_param("param_all_teams", "0"))
-        .and(query_param("param_user_id", "agent-owner"))
-        .and(query_param("param_team_ids", "['managed-team']"))
-        .and(query_param("param_start_ms", "123"))
-        .and(query_param("param_end_ms", "456"))
-        .and(query_param("param_limit", "100"))
+        .and(body_string_contains(
+            "name=\"param_all_teams\"\r\n\r\n0\r\n",
+        ))
+        .and(body_string_contains(
+            "name=\"param_user_id\"\r\n\r\nagent-owner\r\n",
+        ))
+        .and(body_string_contains(
+            "name=\"param_team_ids\"\r\n\r\n['managed-team']\r\n",
+        ))
+        .and(body_string_contains(
+            "name=\"param_start_ms\"\r\n\r\n123\r\n",
+        ))
+        .and(body_string_contains("name=\"param_end_ms\"\r\n\r\n456\r\n"))
+        .and(body_string_contains("name=\"param_limit\"\r\n\r\n100\r\n"))
         .respond_with(ResponseTemplate::new(200).set_body_json(&result))
         .expect(1)
         .mount(&store)
@@ -325,11 +333,14 @@ async fn feedback_summary_query_preserves_scope_through_the_internal_read_route(
     }]});
     Mock::given(method("POST"))
         .and(body_string_contains("FROM lens_feedback FINAL"))
-        .and(query_param("param_all_teams", "0"))
-        .and(query_param("param_team", "feedback-team"))
-        .and(query_param(
-            "param_trace_ids",
-            "['1234567890abcdef1234567890abcdef']",
+        .and(body_string_contains(
+            "name=\"param_all_teams\"\r\n\r\n0\r\n",
+        ))
+        .and(body_string_contains(
+            "name=\"param_team\"\r\n\r\nfeedback-team\r\n",
+        ))
+        .and(body_string_contains(
+            "name=\"param_trace_ids\"\r\n\r\n['1234567890abcdef1234567890abcdef']\r\n",
         ))
         .respond_with(ResponseTemplate::new(200).set_body_json(&result))
         .expect(1)

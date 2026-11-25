@@ -4,7 +4,7 @@ use serde_json::{Value, json};
 use std::sync::{Arc, atomic::Ordering};
 use wiremock::{
     Mock, MockServer, ResponseTemplate,
-    matchers::{method, query_param},
+    matchers::{body_string_contains, method},
 };
 
 const SERVICE_TOKEN: &str = "optional-gateway-service-token-32-chars";
@@ -119,9 +119,15 @@ async fn connected_gateway_cannot_replace_lens_owned_ingestion_credentials(
 async fn connected_gateway_reads_using_its_authenticated_user_scope(#[future(awt)] server: Server) {
     let result = json!({"data":[{"agent_name":"scoped-agent","runs":"1","failed_runs":"0","last_seen_ms":"1791405060000","frameworks":[]}]});
     Mock::given(method("POST"))
-        .and(query_param("param_all_teams", "0"))
-        .and(query_param("param_user_id", "caller"))
-        .and(query_param("param_team_ids", "['allowed-team']"))
+        .and(body_string_contains(
+            "name=\"param_all_teams\"\r\n\r\n0\r\n",
+        ))
+        .and(body_string_contains(
+            "name=\"param_user_id\"\r\n\r\ncaller\r\n",
+        ))
+        .and(body_string_contains(
+            "name=\"param_team_ids\"\r\n\r\n['allowed-team']\r\n",
+        ))
         .respond_with(ResponseTemplate::new(200).set_body_json(&result))
         .expect(1)
         .mount(&server.storage)
