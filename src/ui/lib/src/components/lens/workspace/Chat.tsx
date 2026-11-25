@@ -113,6 +113,7 @@ export function Chat({
     bottom.current?.scrollIntoView({ block: "nearest" });
   }, [lastEvent, state.data?.turns.length]);
   const disabled = !writable || bot?.enabled === false;
+  const missingModel = !chatId && !bot && !(model ?? defaultModel);
   const composer = (
     <form
       className={
@@ -122,7 +123,8 @@ export function Chat({
       }
       onSubmit={(event) => {
         event.preventDefault();
-        if (draft.trim() && !send.isPending && !disabled) send.mutate();
+        if (draft.trim() && !send.isPending && !disabled && !missingModel)
+          send.mutate();
       }}
     >
       {(send.error || stop.error) && (
@@ -193,7 +195,9 @@ export function Chat({
             type="submit"
             size="icon-sm"
             aria-label="Send message"
-            disabled={!draft.trim() || disabled || send.isPending}
+            disabled={
+              !draft.trim() || disabled || missingModel || send.isPending
+            }
           >
             {send.isPending ? (
               <Loader2 className="size-4 animate-spin" />

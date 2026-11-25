@@ -151,7 +151,7 @@ export function CreateBot({
           className="space-y-5"
           onSubmit={(event) => {
             event.preventDefault();
-            create.mutate();
+            if (model ?? defaultModel) create.mutate();
           }}
         >
           <div className="space-y-2">
@@ -210,7 +210,10 @@ export function CreateBot({
             <Button
               type="submit"
               disabled={
-                !name.trim() || !instructions.trim() || create.isPending
+                !name.trim() ||
+                !instructions.trim() ||
+                !(model ?? defaultModel) ||
+                create.isPending
               }
             >
               {create.isPending && <Loader2 className="size-4 animate-spin" />}

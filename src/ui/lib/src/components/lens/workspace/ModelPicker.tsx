@@ -1,4 +1,4 @@
-import { useContext } from "react";
+import { useContext, useEffect } from "react";
 import { useQuery } from "@tanstack/react-query";
 import {
   Combobox,
@@ -32,7 +32,26 @@ export function ModelPicker({
     enabled: !disabled,
     staleTime: 300000,
   });
-  const options = [...new Set([value, ...(models.data ?? [])])].filter(Boolean);
+  useEffect(() => {
+    if (models.data && !disabled && !models.data.includes(value))
+      onChange(models.data[0] ?? "");
+  }, [models.data, value, onChange, disabled]);
+  const options = models.data ?? (value ? [value] : []);
+  if (models.data?.length === 0)
+    return (
+      <p className="text-xs text-muted-foreground">
+        Add a model in LiteLLM to start chatting{" "}
+        <Button
+          type="button"
+          variant="link"
+          size="sm"
+          disabled={models.isFetching}
+          onClick={() => void models.refetch()}
+        >
+          Refresh models
+        </Button>
+      </p>
+    );
   return (
     <div className="min-w-0">
       <Combobox

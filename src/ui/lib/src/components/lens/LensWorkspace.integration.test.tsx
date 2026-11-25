@@ -171,6 +171,44 @@ it("keeps the chosen model in the new session request", async () => {
   ).toMatchObject({ model: "second-model" });
 });
 
+it("waits for a configured model and resumes the draft after models are refreshed", async () => {
+  const user = userEvent.setup();
+  const normal = network.getMockImplementation()!;
+  const models = vi
+    .fn()
+    .mockReturnValueOnce([])
+    .mockReturnValue(["connected-model"]);
+  network.mockImplementation(async (input, init) => {
+    const request = await readRequest(input, init);
+    if (request.path === "/lens/workspace/models")
+      return Response.json(models());
+    return normal(input, init);
+  });
+  renderWithProviders(<LensWorkspace {...admin} />);
+  const refresh = await screen.findByRole("button", { name: "Refresh models" });
+  const composer = screen.getByRole("textbox", { name: "Message Lens" });
+  fireEvent.change(composer, { target: { value: "Find failed requests" } });
+  expect(screen.getByRole("button", { name: "Send message" })).toBeDisabled();
+  await user.click(refresh);
+  expect(
+    await screen.findByRole("combobox", { name: "Model" }),
+  ).toHaveTextContent("connected-model");
+  expect(composer).toHaveValue("Find failed requests");
+  await user.click(screen.getByRole("button", { name: "Send message" }));
+  await waitFor(() =>
+    expect(screen.getByRole("textbox", { name: "Message Lens" })).toHaveValue(""),
+  );
+  const requests = await Promise.all(
+    network.mock.calls.map(([input, init]) => readRequest(input, init)),
+  );
+  expect(
+    requests.find(
+      ({ path, method }) =>
+        path === "/lens/workspace/conversations" && method === "POST",
+    )?.body,
+  ).toMatchObject({ model: "connected-model" });
+});
+
 it("opens tagging activity without a report and queries the exact producer, definition and value", async () => {
   const user = userEvent.setup();
   const normal = network.getMockImplementation()!;
