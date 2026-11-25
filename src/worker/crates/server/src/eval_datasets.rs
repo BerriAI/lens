@@ -365,7 +365,7 @@ mod tests {
     use serde_json::json;
     use wiremock::{
         Mock, MockServer, ResponseTemplate,
-        matchers::{method, query_param},
+        matchers::{body_string_contains, method},
     };
 
     use super::{DatasetCase, Datasets, select_cases};
@@ -389,17 +389,29 @@ mod tests {
             .into_iter()
             .collect();
         Mock::given(method("POST"))
-            .and(query_param("param_team", "team-a"))
-            .and(query_param("param_attribute", "trace_id"))
-            .and(query_param("param_value", "source-trace"))
+            .and(body_string_contains(
+                "name=\"param_team\"\r\n\r\nteam-a\r\n",
+            ))
+            .and(body_string_contains(
+                "name=\"param_attribute\"\r\n\r\ntrace_id\r\n",
+            ))
+            .and(body_string_contains(
+                "name=\"param_value\"\r\n\r\nsource-trace\r\n",
+            ))
             .respond_with(ResponseTemplate::new(200).set_body_json(json!({"data":owners})))
             .expect(1)
             .mount(&server)
             .await;
         Mock::given(method("POST"))
-            .and(query_param("param_team", "team-a"))
-            .and(query_param("param_trace_id", "source-trace"))
-            .and(query_param("param_api_key_hash", "source-owner"))
+            .and(body_string_contains(
+                "name=\"param_team\"\r\n\r\nteam-a\r\n",
+            ))
+            .and(body_string_contains(
+                "name=\"param_trace_id\"\r\n\r\nsource-trace\r\n",
+            ))
+            .and(body_string_contains(
+                "name=\"param_api_key_hash\"\r\n\r\nsource-owner\r\n",
+            ))
             .respond_with(ResponseTemplate::new(200).set_body_json(json!({"data":rows})))
             .expect(u64::from(source_repo.is_some()))
             .mount(&server)

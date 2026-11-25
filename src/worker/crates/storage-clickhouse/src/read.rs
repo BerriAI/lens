@@ -120,16 +120,15 @@ pub async fn execute_read_with_limits(
             .append_pair("default_format", "JSON");
     }
 
-    url.query_pairs_mut().extend_pairs(
-        parameters
-            .iter()
-            .map(|(name, value)| (format!("param_{name}"), value.encoded())),
+    let form = parameters.iter().fold(
+        reqwest::multipart::Form::new().text("query", sql.to_owned()),
+        |form, (name, value)| form.text(format!("param_{name}"), value.encoded()),
     );
 
     let request = client
         .post(url)
         .timeout(Duration::from_secs(15))
-        .body(sql.to_owned());
+        .multipart(form);
     let mut response = request.send().await.map_err(|_| Error::Transport)?;
     if !response.status().is_success() {
         if response
