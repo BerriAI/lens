@@ -12,6 +12,7 @@ use axum::{
 use tower_http::{services::ServeDir, set_header::SetResponseHeaderLayer};
 
 pub const MOUNT_HEADER: &str = "x-lens-ui-mount";
+pub const AUTH_HEADER: &str = "x-lens-ui-auth";
 pub const MOUNT_PLACEHOLDER: &str = "/__lens_ui_mount__";
 const OWN_PATH: &str = "/ui";
 const MAX_ASSET_BYTES: usize = 32 * 1024 * 1024;
@@ -91,6 +92,9 @@ async fn mount(mut request: Request, next: Next) -> Response {
     parts
         .headers
         .insert(header::VARY, HeaderValue::from_static(MOUNT_HEADER));
+    parts
+        .headers
+        .insert(AUTH_HEADER, HeaderValue::from_static("bearer-v1"));
     let Ok(text) = std::str::from_utf8(&bytes) else {
         return Response::from_parts(parts, Body::from(bytes));
     };

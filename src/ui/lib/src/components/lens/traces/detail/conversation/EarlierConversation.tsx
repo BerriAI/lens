@@ -3,6 +3,7 @@
 import { useInfiniteQuery } from "@tanstack/react-query";
 import moment from "moment";
 
+import { useLensHost } from "../../../../../host/LensHost";
 import { Button, buttonVariants } from "../../../../ui/button";
 import { useTracesApi, useTracesLive } from "../../api";
 import { classifyTraceReadFailure, traceReadRetry, traceReadRetryDelay } from "../../list/traceReadFailure";
@@ -70,6 +71,7 @@ function normalizedContent(content: TraceConversationPage["turns"][number]["inpu
 
 export function EarlierConversation({ history }: { history: ConversationHistory }) {
   const live = useTracesLive();
+  const host = useLensHost();
   const turns = history.data?.pages.flatMap((page) => page.turns) ?? [];
   return (
     <>
@@ -93,7 +95,7 @@ export function EarlierConversation({ history }: { history: ConversationHistory 
                     trace_ref: turn.trace_ref,
                     view: "thread",
                   })}`}
-                  target="_blank"
+                  target={host.gatewayFrameNavigation ? "_self" : "_blank"}
                   rel="noopener noreferrer"
                 >
                   Inspect run

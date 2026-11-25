@@ -2,7 +2,9 @@ import createFetchClient, { type Middleware } from "openapi-fetch";
 import createQueryClient from "openapi-react-query";
 import type { paths } from "./schema";
 import { ApiError, deriveErrorMessage, retryAfterMs } from "./client";
-import { getAuthHeaderName, getAuthToken, getRequestBaseUrl, reportError, resolveRequestPath } from "./runtime";
+import {
+  getAuthHeaderName, getAuthToken, getRequestBaseUrl, getRequestCredentials, reportError, resolveRequestPath,
+} from "./runtime";
 import { resolveRequestUrl } from "./resolveApiBase";
 
 const BaseAwareRequest = function (url: string, init?: RequestInit): Request {
@@ -10,7 +12,10 @@ const BaseAwareRequest = function (url: string, init?: RequestInit): Request {
     registeredBase: getRequestBaseUrl(),
     pageOrigin: globalThis.location?.origin,
   });
-  return new globalThis.Request(target, init);
+  return new globalThis.Request(target, {
+    ...init,
+    credentials: getRequestCredentials() ?? init?.credentials,
+  });
 } as unknown as typeof Request;
 
 const isJsonMediaType = (contentType: string): boolean => /[/+]json\b/i.test(contentType);

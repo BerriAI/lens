@@ -2,6 +2,7 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import { liveLensServices } from "../../components/lens/data/LensServices";
 import { configureLensHttp } from "./configure";
 import { createApiClient } from "./client";
+import { modelCostMap } from "./requests";
 
 afterEach(() => {
   vi.unstubAllGlobals();
@@ -9,6 +10,45 @@ afterEach(() => {
 });
 
 describe("Lens session requests", () => {
+  it.each(["", "explicit-bearer"])("preserves an explicitly selected legacy token %j", async (accessToken) => {
+    const fetcher = vi.fn<typeof fetch>(async (input, init) => {
+      const request = new Request(input, init);
+      expect(request.headers.get("Authorization")).toBe(accessToken ? `Bearer ${accessToken}` : null);
+      expect(request.credentials).toBe("same-origin");
+      return Response.json({});
+    });
+    const api = createApiClient({
+      getBaseUrl: () => "https://lens.test",
+      getAuthToken: () => "default-bearer",
+      fetchImpl: fetcher,
+    });
+    await api.get("/auth/session", { accessToken });
+    expect(fetcher).toHaveBeenCalledOnce();
+  });
+
+  it("uses the supplied hosted bearer on both HTTP clients and omits cookies", async () => {
+    const accessToken = "hosted-dashboard-bearer";
+    configureLensHttp({
+      getBaseUrl: () => "https://gateway.test",
+      getAuthToken: () => accessToken,
+      getAuthHeaderName: () => "X-Gateway-Key",
+      credentials: "omit",
+    });
+    const fetcher = vi.fn<typeof fetch>(async (input, init) => {
+      const request = input instanceof Request ? input : new Request(input, init);
+      expect(request.headers.get("X-Gateway-Key")).toBe(`Bearer ${accessToken}`);
+      expect(request.headers.get("Authorization")).toBeNull();
+      expect(request.credentials).toBe("omit");
+      return Response.json([]);
+    });
+    vi.stubGlobal("fetch", fetcher);
+    const services = liveLensServices(accessToken);
+    await services.lens.lenses();
+    await services.traces.list({ startMs: 1, endMs: 2 }, { agent: "", includeInternal: false });
+    await modelCostMap();
+    expect(fetcher).toHaveBeenCalledTimes(3);
+  });
+
   it("should bypass cached redirects when checking the browser session", async () => {
     const session = { user_id: "admin", user_role: "proxy_admin" };
     const fetcher = vi.fn<typeof fetch>(async (input, init) => {

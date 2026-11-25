@@ -4,6 +4,7 @@ import {
   registerBaseUrlGetter,
   registerErrorHandler,
   registerPathResolver,
+  setRequestCredentials,
 } from "./runtime";
 import { setServerRootPath } from "../serverRootPath";
 
@@ -11,6 +12,7 @@ export interface LensHttpConfig {
   readonly getBaseUrl: () => string;
   readonly getAuthToken: () => string | null;
   readonly getAuthHeaderName?: () => string;
+  readonly credentials?: RequestCredentials;
   readonly onError?: (message: string) => void;
   readonly serverRootPath?: string;
   readonly getServerRootPath?: () => string;
@@ -21,6 +23,7 @@ export interface LensHttpConfig {
 export function configureLensHttp(config: LensHttpConfig): void {
   registerBaseUrlGetter(config.getBaseUrl);
   registerAuthTokenGetter(config.getAuthToken);
+  setRequestCredentials(config.credentials);
   registerAuthHeaderNameGetter(
     config.getAuthHeaderName ?? (() => "Authorization"),
   );

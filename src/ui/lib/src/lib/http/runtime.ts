@@ -22,6 +22,7 @@ type Getter<T> = () => T;
 let baseUrlGetter: Getter<string> = () => resolveApiBase({ explicitBase: process.env.NEXT_PUBLIC_BASE_URL });
 let authHeaderNameGetter: Getter<string> = () => "Authorization";
 let authTokenGetter: Getter<string | null> = () => null;
+let requestCredentials: RequestCredentials | undefined;
 let pathResolver: (path: string) => string = (path) => path;
 let errorHandler: (message: string) => void = () => {};
 
@@ -37,6 +38,10 @@ export const registerAuthTokenGetter = (getter: Getter<string | null>): void => 
   authTokenGetter = getter;
 };
 
+export const setRequestCredentials = (credentials: RequestCredentials | undefined): void => {
+  requestCredentials = credentials;
+};
+
 export const registerPathResolver = (resolver: (path: string) => string): void => {
   pathResolver = resolver;
 };
@@ -49,4 +54,5 @@ export const getRequestBaseUrl = (): string => baseUrlGetter();
 export const resolveRequestPath = (path: string): string => pathResolver(path);
 export const getAuthHeaderName = (): string => authHeaderNameGetter();
 export const getAuthToken = (): string | null => authTokenGetter();
+export const getRequestCredentials = (): RequestCredentials | undefined => requestCredentials;
 export const reportError = (message: string): void => errorHandler(message);

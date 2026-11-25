@@ -4,6 +4,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import { readRequest, stubGateway } from "../../../../../../tests/lens-test-utils";
 import { renderWithProviders, testQueryClient } from "../../../../../../tests/test-utils";
+import { LensHostProvider } from "../../../../../host/LensHost";
 import research from "../../__fixtures__/research_trace.json";
 import { liveTracesApi, TracesApiContext } from "../../api";
 import { useLocalRunSelection, useOpenTraceRouting } from "../../routing";
@@ -234,6 +235,24 @@ describe("Full conversation", () => {
       expect(history.mock.calls.map(([cursor]) => cursor)).toEqual([undefined, undefined]);
     },
   );
+
+  it("keeps Inspect run inside the gateway frame", async () => {
+    const { history } = serve();
+    history.mockReturnValue({ turns: [original], next_cursor: null });
+    renderWithProviders(
+      <LensHostProvider host={{ gatewayFrameNavigation: true }}>
+        <RoutedRun />
+      </LensHostProvider>,
+      { searchParams: "?view=thread" },
+    );
+    const thread = await screen.findByRole("region", { name: "Trace thread" });
+    const link = await within(thread).findByRole("link", { name: "Inspect run" });
+    expect(link).toHaveAttribute("target", "_self");
+    expect(link).toHaveAttribute(
+      "href",
+      `?tab=traces&trace=${original.trace_id}&trace_ref=${original.trace_ref}&view=thread`,
+    );
+  });
 
   it.each([false, true])(
     "links to the exact earlier run in another tab while leaving an embedded run open (demo=%s)",
