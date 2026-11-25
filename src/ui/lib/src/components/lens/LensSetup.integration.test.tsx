@@ -65,7 +65,7 @@ it("allows non-admins to read shared reports without starting agents", async () 
   expect(requests.filter(({ method }) => method !== "GET")).toEqual([]);
 });
 
-it("creates a bot with the standing task entered in the form", async () => {
+it("creates a bot with the standing task and model selected in the form", async () => {
   const user = userEvent.setup();
   const network = workspaceNetwork();
   const normal = network.getMockImplementation()!;
@@ -95,6 +95,8 @@ it("creates a bot with the standing task entered in the form", async () => {
     target: { value: "Find unsuccessful user tasks and publish evidence" },
   });
   expect(form.getByText(/checks in every 10 minutes/)).toBeVisible();
+  await user.click(form.getByRole("combobox", { name: "Model" }));
+  await user.click(await screen.findByRole("option", { name: "second-model" }));
   await user.click(form.getByRole("button", { name: "Create bot" }));
   expect(
     await screen.findByRole("textbox", { name: "Message Request reviewer" }),
@@ -103,5 +105,6 @@ it("creates a bot with the standing task entered in the form", async () => {
     id: expect.any(String),
     name: "Request reviewer",
     instructions: "Find unsuccessful user tasks and publish evidence",
+    model: "second-model",
   });
 });
