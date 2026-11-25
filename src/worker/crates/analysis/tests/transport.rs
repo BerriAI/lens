@@ -1512,6 +1512,73 @@ async fn streamed_reply_that_stops_at_the_output_limit_is_reported_as_cut_off(
 }
 
 #[rstest]
+#[case::gateway_stream(
+    Provider::OpenAiCompatible,
+    "/chat/completions",
+    event_stream(&[
+        json!({"model":"reported","choices":[{"delta":{"content":"","refusal":"Policy "}}]}),
+        json!({"choices":[{"delta":{"refusal":"refusal"},"finish_reason":"content_filter"}]}),
+        json!({"choices":[],"usage":{"prompt_tokens":100,"completion_tokens":0}}),
+    ])
+)]
+#[case::openai_buffered(
+    Provider::OpenAi,
+    "/chat/completions",
+    ResponseTemplate::new(200).set_body_json(json!({
+        "model":"reported","choices":[{"message":{"content":null,"refusal":"Policy refusal"},"finish_reason":"stop"}],
+        "usage":{"prompt_tokens":100,"completion_tokens":0}
+    }))
+)]
+#[case::anthropic_stream(
+    Provider::Anthropic,
+    "/messages",
+    event_stream(&[
+        json!({"type":"message_start","message":{"model":"reported","usage":{"input_tokens":100,"output_tokens":0}}}),
+        json!({"type":"message_delta","delta":{"stop_reason":"refusal","stop_details":{"type":"refusal","explanation":"Policy refusal"}},"usage":{"output_tokens":0}}),
+        json!({"type":"message_stop"}),
+    ])
+)]
+#[case::anthropic_buffered(
+    Provider::Anthropic,
+    "/messages",
+    ResponseTemplate::new(200).set_body_json(json!({
+        "model":"reported","content":[],"stop_reason":"refusal",
+        "stop_details":{"type":"refusal","explanation":"Policy refusal"},
+        "usage":{"input_tokens":100,"output_tokens":0}
+    }))
+)]
+#[tokio::test]
+async fn refusal_preserves_the_provider_reason_and_usage(
+    catalog: Arc<Catalog>,
+    request: ModelRequest,
+    #[case] provider: Provider,
+    #[case] endpoint: &str,
+    #[case] response: ResponseTemplate,
+) {
+    let server = MockServer::start().await;
+    Mock::given(method("POST"))
+        .and(path(endpoint))
+        .respond_with(response)
+        .expect(1)
+        .mount(&server)
+        .await;
+    let client = client(catalog, deployment(&server, provider));
+    let completion = client
+        .complete(&client.prepare("analysis", &request).await.unwrap())
+        .await
+        .unwrap();
+    assert_eq!(
+        completion.result.finish_reason,
+        Some(lens_contract::worker::ModelResultFinishReason::ContentFilter)
+    );
+    assert_eq!(completion.result.refusal.as_deref(), Some("Policy refusal"));
+    assert_eq!(completion.result.content, "");
+    assert!(completion.result.cost > 0.0);
+    assert_eq!(completion.usage.usage.unwrap().prompt_tokens, Some(100));
+    assert_eq!(completion.usage.usage.unwrap().completion_tokens, Some(0));
+}
+
+#[rstest]
 #[case::failure_event(
     Provider::OpenAiCompatible,
     "/chat/completions",

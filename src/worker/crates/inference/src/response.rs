@@ -65,5 +65,6 @@ pub fn model_result(content: Option<&str>, cost: f64, finish_reason: Option<&str
             Some("content_filter") => Some(ModelResultFinishReason::ContentFilter),
             _ => None,
         },
+        refusal: None,
     }
 }

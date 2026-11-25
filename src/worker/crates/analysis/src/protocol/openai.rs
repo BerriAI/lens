@@ -67,6 +67,7 @@ struct Choice {
 #[derive(Deserialize)]
 struct Message {
     content: Option<String>,
+    refusal: Option<String>,
 }
 #[derive(Default, Deserialize)]
 struct ResponseUsage {
@@ -106,6 +107,7 @@ pub(super) fn response(model: &str, body: &[u8]) -> Result<Completion, Error> {
         model,
         response.model,
         choice.message.content,
+        choice.message.refusal,
         choice.finish_reason,
         response.usage,
     ))
@@ -114,6 +116,7 @@ pub(super) fn response(model: &str, body: &[u8]) -> Result<Completion, Error> {
 pub(super) fn stream<'a>(model: &str, body: &'a [u8]) -> Result<Outcome<'a>, Error> {
     let mut reported = None;
     let mut content = String::new();
+    let mut refusal = String::new();
     let mut finish_reason = None;
     let mut usage = None;
     let mut events = super::events(body).peekable();
@@ -127,13 +130,10 @@ pub(super) fn stream<'a>(model: &str, body: &'a [u8]) -> Result<Outcome<'a>, Err
         reported = reported.or(chunk.model);
         usage = chunk.usage.or(usage);
         if let Some(choice) = chunk.choices.into_iter().next() {
-            content.push_str(
-                choice
-                    .delta
-                    .and_then(|delta| delta.content)
-                    .as_deref()
-                    .unwrap_or_default(),
-            );
+            if let Some(delta) = choice.delta {
+                content.push_str(delta.content.as_deref().unwrap_or_default());
+                refusal.push_str(delta.refusal.as_deref().unwrap_or_default());
+            }
             finish_reason = choice.finish_reason.or(finish_reason);
         }
     }
@@ -144,6 +144,7 @@ pub(super) fn stream<'a>(model: &str, body: &'a [u8]) -> Result<Outcome<'a>, Err
         model,
         reported,
         (!content.is_empty()).then_some(content),
+        (!refusal.is_empty()).then_some(refusal),
         finish_reason,
         usage,
     )))
@@ -153,17 +154,24 @@ fn completion(
     model: &str,
     reported: Option<String>,
     content: Option<String>,
+    refusal: Option<String>,
     finish_reason: Option<String>,
     usage: Option<ResponseUsage>,
 ) -> Completion {
     let usage = usage.unwrap_or_default();
     let details = usage.prompt_tokens_details.unwrap_or_default();
+    let refusal = refusal.filter(|reason| !reason.trim().is_empty());
     Completion {
         model: reported
             .filter(|model| !model.is_empty())
             .unwrap_or_else(|| model.into()),
         content,
-        finish_reason,
+        finish_reason: if refusal.is_some() {
+            Some("content_filter".into())
+        } else {
+            finish_reason
+        },
+        refusal,
         usage: Usage {
             prompt_tokens: usage.prompt_tokens.unwrap_or(0),
             completion_tokens: usage.completion_tokens.unwrap_or(0),

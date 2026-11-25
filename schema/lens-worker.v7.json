@@ -2105,6 +2105,16 @@
               "type": "null"
             }
           ]
+        },
+        "refusal": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
         }
       },
       "required": [

@@ -246,6 +246,7 @@ fn context_exceeded() -> ModelResult {
         cost: 0.0,
         context_exceeded: true,
         finish_reason: None,
+        refusal: None,
     }
 }
 

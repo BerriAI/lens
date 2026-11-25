@@ -3634,7 +3634,7 @@
       "unexpected": true
     },
     "result": {
-      "error": "unknown field `unexpected`, expected one of `content`, `context_exceeded`, `cost`, `finish_reason`"
+      "error": "unknown field `unexpected`, expected one of `content`, `context_exceeded`, `cost`, `finish_reason`, `refusal`"
     }
   },
   {
