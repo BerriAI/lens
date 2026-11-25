@@ -300,7 +300,7 @@ fn traffic(state: AgentState) -> Memory {
         runs: vec![
             billed,
             run("t2", "recorded:Refunds", "Refunds"),
-            run("t3", "cluster:c1", "login help"),
+            run("t3", "task:c1", "login help"),
         ],
         calls,
         ..Memory::with(state)
@@ -397,6 +397,37 @@ async fn profile_signal_filter_follows_signal_read_access(
     } else if matches!(status, StatusCode::UNAUTHORIZED | StatusCode::FORBIDDEN) {
         assert!(store.lock().queries.is_empty());
     }
+}
+
+#[rstest]
+#[case::admin(Role::ProxyAdmin, "unconfigured", "Not configured", "unconfigured")]
+#[case::scoped_user(Role::InternalUser, "unclassified", "Unclassified", "unclassified")]
+#[tokio::test]
+async fn runs_without_a_taxonomy_say_so_only_to_callers_who_could_see_one(
+    #[future(awt)] database: Database,
+    #[case] role: Role,
+    #[case] profile_id: &str,
+    #[case] name: &str,
+    #[case] source: &str,
+) {
+    let store = Memory {
+        runs: vec![run("trace", "unconfigured", "Not configured")],
+        ..Memory::default()
+    };
+    let server = serve(&database, store).await;
+    let (status, overview) = call(
+        &server,
+        Method::GET,
+        &format!("/lens/profiles/overview{}", window_query("")),
+        Some(role),
+        None,
+    )
+    .await;
+
+    assert_eq!(status, StatusCode::OK);
+    assert_eq!(overview["profiles"][0]["profile_id"], profile_id);
+    assert_eq!(overview["profiles"][0]["name"], name);
+    assert_eq!(overview["profiles"][0]["source"], source);
 }
 
 #[rstest]
@@ -1000,9 +1031,9 @@ async fn the_overview_resolves_runs_against_the_active_taxonomy_and_its_windows(
             .map(|profile| profile["name"].clone())
             .collect::<Vec<_>>()),
         Some(vec![
-            json!("login help"),
             json!("Refunds"),
-            json!("Answer billing questions")
+            json!("Answer billing questions"),
+            json!("login help")
         ])
     );
     assert_eq!(body["totals"]["spend_usd"], json!(0.25));

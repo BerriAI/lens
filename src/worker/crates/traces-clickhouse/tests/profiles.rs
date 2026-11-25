@@ -204,10 +204,12 @@ fn parameters(profile: &str, preview: u8) -> LensSampleParams {
 #[case::all("",vec!["coding","earliest","named-unclassified","resource-priority","unclassified","workflows"])]
 #[case::coding("Coding",vec!["coding","earliest","resource-priority"])]
 #[case::workflows("Workflows",vec!["workflows"])]
-#[case::unclassified("Unclassified",vec!["unclassified"])]
+#[case::not_configured("Not configured",vec!["unclassified"])]
+#[case::unclassified_includes_unconfigured_runs("Unclassified",vec!["unclassified"])]
 #[case::unknown("Not recorded",vec![])]
 #[case::recorded_id("recorded:Coding",vec!["coding","earliest","resource-priority"])]
-#[case::unclassified_id("unclassified",vec!["unclassified"])]
+#[case::not_configured_id("unconfigured",vec!["unclassified"])]
+#[case::unclassified_id_includes_unconfigured_runs("unclassified",vec!["unclassified"])]
 #[case::recorded_category_named_like_an_id("recorded:unclassified",vec!["named-unclassified"])]
 #[tokio::test]
 async fn preview_and_actual_sampling_use_profile_precedence_and_tenant_identity(
@@ -275,44 +277,38 @@ async fn imported_finding_sources_must_belong_to_the_selected_profile(
 }
 
 #[rstest]
+#[case::not_configured("Not configured", true)]
+#[case::not_configured_id("unconfigured", true)]
+#[case::unclassified_label("Unclassified", true)]
+#[case::unclassified_id("unclassified", true)]
+#[case::recorded("Coding", false)]
 #[tokio::test]
-async fn inferred_profiles_filter_runs_without_overriding_recorded_labels_or_other_keys(
+async fn unconfigured_finding_sources_also_match_the_unclassified_profile(
     #[future(awt)] profiled_database: TestResult<SeededDatabase>,
-    #[values(0, 1)] preview: u8,
+    #[case] profile: &str,
+    #[case] expected: bool,
 ) -> TestResult {
     let fixture = profiled_database?;
     let config = Config::new(DATABASE.into(), &fixture.database.url, 7)?;
-    let body = concat!(
-        "{\"TeamId\":\"team\",\"ApiKeyHash\":\"key\",\"TraceId\":\"unclassified\",\"Category\":\"Inferred coding\",\"StartTs\":\"2026-09-21 00:00:00\",\"ComputedAt\":1,\"ResolutionVersion\":1}\n",
-        "{\"TeamId\":\"team\",\"ApiKeyHash\":\"key\",\"TraceId\":\"coding\",\"Category\":\"Inferred coding\",\"StartTs\":\"2026-09-21 00:00:00\",\"ComputedAt\":1,\"ResolutionVersion\":1}\n",
-        "{\"TeamId\":\"team\",\"ApiKeyHash\":\"other-key\",\"TraceId\":\"workflows\",\"Category\":\"Inferred coding\",\"StartTs\":\"2026-09-21 00:00:00\",\"ComputedAt\":1,\"ResolutionVersion\":1}"
-    );
-    litellm_storage_clickhouse::insert_encoded_rows(
-        &fixture.database.client,
-        config.storage().writer(),
-        DATABASE,
-        "lens_task_profiles",
-        "inferred-profile-fixture",
-        body,
-    )
-    .await?;
     let rows = fetch::<LensSample>(
         &fixture.database.client,
         config.storage().reader(),
-        &parameters("Inferred coding", preview),
+        &parameters("Not configured", 1),
     )
     .await?;
-    assert_eq!(rows.len(), 1);
-    assert_eq!(rows[0].trace_id, "unclassified");
+    let run = rows
+        .iter()
+        .find(|row| row.trace_id == "unclassified")
+        .unwrap();
     let found = fetch::<LensFindingSource>(
         &fixture.database.client,
         config.storage().reader(),
         &LensFindingSourceParams {
             taxonomy: Default::default(),
-            profile: "Inferred coding".into(),
+            profile: profile.into(),
             access: access(),
             trace_id: "unclassified".into(),
-            trace_ref: rows[0].trace_ref.clone(),
+            trace_ref: run.trace_ref.clone(),
             agent_name: "assistant".into(),
             selected_team: String::new(),
             service: String::new(),
@@ -321,64 +317,6 @@ async fn inferred_profiles_filter_runs_without_overriding_recorded_labels_or_oth
         },
     )
     .await?;
-    assert_eq!(found.len(), 1);
-    Ok(())
-}
-
-#[rstest]
-#[tokio::test]
-async fn background_projection_caches_recorded_profiles_without_loading_a_model(
-    #[future(awt)] migrated_database: TestResult<SeededDatabase>,
-) -> TestResult {
-    let fixture = migrated_database?;
-    let config = Config::new(DATABASE.into(), &fixture.database.url, 7)?;
-    insert_rows(
-        &fixture.database.client,
-        config.storage().writer(),
-        DATABASE,
-        InsertTable::OtelTraces,
-        vec![row(
-            "recorded",
-            "root",
-            "",
-            0,
-            json!({}),
-            json!({"task_category":"Workflow diagrams"}),
-            ("team", "key"),
-        )],
-    )
-    .await?;
-    let cache = std::env::temp_dir().join(format!(
-        "lens-profile-no-model-{}",
-        std::time::SystemTime::now()
-            .duration_since(std::time::UNIX_EPOCH)?
-            .as_nanos()
-    ));
-    let mut classifier = lens_profiles::Classifier::new(cache.clone());
-    assert!(
-        litellm_traces_clickhouse::profiles::project(
-            &fixture.database.client,
-            &config,
-            &mut classifier,
-        )
-        .await?
-    );
-    assert!(
-        !litellm_traces_clickhouse::profiles::project(
-            &fixture.database.client,
-            &config,
-            &mut classifier,
-        )
-        .await?
-    );
-    assert!(!cache.exists());
-    let rows = fetch::<LensSample>(
-        &fixture.database.client,
-        config.storage().reader(),
-        &parameters("Workflow diagrams", 1),
-    )
-    .await?;
-    assert_eq!(rows.len(), 1);
-    assert_eq!(rows[0].trace_id, "recorded");
+    assert_eq!(!found.is_empty(), expected);
     Ok(())
 }

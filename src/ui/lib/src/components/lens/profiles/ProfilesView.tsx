@@ -19,12 +19,40 @@ import { LensPageHeader } from "../ui/LensPageHeader";
 import { PROFILE_VIEWS, useLensRoute, useProfileRoute } from "../route";
 import { ProfileDetailSheet } from "./ProfileDetailSheet";
 import { ProfileHeatmap } from "./ProfileHeatmap";
+import { settingsKey } from "./CategoryLifecycle";
 import { DiscoverySettingsSheet } from "./DiscoverySettingsSheet";
 import { ProfileSignalFilter } from "./ProfileSignalFilter";
 import { ProfileBreakdown } from "./ProfileBreakdown";
 import { ProfileMap } from "./ProfileMap";
 import { formatCount, formatUsd, profileColors, selectedProfileId } from "./profilesData";
 import type { ProfilesOverview } from "./schemas";
+
+function ClassificationSetup({ agent, canWrite, onConfigure }: { agent: string; canWrite: boolean; onConfigure: () => void }) {
+  const api = useProfilesApi();
+  const settings = useQuery({
+    queryKey: settingsKey(api.scope, agent),
+    queryFn: ({ signal }) => api.settings(agent, signal),
+    enabled: canWrite,
+  });
+  const description = !canWrite
+    ? "Runs are grouped into tasks once a proxy admin sets up a decision model under Task discovery."
+    : settings.data?.options.classification.length === 0
+      ? "Add a decision model to your LiteLLM gateway, then discover categories under Task discovery to start grouping runs."
+      : "Discover categories under Task discovery and start classifying to group these runs by task.";
+  return (
+    <div role="status" className="lens-panel flex flex-wrap items-center justify-between gap-3 p-4">
+      <div className="flex min-w-0 flex-col gap-1">
+        <p className="text-sm font-medium">Task classification is not configured</p>
+        <p className="text-sm text-muted-foreground">{description}</p>
+      </div>
+      {canWrite && (
+        <Button variant="outline" size="sm" onClick={onConfigure}>
+          <Sparkles className="size-3.5" aria-hidden="true" /> Set up task discovery
+        </Button>
+      )}
+    </div>
+  );
+}
 
 function Totals({ overview, agent, live }: { overview: ProfilesOverview; agent: string; live: boolean }) {
   const { totals, coverage, unfiltered_runs } = overview;
@@ -208,6 +236,9 @@ export function ProfilesView({
             title={signalId ? (shown.coverage.truncated ? "No matching runs in the listed results" : "No runs match this filter") : "No runs in this time range"}
             description={signalId ? "Try another signal or clear the filter." : "Choose another agent or a wider time range to see its task breakdown."}
           />
+        )}
+        {shown && profiles.some((summary) => summary.source === "unconfigured") && (
+          <ClassificationSetup agent={agent} canWrite={taxonomy.data?.can_write ?? false} onConfigure={() => setConfiguring(true)} />
         )}
         {shown && shown.totals.runs > 0 && (
           <>

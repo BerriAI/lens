@@ -29,8 +29,9 @@ sample_candidates AS (
       )
       AND ({profile:String}='' OR (TeamId,ApiKeyHash,TraceId) IN (
           SELECT TeamId,ApiKeyHash,TraceId FROM trace_profiles
-          WHERE if(match({profile:String}, '^(recorded|cluster|task):') OR {profile:String} IN ('unclassified', 'uncertain', 'pending', 'unknown'),
+          WHERE if(match({profile:String}, '^(recorded|task):') OR {profile:String} IN ('unconfigured', 'unclassified', 'pending', 'unknown'),
                    profile_id, category) = {profile:String}
+               OR ({profile:String} IN ('unclassified', 'Unclassified') AND profile_id = 'unconfigured')
       ))
     GROUP BY TeamId,ApiKeyHash,TraceId
     HAVING max(EngineReceivedMs) < {end:UInt64}

@@ -163,11 +163,11 @@ mod tests {
     }
 
     #[rstest]
-    #[case::automatic_group(run("team", "sampled", "cluster:c1"), Some(("cluster:c1", 10.0, 20.0)))]
+    #[case::discovered_category(run("team", "sampled", "task:c1"), Some(("task:c1", 10.0, 20.0)))]
     #[case::recorded_category(run("team", "sampled", "recorded:Coding"), Some(("recorded:Coding", 10.0, 20.0)))]
     #[case::not_grouped_yet(run("team", "sampled", "unclassified"), Some(("unclassified", 10.0, 20.0)))]
-    #[case::not_in_the_sample(run("team", "later", "cluster:c1"), None)]
-    #[case::same_trace_in_another_team(run("other", "sampled", "cluster:c1"), None)]
+    #[case::not_in_the_sample(run("team", "later", "task:c1"), None)]
+    #[case::same_trace_in_another_team(run("other", "sampled", "task:c1"), None)]
     fn a_completed_draft_places_its_sampled_runs_under_their_current_profile(
         #[case] listed: Run,
         #[case] expected: Option<(&str, f64, f64)>,
@@ -184,7 +184,7 @@ mod tests {
 
     #[rstest]
     fn a_completed_draft_places_only_the_runs_listed_for_the_window() {
-        let points = points(&[run("team", "earlier", "cluster:c2")], Some(&draft()));
+        let points = points(&[run("team", "earlier", "task:c2")], Some(&draft()));
 
         assert_eq!(
             points
@@ -198,7 +198,7 @@ mod tests {
                     )
                 })
                 .collect::<Vec<_>>(),
-            vec![("earlier", "cluster:c2", 50.0, 60.0)]
+            vec![("earlier", "task:c2", 50.0, 60.0)]
         );
     }
 

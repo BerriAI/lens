@@ -28,7 +28,6 @@ use aggregate::{Column, Run, RunCalls, View, display_name, source};
 pub const MAX_RUNS: u32 = 5_000;
 pub const MAX_SPANS: usize = 50_000;
 const DETAIL_RUNS: usize = 50;
-const UNCERTAIN_NAME: &str = "Other / uncertain";
 
 #[derive(Clone, Debug, PartialEq)]
 pub struct RunQuery {
@@ -70,7 +69,7 @@ pub trait ProfileStore: Send + Sync {
 }
 
 /// Enhanced taxonomies are built from every team's runs, so only callers who can already read
-/// every team see them; scoped callers keep the recorded and local profiles.
+/// every team see them; scoped callers keep the recorded profiles.
 pub fn taxonomy_id(scope: &ReadAccessParams, agent: &str) -> Option<String> {
     scope.all_teams.then(|| {
         format!(
@@ -208,9 +207,6 @@ impl Loaded {
     }
 
     fn name(&self, profile_id: &str) -> String {
-        if matches!(source(profile_id), ProfileSource::Uncertain) {
-            return UNCERTAIN_NAME.into();
-        }
         let category = self
             .runs
             .iter()
@@ -248,6 +244,15 @@ async fn inventory<S: ProfileStore>(store: &S, scope: &ReadAccessParams) -> Vec<
     }
 }
 
+/// Scoped callers never see the shared taxonomy, so a run without one is unclassified for them
+/// whether or not an admin configured it.
+fn hide_configuration(run: &mut Run) {
+    if source(&run.profile_id) == ProfileSource::Unconfigured {
+        run.profile_id = "unclassified".into();
+        run.category = "Unclassified".into();
+    }
+}
+
 async fn load_runs<S: ProfileStore + taxonomy::TaxonomyStore>(
     store: &S,
     scope: &ReadAccessParams,
@@ -281,6 +286,9 @@ async fn load_runs<S: ProfileStore + taxonomy::TaxonomyStore>(
         .await?;
     let truncated = runs.len() > MAX_RUNS as usize;
     runs.truncate(MAX_RUNS as usize);
+    if state.is_none() {
+        runs.iter_mut().for_each(hide_configuration);
+    }
     let unfiltered_runs = query.signal_id.as_ref().map(|_| runs.len() as u64);
     let runs = match &query.signal_id {
         Some(signal_id) => store
@@ -537,59 +545,6 @@ mod tests {
             models
                 .iter()
                 .any(|model| model.model_config_id.is_none() && !model.configured)
-        );
-    }
-
-    fn listed(trace_id: &str, profile_id: &str, category: &str) -> Run {
-        Run {
-            team_id: "team".into(),
-            api_key_hash: "key".into(),
-            trace_id: trace_id.into(),
-            start_ms: 1,
-            end_ms: 1,
-            profile_id: profile_id.into(),
-            category: category.into(),
-            input_preview: String::new(),
-            agent_count: 1,
-        }
-    }
-
-    #[rstest]
-    #[case::stored_catch_all_label_first(["Other / uncertain", "Maybe billing"])]
-    #[case::new_label_first(["Maybe billing", "Other / uncertain"])]
-    #[case::only_new_labels(["Maybe billing", "Draft refunds"])]
-    fn the_uncertain_profile_keeps_its_name_whatever_labels_its_runs_carry(
-        #[case] uncertain_labels: [&str; 2],
-    ) {
-        let loaded = Loaded {
-            unfiltered_runs: None,
-            runs: vec![
-                listed("t1", "uncertain", uncertain_labels[0]),
-                listed("t2", "recorded:Coding", "Coding"),
-                listed("t3", "uncertain", uncertain_labels[1]),
-                listed("t4", "cluster:c1", "Summarize sources"),
-                listed("t5", "unclassified", "Unclassified"),
-            ],
-            calls: RunCalls::new(),
-            truncated: false,
-            taxonomy: None,
-            draft: None,
-        };
-
-        let names: BTreeMap<String, String> = loaded
-            .summaries("agent")
-            .into_iter()
-            .map(|profile| (profile.profile_id, profile.name))
-            .collect();
-
-        assert_eq!(
-            names,
-            BTreeMap::from([
-                ("cluster:c1".to_owned(), "Summarize sources".to_owned()),
-                ("recorded:Coding".to_owned(), "Coding".to_owned()),
-                ("uncertain".to_owned(), "Other / uncertain".to_owned()),
-                ("unclassified".to_owned(), "Unclassified".to_owned()),
-            ])
         );
     }
 

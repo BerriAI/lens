@@ -46,8 +46,6 @@ RUN --mount=type=cache,id=lens-cargo-registry,target=/root/.cargo/registry \
     if [ -f target/source-hashes ]; then comm -13 target/source-hashes /tmp/source-hashes | cut -c67- | tr '\n' '\0' | xargs -0 -r touch; fi && \
     cp /tmp/source-hashes target/source-hashes && \
     cargo build --locked --release -p litellm-lens && \
-    TOKENIZERS_PARALLELISM=false OMP_NUM_THREADS=1 OPENBLAS_NUM_THREADS=1 \
-    LENS_PROFILE_MODEL_CACHE=/opt/lens-profile-model cargo run --locked --release -p lens-profiles --example resource_probe -- 1 && \
     cargo build --locked --release -p lens-migrate && \
     mkdir /out && cp target/release/litellm-lens target/release/lens-migrate /out/
 RUN cc -std=c11 -D_GNU_SOURCE -O2 -Wall -Wextra -Werror crates/lens/sandbox/python_policy.c -lseccomp -o /tmp/python-policy && \
@@ -66,12 +64,10 @@ RUN --mount=type=cache,id=lens-cargo-registry,target=/root/.cargo/registry \
 FROM $LENS_RUNTIME_IMAGE AS service
 ARG LENS_VERSION=0.4.0
 RUN apk add --no-cache --upgrade python-3.13 setpriv libgcc libstdc++ openssl ca-certificates ca-certificates-bundle curl libatomic
-ENV LENS_VERSION=${LENS_VERSION} PYTHONDONTWRITEBYTECODE=1 LENS_UI_DIRECTORY=/app/ui \
-    LENS_PROFILE_MODEL_CACHE=/app/profile-model
+ENV LENS_VERSION=${LENS_VERSION} PYTHONDONTWRITEBYTECODE=1 LENS_UI_DIRECTORY=/app/ui
 WORKDIR /app
 COPY --from=builder /out/litellm-lens /usr/local/bin/litellm-lens
 COPY --from=builder /out/lens-migrate /usr/local/bin/lens-migrate
-COPY --from=builder --chown=65532:65532 /opt/lens-profile-model/ /app/profile-model/
 COPY --from=builder /tmp/python.seccomp /app/lens/python.seccomp
 COPY --from=ui-builder /src/src/ui/app/out/ /app/ui/
 COPY --from=agent-builder /usr/local/bin/node /usr/local/bin/node

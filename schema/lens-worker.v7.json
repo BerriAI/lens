@@ -2686,8 +2686,7 @@
         "enhanced",
         "pending",
         "unknown",
-        "local",
-        "uncertain",
+        "unconfigured",
         "unclassified"
       ],
       "type": "string"

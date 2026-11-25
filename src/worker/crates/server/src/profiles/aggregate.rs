@@ -439,10 +439,9 @@ pub fn source(profile_id: &str) -> ProfileSource {
     {
         "recorded" => ProfileSource::Recorded,
         "task" => ProfileSource::Enhanced,
-        "cluster" => ProfileSource::Local,
         "pending" => ProfileSource::Pending,
         "unknown" => ProfileSource::Unknown,
-        "uncertain" => ProfileSource::Uncertain,
+        "unconfigured" => ProfileSource::Unconfigured,
         _ => ProfileSource::Unclassified,
     }
 }
@@ -559,7 +558,7 @@ mod tests {
         #[case] shared: u64,
         #[case] spend: Option<f64>,
     ) {
-        let runs = vec![run("t1", "cluster:a", 2)];
+        let runs = vec![run("t1", "task:a", 2)];
         let calls = resolved(
             &runs[0],
             vec![
@@ -583,7 +582,7 @@ mod tests {
 
     #[rstest]
     fn overlapping_exports_of_one_request_charge_it_once() {
-        let runs = vec![run("t1", "cluster:a", 1)];
+        let runs = vec![run("t1", "task:a", 1)];
         let calls = resolved(
             &runs[0],
             vec![
@@ -604,7 +603,7 @@ mod tests {
 
     #[rstest]
     fn a_request_exported_by_two_agents_is_shared_and_charged_to_neither() {
-        let runs = vec![run("t1", "cluster:a", 2)];
+        let runs = vec![run("t1", "task:a", 2)];
         let calls = resolved(
             &runs[0],
             vec![
@@ -622,7 +621,7 @@ mod tests {
 
     #[rstest]
     fn a_request_with_an_unpriced_ledger_row_has_unknown_cost() {
-        let runs = vec![run("t1", "cluster:a", 1)];
+        let runs = vec![run("t1", "task:a", 1)];
         let calls = resolved(
             &runs[0],
             vec![call(
@@ -662,7 +661,7 @@ mod tests {
 
     #[rstest]
     fn one_deployment_with_changing_labels_keeps_one_cell() {
-        let runs = vec![run("t1", "cluster:a", 1)];
+        let runs = vec![run("t1", "task:a", 1)];
         let relabeled = Charge {
             column: deployment("dep-1", "sonnet-renamed"),
             ..charge("b", Some(3.0))
@@ -684,7 +683,7 @@ mod tests {
 
     #[rstest]
     fn non_finite_totals_become_unknown() {
-        let runs = vec![run("t1", "cluster:a", 1)];
+        let runs = vec![run("t1", "task:a", 1)];
         let calls = resolved(
             &runs[0],
             vec![
@@ -696,12 +695,12 @@ mod tests {
         let view = view(&runs, &calls, "agent");
 
         assert_eq!(view.totals().spend_usd, None);
-        assert_eq!(view.by_profile()["cluster:a"].spend, None);
+        assert_eq!(view.by_profile()["task:a"].spend, None);
     }
 
     #[rstest]
     fn unresolved_runs_are_reported_in_coverage_not_as_zero_requests() {
-        let runs = vec![run("t1", "cluster:a", 1), run("t2", "cluster:a", 1)];
+        let runs = vec![run("t1", "task:a", 1), run("t2", "task:a", 1)];
         let calls = resolved(
             &runs[0],
             vec![call("s1", "agent", vec![charge("a", Some(1.0))])],
@@ -722,7 +721,7 @@ mod tests {
 
     #[rstest]
     fn cells_take_the_nearest_rank_p95_and_leave_evals_empty() {
-        let runs = vec![run("t1", "cluster:a", 1)];
+        let runs = vec![run("t1", "task:a", 1)];
         let mut slow = call("s3", "agent", vec![charge("c", Some(1.0))]);
         slow.duration_ms = 1000.0;
         let calls = resolved(
@@ -734,7 +733,7 @@ mod tests {
             ],
         );
 
-        let cells = view(&runs, &calls, "agent").cells(Some("cluster:a"));
+        let cells = view(&runs, &calls, "agent").cells(Some("task:a"));
 
         assert_eq!(cells[0].1.request_count, 3);
         assert_eq!(cells[0].1.avg_cost_usd, Some(2.0));
@@ -745,7 +744,7 @@ mod tests {
 
     #[rstest]
     fn a_ledger_row_matched_from_two_runs_is_shared_not_given_to_the_first() {
-        let runs = vec![run("t1", "cluster:a", 1), run("t2", "cluster:b", 1)];
+        let runs = vec![run("t1", "task:a", 1), run("t2", "task:b", 1)];
         let calls: RunCalls = [
             (
                 run_key(&runs[0]),
@@ -768,7 +767,7 @@ mod tests {
 
     #[rstest]
     fn a_retry_across_deployments_is_not_priced_as_either_deployment() {
-        let runs = vec![run("t1", "cluster:a", 1)];
+        let runs = vec![run("t1", "task:a", 1)];
         let fallback_attempt = Charge {
             column: deployment("dep-2", "haiku"),
             ..charge("b", Some(2.0))
@@ -798,7 +797,7 @@ mod tests {
     /// whole cost. Totals keep the priced part because they report how many requests it covers.
     #[rstest]
     fn a_run_with_an_unpriced_request_has_unknown_spend_while_totals_keep_the_priced_part() {
-        let runs = vec![run("t1", "cluster:a", 1), run("t2", "cluster:a", 1)];
+        let runs = vec![run("t1", "task:a", 1), run("t2", "task:a", 1)];
         let calls = RunCalls::from([
             (
                 run_key(&runs[0]),
@@ -818,7 +817,7 @@ mod tests {
         let view = view(&runs, &calls, "agent");
 
         let listed: Vec<_> = view
-            .runs_for("cluster:a", 10)
+            .runs_for("task:a", 10)
             .into_iter()
             .map(|run| (run.trace_id, run.request_count, run.spend_usd))
             .collect();
@@ -835,9 +834,9 @@ mod tests {
     #[rstest]
     fn a_listed_run_left_unread_is_marked_unresolved_apart_from_a_run_with_no_requests() {
         let runs = vec![
-            run("priced", "cluster:a", 1),
-            run("idle", "cluster:a", 1),
-            run("unread", "cluster:a", 1),
+            run("priced", "task:a", 1),
+            run("idle", "task:a", 1),
+            run("unread", "task:a", 1),
         ];
         let calls = RunCalls::from([
             (
@@ -854,7 +853,7 @@ mod tests {
         };
 
         let listed: Vec<_> = view
-            .runs_for("cluster:a", 10)
+            .runs_for("task:a", 10)
             .into_iter()
             .map(|run| (run.trace_id, run.resolved, run.request_count))
             .collect();
@@ -880,10 +879,9 @@ mod tests {
     #[rstest]
     #[case::recorded("recorded:Coding", ProfileSource::Recorded)]
     #[case::enhanced("task:abc", ProfileSource::Enhanced)]
-    #[case::local("cluster:abc", ProfileSource::Local)]
     #[case::pending("pending", ProfileSource::Pending)]
     #[case::unknown("unknown", ProfileSource::Unknown)]
-    #[case::uncertain("uncertain", ProfileSource::Uncertain)]
+    #[case::unconfigured("unconfigured", ProfileSource::Unconfigured)]
     #[case::unclassified("unclassified", ProfileSource::Unclassified)]
     fn profile_ids_map_to_their_source(#[case] profile_id: &str, #[case] expected: ProfileSource) {
         assert_eq!(source(profile_id), expected);

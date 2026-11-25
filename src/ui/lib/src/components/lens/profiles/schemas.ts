@@ -3,7 +3,7 @@ import { z } from "zod";
 const money = z.number().finite().nullable();
 const count = z.number().int().nonnegative();
 
-export const profileSources = ["recorded", "enhanced", "pending", "unknown", "local", "uncertain", "unclassified"] as const;
+export const profileSources = ["recorded", "enhanced", "pending", "unknown", "unconfigured", "unclassified"] as const;
 export const capabilities = ["function_calling", "vision", "reasoning", "structured_output"] as const;
 
 export const windowSchema = z.object({ agent: z.string(), start_ms: z.number(), end_ms: z.number() });

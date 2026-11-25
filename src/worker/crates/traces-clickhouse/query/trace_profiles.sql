@@ -6,21 +6,20 @@
 trace_profiles AS (
     SELECT TeamId, ApiKeyHash, TraceId,
            multiIf(recorded != '', concat('recorded:', recorded),
+                   {taxonomy_version:UInt32} = 0, 'unconfigured',
                    {taxonomy_version:UInt32} > 0 AND outcome = 'assigned' AND task_id != '', concat('task:', task_id),
                    {taxonomy_version:UInt32} > 0 AND outcome = 'unknown', 'unknown',
                    {taxonomy_version:UInt32} > 0
                        AND arrayExists((s, e) -> run_start_ms >= s AND run_start_ms < e,
                                        {window_starts:Array(Int64)}, {window_ends:Array(Int64)}), 'pending',
-                   cluster_id != '', concat('cluster:', cluster_id),
-                   cluster_label != '', 'uncertain',
                    'unclassified') AS profile_id,
            multiIf(recorded != '', recorded,
+                   {taxonomy_version:UInt32} = 0, 'Not configured',
                    {taxonomy_version:UInt32} > 0 AND outcome = 'assigned' AND task_id != '', '',
                    {taxonomy_version:UInt32} > 0 AND outcome = 'unknown', 'Unknown',
                    {taxonomy_version:UInt32} > 0
                        AND arrayExists((s, e) -> run_start_ms >= s AND run_start_ms < e,
                                        {window_starts:Array(Int64)}, {window_ends:Array(Int64)}), 'Pending classification',
-                   cluster_label != '', cluster_label,
                    'Unclassified') AS category
     FROM (
         SELECT TeamId, ApiKeyHash, TraceId,
@@ -32,14 +31,6 @@ trace_profiles AS (
         WHERE (TeamId,ApiKeyHash,TraceId) IN (SELECT TeamId,ApiKeyHash,TraceId FROM profile_candidates)
         GROUP BY TeamId,ApiKeyHash,TraceId
     ) AS recorded_rows
-    LEFT JOIN (
-        SELECT TeamId, ApiKeyHash, TraceId,
-               argMax(ClusterId, ComputedAt) AS cluster_id, argMax(Category, ComputedAt) AS cluster_label
-        FROM lens_task_profiles
-        WHERE ResolutionVersion=1
-          AND (TeamId,ApiKeyHash,TraceId) IN (SELECT TeamId,ApiKeyHash,TraceId FROM profile_candidates)
-        GROUP BY TeamId,ApiKeyHash,TraceId
-    ) AS inferred USING (TeamId,ApiKeyHash,TraceId)
     LEFT JOIN (
         SELECT TeamId, ApiKeyHash, TraceId,
                argMax(TaskId, ComputedAt) AS task_id, argMax(Outcome, ComputedAt) AS outcome

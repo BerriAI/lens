@@ -20,7 +20,6 @@ pub mod local_credentials;
 pub mod model;
 pub mod optimizations;
 pub mod pipeline;
-pub mod profiles;
 mod quote;
 pub mod sandbox;
 pub mod setup;

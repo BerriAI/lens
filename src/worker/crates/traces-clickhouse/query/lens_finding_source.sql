@@ -9,8 +9,9 @@ WHERE ({all_teams:UInt8}=1 OR TeamId={team:String})
       SELECT TeamId, ApiKeyHash, TraceId FROM lens_eval_traces WHERE TraceId={trace_id:String})
   AND ({profile:String}='' OR (TeamId,ApiKeyHash,TraceId) IN (
       SELECT TeamId,ApiKeyHash,TraceId FROM trace_profiles
-      WHERE if(match({profile:String}, '^(recorded|cluster|task):') OR {profile:String} IN ('unclassified', 'uncertain', 'pending', 'unknown'),
+      WHERE if(match({profile:String}, '^(recorded|task):') OR {profile:String} IN ('unconfigured', 'unclassified', 'pending', 'unknown'),
                profile_id, category) = {profile:String}
+           OR ({profile:String} IN ('unclassified', 'Unclassified') AND profile_id = 'unconfigured')
   ))
 GROUP BY TeamId, ApiKeyHash, TraceId
 HAVING ({agent_name:String}='' OR countIf(AgentName={agent_name:String}) > 0)
