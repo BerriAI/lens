@@ -92,8 +92,8 @@ spec:
             - name: CLICKHOUSE_PASSWORD
               valueFrom:
                 secretKeyRef:
-                  name: {{ include "lens.clickhouseName" . | quote }}
-                  key: password
+                  name: {{ include "lens.clickhousePasswordSecretName" . | quote }}
+                  key: {{ .Values.clickhouse.passwordSecret.key | quote }}
             {{- else }}
             - name: CLICKHOUSE_URL
               valueFrom:

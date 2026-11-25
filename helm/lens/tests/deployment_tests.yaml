@@ -94,6 +94,23 @@ tests:
     asserts:
       - failedTemplate:
           errorMessage: Lens clickhouseSecret.name is required when bundled storage is disabled
+  - it: gives Lens and bundled ClickHouse the same managed password
+    set:
+      clickhouse.passwordSecret: {name: existing-storage-password, key: CLICKHOUSE_PASSWORD}
+      adminTokenSecret: {name: existing-admin, key: token}
+    asserts:
+      - hasDocuments: {count: 6}
+      - contains:
+          path: spec.template.spec.containers[0].env
+          content: &managedPassword
+            name: CLICKHOUSE_PASSWORD
+            valueFrom:
+              secretKeyRef: {name: existing-storage-password, key: CLICKHOUSE_PASSWORD}
+        documentSelector: {path: kind, value: Deployment}
+      - contains:
+          path: spec.template.spec.containers[0].env
+          content: *managedPassword
+        documentSelector: {path: kind, value: StatefulSet}
   - it: generates an independent signing secret when only a service credential is supplied
     set:
       gateway.enabled: true

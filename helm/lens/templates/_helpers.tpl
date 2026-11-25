@@ -6,6 +6,10 @@
 {{- .Values.clickhouse.nameOverride | default (printf "%s-clickhouse" (include "lens.fullname" . | trunc 52 | trimSuffix "-")) -}}
 {{- end -}}
 
+{{- define "lens.clickhousePasswordSecretName" -}}
+{{- .Values.clickhouse.passwordSecret.name | default (include "lens.clickhouseName" .) -}}
+{{- end -}}
+
 {{- define "lens.adminTokenSecretName" -}}
 {{- .Values.adminTokenSecret.name | default (printf "%s-admin" (include "lens.fullname" . | trunc 57 | trimSuffix "-")) -}}
 {{- end -}}
