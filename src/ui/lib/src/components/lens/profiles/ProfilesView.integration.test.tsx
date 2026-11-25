@@ -92,7 +92,10 @@ const detail = (profileId: string): ProfileDetail => ({
   models: [],
 });
 
-function routes(proxy: ReturnType<typeof stubGateway>, data: { overview?: ProfilesOverview; admin?: boolean } = {}) {
+function routes(
+  proxy: ReturnType<typeof stubGateway>,
+  data: { overview?: ProfilesOverview; admin?: boolean; decisionModels?: string[] } = {},
+) {
   proxy.get.mockImplementation(async (path, request) => {
     if (path === "/lens/admin/signals") {
       return { model: "judge", threshold: 0.8, signals: [{ id: "repeat", name: "Repeated request", question: "Was it repeated?" }] };
@@ -113,7 +116,7 @@ function routes(proxy: ReturnType<typeof stubGateway>, data: { overview?: Profil
       return {
         settings: { agent: "assistant", enabled: false, models: { discovery: "", embedding: "", classification: "" }, revision: 0, updated_at: null },
         defaults: { discovery: "", embedding: "", classification: "" },
-        options: { discovery: [], embedding: [], classification: [] },
+        options: { discovery: [], embedding: [], classification: data.decisionModels ?? [] },
         can_write: true,
       };
     throw new Error(`unexpected ${path}`);
@@ -502,4 +505,43 @@ it("hides task discovery from readers when there is nothing discovered to show",
     expect(testQueryClient.getQueryState(["lens", "profile-taxonomy", "test", "assistant"])?.status).toBe("success"),
   );
   expect(screen.queryByRole("button", { name: "Task discovery" })).not.toBeInTheDocument();
+});
+
+const unconfigured = () =>
+  overview({ profiles: [summary("unconfigured", "Not configured", { source: "unconfigured", run_count: 20, share: 1 })] });
+
+it.each([
+  { who: "an admin without decision models", admin: true, decisionModels: [], text: "Add a decision model to your LiteLLM gateway" },
+  { who: "an admin with a decision model", admin: true, decisionModels: ["typesafe"], text: "Discover categories under Task discovery" },
+  { who: "a reader", admin: false, decisionModels: [], text: "once a proxy admin sets up a decision model" },
+])("tells $who that task classification is not configured", async ({ admin, decisionModels, text }) => {
+  const proxy = stubGateway();
+  routes(proxy, { overview: unconfigured(), admin, decisionModels });
+  renderWithLens(<ProfilesView agents={agents} />, { searchParams: "?tab=profiles&agent=assistant" });
+
+  expect(await screen.findByText("Task classification is not configured")).toBeVisible();
+  expect(await screen.findByText(new RegExp(text))).toBeVisible();
+  if (admin) expect(screen.getByRole("button", { name: "Set up task discovery" })).toBeVisible();
+  else expect(screen.queryByRole("button", { name: "Set up task discovery" })).not.toBeInTheDocument();
+});
+
+it("opens task discovery from the not configured notice", async () => {
+  const user = userEvent.setup();
+  const proxy = stubGateway();
+  routes(proxy, { overview: unconfigured(), admin: true });
+  proxy.post.mockResolvedValue({ eligible_runs: 0, sample_runs: 0, previews: [] });
+  renderWithLens(<ProfilesView agents={agents} />, { searchParams: "?tab=profiles&agent=assistant" });
+
+  await user.click(await screen.findByRole("button", { name: "Set up task discovery" }));
+
+  expect(await screen.findByRole("dialog", { name: "Task discovery" })).toBeVisible();
+});
+
+it("shows no setup notice once runs carry a category", async () => {
+  const proxy = stubGateway();
+  routes(proxy, { admin: true });
+  renderWithLens(<ProfilesView agents={agents} />, { searchParams: "?tab=profiles&agent=assistant" });
+
+  expect(await ranked()).toBeTruthy();
+  expect(screen.queryByText("Task classification is not configured")).not.toBeInTheDocument();
 });

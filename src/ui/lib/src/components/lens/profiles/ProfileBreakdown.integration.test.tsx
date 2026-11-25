@@ -10,7 +10,7 @@ const longName = "Troubleshoot broken features after the latest mobile release r
 const summary = (profile_id: string, name: string, run_count: number): ProfileSummary => ({
   profile_id,
   name,
-  source: "local",
+  source: "enhanced",
   run_count,
   share: run_count / 8,
   request_count: run_count,
@@ -18,11 +18,11 @@ const summary = (profile_id: string, name: string, run_count: number): ProfileSu
   spend_usd: run_count / 10,
 });
 
-const profiles = [summary("cluster:long", longName, 4), summary("cluster:short", "Reset password", 4)];
+const profiles = [summary("task:long", longName, 4), summary("task:short", "Reset password", 4)];
 
 it("emphasizes the selected profile and keeps long names whole for assistive tech", () => {
   renderWithProviders(
-    <ProfileBreakdown profiles={profiles} colors={profileColors(profiles)} selected="cluster:short" onSelect={vi.fn()} />,
+    <ProfileBreakdown profiles={profiles} colors={profileColors(profiles)} selected="task:short" onSelect={vi.fn()} />,
   );
 
   const list = within(screen.getByRole("list", { name: "Profiles ranked by runs" }));

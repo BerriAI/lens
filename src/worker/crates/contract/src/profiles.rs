@@ -11,8 +11,7 @@ pub enum ProfileSource {
     Enhanced,
     Pending,
     Unknown,
-    Local,
-    Uncertain,
+    Unconfigured,
     Unclassified,
 }
 

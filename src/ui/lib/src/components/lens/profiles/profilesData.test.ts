@@ -29,11 +29,11 @@ const cell = (overrides: Partial<MatrixCell>): MatrixCell => ({
 describe("selectedProfileId", () => {
   const profiles = [
     { profile_id: "recorded:Coding", name: "Coding" },
-    { profile_id: "cluster:abc", name: "Debug failing tests" },
+    { profile_id: "task:abc", name: "Debug failing tests" },
   ];
 
   it("accepts a profile id", () => {
-    expect(selectedProfileId(profiles, "cluster:abc")).toBe("cluster:abc");
+    expect(selectedProfileId(profiles, "task:abc")).toBe("task:abc");
   });
 
   it("translates an older label link to the profile id", () => {
@@ -48,7 +48,7 @@ describe("selectedProfileId", () => {
 const profile = (profile_id: string, overrides: Partial<ProfileSummary> = {}): ProfileSummary => ({
   profile_id,
   name: profile_id,
-  source: "local",
+  source: "enhanced",
   run_count: 1,
   share: 0,
   request_count: 1,
@@ -59,24 +59,24 @@ const profile = (profile_id: string, overrides: Partial<ProfileSummary> = {}): P
 
 describe("profileColors", () => {
   const profiles = [
-    profile("uncertain", { source: "uncertain", run_count: 9 }),
+    profile("unconfigured", { source: "unconfigured", run_count: 9 }),
     profile("pending", { source: "pending", run_count: 7 }),
     profile("task:a", { source: "enhanced", run_count: 6 }),
     profile("unknown", { source: "unknown", run_count: 6 }),
-    profile("cluster:a", { run_count: 3 }),
+    profile("task:b", { run_count: 3 }),
     profile("unclassified", { source: "unclassified", run_count: 8 }),
     profile("recorded:Billing", { source: "recorded", run_count: 5 }),
-    profile("cluster:b", { run_count: 3 }),
+    profile("task:c", { run_count: 3 }),
   ];
 
   it("keeps placeholder profiles neutral and colors every real group from the chart tokens", () => {
     const colors = profileColors(profiles);
 
-    expect(colors.get("uncertain")).toBe(NEUTRAL);
+    expect(colors.get("unconfigured")).toBe(NEUTRAL);
     expect(colors.get("unclassified")).toBe(NEUTRAL);
     expect(colors.get("pending")).toBe(NEUTRAL);
     expect(colors.get("unknown")).toBe(NEUTRAL);
-    expect(["recorded:Billing", "task:a", "cluster:a", "cluster:b"].map((id) => colors.get(id))).toEqual([
+    expect(["recorded:Billing", "task:a", "task:b", "task:c"].map((id) => colors.get(id))).toEqual([
       expect.stringContaining("var(--chart-"),
       expect.stringContaining("var(--chart-"),
       expect.stringContaining("var(--chart-"),
@@ -85,15 +85,15 @@ describe("profileColors", () => {
   });
 
   it("keeps a profile's color when order, traffic or the other profiles change", () => {
-    const before = profileColors(profiles).get("cluster:a");
-    const after = profileColors([profile("cluster:z", { run_count: 50 }), profile("cluster:a", { run_count: 1 })]).get("cluster:a");
+    const before = profileColors(profiles).get("task:b");
+    const after = profileColors([profile("task:z", { run_count: 50 }), profile("task:b", { run_count: 1 })]).get("task:b");
 
     expect(after).toBe(before);
     expect(profileColors([...profiles].reverse())).toEqual(profileColors(profiles));
   });
 
   it("spreads many groups across the palette", () => {
-    const colors = profileColors(Array.from({ length: 40 }, (_, index) => profile(`cluster:${index}`)));
+    const colors = profileColors(Array.from({ length: 40 }, (_, index) => profile(`task:${index}`)));
 
     expect(new Set(colors.values()).size).toBeGreaterThan(5);
   });

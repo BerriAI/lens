@@ -57,7 +57,7 @@ export type OptimizationStatus = "running" | "paused" | "completed";
  * This interface was referenced by `LensWorker`'s JSON-Schema
  * via the `definition` "ProfileSource".
  */
-export type ProfileSource = "recorded" | "enhanced" | "pending" | "unknown" | "local" | "uncertain" | "unclassified";
+export type ProfileSource = "recorded" | "enhanced" | "pending" | "unknown" | "unconfigured" | "unclassified";
 /**
  * This interface was referenced by `LensWorker`'s JSON-Schema
  * via the `definition` "TraceSignalStatus".

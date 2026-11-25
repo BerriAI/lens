@@ -6,15 +6,14 @@ export type HeatMetric = (typeof HEAT_METRICS)[number];
 export const RANKS = ["runs", "spend"] as const;
 export type Rank = (typeof RANKS)[number];
 
-const OUTSIDE_GROUPS: readonly ProfileSource[] = ["pending", "unknown", "uncertain", "unclassified"];
+const OUTSIDE_GROUPS: readonly ProfileSource[] = ["pending", "unknown", "unconfigured", "unclassified"];
 
 export const SOURCE_LABELS: Record<ProfileSource, string> = {
   recorded: "Recorded category",
   enhanced: "Discovered category",
   pending: "Awaiting classification",
   unknown: "Fits no category",
-  local: "Automatic group",
-  uncertain: "Automatic grouping unsure",
+  unconfigured: "Classification not configured",
   unclassified: "Not grouped yet",
 };
 
