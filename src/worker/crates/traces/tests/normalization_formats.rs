@@ -483,6 +483,48 @@ fn genai_message_payloads_preserve_non_conversations(
 }
 
 #[rstest]
+#[case::genai("custom", "gen_ai.input.messages", "chat")]
+#[case::pydantic("pydantic-ai", "pydantic_ai.all_messages", "invoke_agent")]
+fn genai_tool_responses_keep_standard_results_and_legacy_responses(
+    span: Span,
+    #[case] scope: &str,
+    #[case] attribute: &str,
+    #[case] operation: &str,
+) {
+    let messages = json!([
+        {"role": "tool", "parts": [{"type": "tool_call_response", "result": "missing_scope"}]},
+        {"role": "tool", "parts": [{"type": "tool_call_response", "result": {"url": "https://example.com/proof"}}]},
+        {"role": "tool", "parts": [{"type": "tool_call_response", "response": "legacy result"}]},
+        {"role": "tool", "parts": [{"type": "tool_call_response", "result": "current", "response": "legacy"}]},
+        {"role": "tool", "parts": [{"type": "tool_call_response", "result": false}]},
+        {"role": "tool", "parts": [{"type": "tool_call_response", "result": null, "response": "must not leak"}]},
+    ]);
+    let decoded = decode(
+        span,
+        scope,
+        &[
+            ("gen_ai.operation.name", operation),
+            (attribute, &messages.to_string()),
+        ],
+        vec![],
+    )
+    .unwrap();
+    let normalized: Value = serde_json::from_str(&decoded.normalized.input).unwrap();
+    let contents: Vec<&str> = normalized
+        .as_array()
+        .unwrap()
+        .iter()
+        .map(|message| message["content"].as_str().unwrap())
+        .collect();
+    assert_eq!(contents[0], "missing_scope");
+    assert_eq!(
+        serde_json::from_str::<Value>(contents[1]).unwrap(),
+        messages[1]["parts"][0]["result"],
+    );
+    assert_eq!(contents[2..], ["legacy result", "current", "false", "null"]);
+}
+
+#[rstest]
 #[case::all_messages("all_messages_events")]
 #[case::events("events")]
 fn logfire_splits_recorded_message_events(span: Span, #[case] key: &str) {
