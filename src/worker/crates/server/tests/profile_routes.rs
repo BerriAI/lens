@@ -1031,9 +1031,9 @@ async fn the_overview_resolves_runs_against_the_active_taxonomy_and_its_windows(
             .map(|profile| profile["name"].clone())
             .collect::<Vec<_>>()),
         Some(vec![
-            json!("login help"),
             json!("Refunds"),
-            json!("Answer billing questions")
+            json!("Answer billing questions"),
+            json!("login help")
         ])
     );
     assert_eq!(body["totals"]["spend_usd"], json!(0.25));
