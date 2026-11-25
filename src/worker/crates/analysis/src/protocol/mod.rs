@@ -11,6 +11,7 @@ pub(crate) struct Completion {
     pub(crate) model: String,
     pub(crate) content: Option<String>,
     pub(crate) finish_reason: Option<String>,
+    pub(crate) refusal: Option<String>,
     pub(crate) usage: litellm_cost::Usage,
 }
 

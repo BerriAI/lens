@@ -17,6 +17,14 @@ fn generated_worker_schema_preserves_the_current_contract() {
         properties.remove("signal_id").unwrap(),
         serde_json::json!({"anyOf":[{"type":"string","minLength":1,"maxLength":64},{"type":"null"}]})
     );
+    assert_eq!(
+        actual["definitions"]["ModelResult"]["properties"]
+            .as_object_mut()
+            .unwrap()
+            .remove("refusal")
+            .unwrap(),
+        serde_json::json!({"anyOf":[{"type":"string"},{"type":"null"}]})
+    );
     compare("", &actual, &expected);
 }
 

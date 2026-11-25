@@ -148,6 +148,11 @@ pub enum Error {
         detail: String,
     },
     #[error(
+        "The analysis model refused this request under its content policy.{}",
+        reason.as_ref().map(|reason| format!(" Provider reason: {reason}")).unwrap_or_default()
+    )]
+    ModelRefused { reason: Option<String> },
+    #[error(
         "The service rejected a worker request (HTTP {status}): {}", diagnostic.as_deref().unwrap_or("Check worker access, model availability and investigation budget.")
     )]
     Control {

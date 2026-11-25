@@ -856,6 +856,7 @@ export interface ModelResult {
   context_exceeded?: boolean;
   cost: number;
   finish_reason?: ("length" | "content_filter") | null;
+  refusal?: string | null;
 }
 /**
  * This interface was referenced by `LensWorker`'s JSON-Schema
