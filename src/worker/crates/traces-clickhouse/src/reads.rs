@@ -1,7 +1,10 @@
+use std::collections::BTreeSet;
+
 use litellm_http::Client;
 use litellm_storage_clickhouse::{Error as StorageError, Query, fetch};
-use litellm_traces::query::named as contracts;
-use litellm_traces_cache::{StoreError, TraceStore};
+use litellm_traces::{PromptCacheUsage, Trace, TracePromptCache, query::named as contracts};
+use litellm_traces_cache::{StoreError, TraceStore, spend_window};
+use serde::{Deserialize, Serialize};
 
 use crate::{
     Connection, Error,
@@ -13,6 +16,50 @@ use crate::{
 };
 
 struct RunCandidates;
+
+#[derive(Serialize)]
+struct GatewayCacheParams<'a> {
+    #[serde(flatten)]
+    access: &'a contracts::ReadAccessParams,
+    team: &'a str,
+    owner_key: &'a str,
+    owner_user: &'a str,
+    snapshot_ms: u64,
+    trace_ids: BTreeSet<&'a str>,
+    request_ids: BTreeSet<&'a str>,
+    start_ms: i64,
+    end_ms: i64,
+    session: String,
+}
+
+#[derive(Deserialize, Serialize)]
+struct GatewayCacheRow {
+    #[serde(deserialize_with = "crate::query::number::deserialize")]
+    input_tokens: u64,
+    #[serde(deserialize_with = "crate::query::number::deserialize")]
+    read_tokens: u64,
+    #[serde(deserialize_with = "crate::query::number::deserialize")]
+    write_tokens: u64,
+    session_id: String,
+}
+
+impl GatewayCacheRow {
+    fn usage(&self) -> Option<PromptCacheUsage> {
+        (self.input_tokens > 0).then_some(PromptCacheUsage {
+            input_tokens: self.input_tokens,
+            read_tokens: self.read_tokens,
+            write_tokens: self.write_tokens,
+        })
+    }
+}
+
+struct GatewayCache<'a>(std::marker::PhantomData<&'a ()>);
+
+impl<'a> Query for GatewayCache<'a> {
+    type Params = GatewayCacheParams<'a>;
+    type Row = GatewayCacheRow;
+    const SQL: &'static str = include_str!("../query/gateway_prompt_cache.sql");
+}
 
 impl Query for RunCandidates {
     type Params = ListTracesParams;
@@ -116,6 +163,78 @@ impl TraceStore for ClickHouseTraces {
             SpendByResponseIdsParams::from(params.clone()),
         )
         .await
+    }
+
+    async fn gateway_prompt_cache(
+        &self,
+        access: &contracts::ReadAccessParams,
+        rows: &[contracts::TraceSpansRow],
+        trace: &Trace,
+        snapshot_ms: u64,
+    ) -> Result<TracePromptCache, StoreError<Self::Error>> {
+        let Some(owner) = rows.first().filter(|row| {
+            (!row.api_key_hash.is_empty() || !row.user_id.is_empty())
+                && rows.iter().all(|candidate| {
+                    candidate.team_id == row.team_id
+                        && candidate.api_key_hash == row.api_key_hash
+                        && (!row.api_key_hash.is_empty() || candidate.user_id == row.user_id)
+                })
+        }) else {
+            return Ok(TracePromptCache::default());
+        };
+        let Some(window) = spend_window(rows) else {
+            return Ok(TracePromptCache::default());
+        };
+        let params = GatewayCacheParams {
+            access,
+            team: &owner.team_id,
+            owner_key: &owner.api_key_hash,
+            owner_user: &owner.user_id,
+            snapshot_ms,
+            trace_ids: std::iter::once(trace.summary.trace_id.as_str())
+                .chain(rows.iter().map(|row| row.original_trace_id.as_str()))
+                .filter(|id| !id.is_empty())
+                .collect(),
+            request_ids: trace
+                .spans
+                .iter()
+                .filter_map(|span| span.spend_log_request_id.as_deref())
+                .collect(),
+            start_ms: window.start,
+            end_ms: window.end,
+            session: String::new(),
+        };
+        let Some(row) = fetch::<GatewayCache<'_>>(&self.client, &self.connection, &params)
+            .await
+            .map_err(failed)?
+            .into_iter()
+            .next()
+        else {
+            return Ok(TracePromptCache::default());
+        };
+        let usage = row.usage();
+        let has_session = !row.session_id.is_empty();
+        let session = if !has_session {
+            None
+        } else {
+            let params = GatewayCacheParams {
+                session: row.session_id,
+                ..params
+            };
+            match fetch::<GatewayCache<'_>>(&self.client, &self.connection, &params).await {
+                Ok(rows) => rows.first().and_then(GatewayCacheRow::usage),
+                Err(error) => {
+                    tracing::warn!(%error, "gateway session prompt cache usage unavailable");
+                    None
+                }
+            }
+        };
+        Ok(TracePromptCache {
+            trace: usage,
+            session,
+            has_session,
+            grouped_session: false,
+        })
     }
 
     async fn span_detail(

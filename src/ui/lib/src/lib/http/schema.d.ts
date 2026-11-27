@@ -48162,9 +48162,21 @@ export interface components {
             agents: components["schemas"]["AgentNode"][];
             /** Next Cursor */
             next_cursor?: string | null;
+            prompt_cache?: components["schemas"]["TracePromptCache"] | null;
             /** Spans */
             spans: components["schemas"]["Span"][];
             summary: components["schemas"]["TraceSummary"];
+        };
+        TracePromptCache: {
+            trace: components["schemas"]["PromptCacheUsage"] | null;
+            session: components["schemas"]["PromptCacheUsage"] | null;
+            has_session: boolean;
+            grouped_session: boolean;
+        };
+        PromptCacheUsage: {
+            input_tokens: number;
+            read_tokens: number;
+            write_tokens: number;
         };
         /**
          * TraceAgent

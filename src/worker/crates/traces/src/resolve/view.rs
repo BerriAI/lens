@@ -7,7 +7,8 @@ use crate::{
     normalize::ObservationType,
     query::named::{ListTracesRow, SpendByResponseIdsRow as SpendRow, TraceSpansRow},
     view::{
-        AgentNode, RunSource, RunSourceType, Span, SpanStatus, SpendMatch, Trace, TraceSummary,
+        AgentNode, PromptCacheUsage, RunSource, RunSourceType, Span, SpanStatus, SpendMatch, Trace,
+        TracePromptCache, TraceSummary,
     },
 };
 
@@ -161,6 +162,37 @@ fn sorted_unique<'a>(values: impl Iterator<Item = &'a str>) -> Vec<String> {
         .collect()
 }
 
+fn prompt_cache(resolution: &Resolution<'_>) -> Option<TracePromptCache> {
+    let mut usage = PromptCacheUsage::default();
+    for call in &resolution.model_calls {
+        let row = resolution.row(*call);
+        if row.cache_read_tokens.is_none() && row.cache_write_tokens.is_none() {
+            continue;
+        }
+        let read = row.cache_read_tokens.unwrap_or_default();
+        let write = row.cache_write_tokens.unwrap_or_default();
+        if row.input_tokens == 0 || u64::from(read) + u64::from(write) > u64::from(row.input_tokens)
+        {
+            continue;
+        }
+        usage.input_tokens += u64::from(row.input_tokens);
+        usage.read_tokens += u64::from(read);
+        usage.write_tokens += u64::from(write);
+    }
+    let grouped_session = resolution
+        .graph
+        .rows
+        .iter()
+        .any(|row| !row.original_trace_id.is_empty());
+    let trace = (usage.input_tokens > 0).then_some(usage);
+    (grouped_session || trace.is_some()).then_some(TracePromptCache {
+        trace,
+        session: None,
+        has_session: grouped_session,
+        grouped_session,
+    })
+}
+
 pub fn resolve_trace(
     trace_id: &str,
     trace_ref: &str,
@@ -294,6 +326,7 @@ pub fn resolve_trace(
         summary,
         agents,
         spans,
+        prompt_cache: prompt_cache(&resolution),
         next_cursor: None,
     })
 }

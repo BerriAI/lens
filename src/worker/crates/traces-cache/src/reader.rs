@@ -256,17 +256,28 @@ impl TraceReader {
                     .await
                     .map_err(|error| Miss::Read(map_store_error(error)))?;
                 let spend_rows = spend(store, access, &rows).await;
-                resolve_trace(
+                let mut trace = resolve_trace(
                     trace_id,
                     trace_ref,
                     &rows,
                     spend_rows.as_deref().unwrap_or_default(),
                 )
-                .map(|trace| {
-                    let freshness = Freshness::of(&rows, &trace, snapshot_ms);
-                    (trace, freshness)
-                })
-                .ok_or(Miss::Absent)
+                .ok_or(Miss::Absent)?;
+                match store
+                    .gateway_prompt_cache(access, &rows, &trace, snapshot_ms)
+                    .await
+                {
+                    Ok(gateway) if gateway.trace.is_some() || gateway.has_session => {
+                        let cache = trace.prompt_cache.get_or_insert_with(Default::default);
+                        cache.trace = gateway.trace.or(cache.trace);
+                        cache.session = gateway.session;
+                        cache.has_session |= gateway.has_session;
+                    }
+                    Err(error) => tracing::warn!(%error, "gateway prompt cache usage unavailable"),
+                    Ok(_) => {}
+                }
+                let freshness = Freshness::of(&rows, &trace, snapshot_ms);
+                Ok((trace, freshness))
             })
             .await
     }
@@ -375,6 +386,7 @@ fn page<E>(
             gateway_spend_pending: snapshot.trace().gateway_spend_pending,
             summary: snapshot.trace().summary.clone(),
             agents: snapshot.trace().agents.clone(),
+            prompt_cache: snapshot.trace().prompt_cache,
             spans: spans[position.offset..end].to_vec(),
             next_cursor: (end < spans.len()).then(|| {
                 encode_cursor(&SpanPosition {

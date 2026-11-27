@@ -136,6 +136,23 @@ pub struct TraceSummary {
 }
 
 #[macro_rules_attribute::apply(crate::response_type)]
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+pub struct PromptCacheUsage {
+    pub input_tokens: u64,
+    pub read_tokens: u64,
+    pub write_tokens: u64,
+}
+
+#[macro_rules_attribute::apply(crate::response_type)]
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+pub struct TracePromptCache {
+    pub trace: Option<PromptCacheUsage>,
+    pub session: Option<PromptCacheUsage>,
+    pub has_session: bool,
+    pub grouped_session: bool,
+}
+
+#[macro_rules_attribute::apply(crate::response_type)]
 #[derive(Clone, Debug, PartialEq)]
 pub struct Trace {
     /// Read-cache metadata from gateway resolution; display estimates must not clear it.
@@ -144,6 +161,9 @@ pub struct Trace {
     pub summary: TraceSummary,
     pub agents: Vec<AgentNode>,
     pub spans: Vec<Span>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    #[cfg_attr(feature = "schema", schemars(extend("x-python-optional" = true)))]
+    pub prompt_cache: Option<TracePromptCache>,
     #[cfg_attr(feature = "schema", schemars(extend("x-python-optional" = true)))]
     pub next_cursor: Option<String>,
 }

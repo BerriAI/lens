@@ -20,6 +20,7 @@ import { Button } from "../../../../ui/button";
 import { ButtonGroup } from "../../../../ui/button-group";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "../../../../ui/dropdown-menu";
 import { TabsList, TabsTrigger } from "../../../../ui/tabs";
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "../../../../ui/tooltip";
 import { cn } from "../../../../../lib/cva.config";
 import { copyToClipboard } from "../../../../../utils/dataUtils";
 
@@ -37,6 +38,7 @@ import { fmtMs, fmtTok, traceAgentNames, traceDisplayName } from "../../utils";
 import styles from "../../TraceAppearance.module.css";
 
 type Summary = Trace["summary"];
+type PromptCache = NonNullable<Trace["prompt_cache"]>;
 
 function statusLabel(failed: boolean, errors: number): string {
   if (errors === 0) return failed ? "Errors recorded" : "Recorded";
@@ -72,6 +74,42 @@ function Totals({ summary }: { summary: Summary }) {
     cost && [cost.label, cost.partial?.long].filter(Boolean).join(" · "),
   ].filter(Boolean);
   return <span className="font-mono text-[11px] text-foreground tabular-nums">{parts.join(" · ")}</span>;
+}
+
+function CacheStat({
+  label,
+  usage,
+}: {
+  label: string;
+  usage?: PromptCache["trace"];
+}) {
+  const rate = usage ? usage.read_tokens / usage.input_tokens : 0;
+  const percentage = rate > 0 && rate < 0.001
+    ? `<${(0.001).toLocaleString(undefined, { style: "percent", maximumFractionDigits: 1 })}`
+    : rate.toLocaleString(undefined, { style: "percent", maximumFractionDigits: 1 });
+  return (
+    <Tooltip>
+      <TooltipTrigger className="cursor-help rounded-sm font-mono text-[11px] tabular-nums text-muted-foreground focus-visible:outline-2 focus-visible:outline-ring">
+        {label}: {usage ? `${percentage} read` : "Unavailable"}
+      </TooltipTrigger>
+      <TooltipContent side="bottom">
+        {usage
+          ? `${usage.read_tokens.toLocaleString()} read · ${usage.write_tokens.toLocaleString()} written · ${usage.input_tokens.toLocaleString()} input tokens with cache data`
+          : "Connect Lens to a LiteLLM Gateway to see prompt cache usage for requests routed through it."}
+      </TooltipContent>
+    </Tooltip>
+  );
+}
+
+function CacheTotals({ cache }: { cache?: Trace["prompt_cache"] }) {
+  return (
+    <TooltipProvider>
+      {!cache?.grouped_session && <CacheStat label="Trace cache" usage={cache?.trace} />}
+      {cache?.has_session && (
+        <CacheStat label="Session cache" usage={cache.session ?? (cache.grouped_session ? cache.trace : null)} />
+      )}
+    </TooltipProvider>
+  );
 }
 
 function RunIcon({ summary }: { summary: Summary }) {
@@ -232,6 +270,7 @@ export function RunHeader({
           <SignalPills flags={signals} showScore className="flex-wrap" onSelect={onSelectSignal} />
         )}
         <Totals summary={summary} />
+        <CacheTotals cache={trace.prompt_cache} />
         <TabsList
           aria-label="Trace view"
           className={cn(styles.viewTabs, "ml-auto rounded-md border bg-background/70 group-data-horizontal/tabs:h-7")}
