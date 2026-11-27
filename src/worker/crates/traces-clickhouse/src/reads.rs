@@ -17,6 +17,8 @@ use crate::{
 
 struct RunCandidates;
 
+const SESSION_CACHE_WINDOW_MS: i64 = 7 * 24 * 60 * 60 * 1000;
+
 #[derive(Serialize)]
 struct GatewayCacheParams<'a> {
     #[serde(flatten)]
@@ -219,6 +221,8 @@ impl TraceStore for ClickHouseTraces {
         } else {
             let params = GatewayCacheParams {
                 session: row.session_id,
+                start_ms: params.start_ms.saturating_sub(SESSION_CACHE_WINDOW_MS),
+                end_ms: params.end_ms.saturating_add(SESSION_CACHE_WINDOW_MS),
                 ..params
             };
             match fetch::<GatewayCache<'_>>(&self.client, &self.connection, &params).await {

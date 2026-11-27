@@ -21,7 +21,9 @@ FROM (
       AND ({all_teams:UInt8} = 1 OR has({team_ids:Array(String)}, team_id)
            OR ({user_id:String} != '' AND user = {user_id:String}))
       AND EngineReceivedMs <= {snapshot_ms:UInt64}
-      AND if({session:String} != '', session_id = {session:String},
+      AND if({session:String} != '', session_id = {session:String}
+                 AND start_time >= fromUnixTimestamp64Milli({start_ms:Int64})
+                 AND start_time < fromUnixTimestamp64Milli({end_ms:Int64}),
              trace_id IN {trace_ids:Array(String)}
              OR (request_id IN {request_ids:Array(String)}
                  AND start_time >= fromUnixTimestamp64Milli({start_ms:Int64})

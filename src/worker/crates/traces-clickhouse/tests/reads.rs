@@ -46,10 +46,25 @@ async fn prompt_cache_separates_trace_and_session_and_scopes_them_to_the_owner(
     )
     .await?;
     let spend = [
-        ("first", "current", "key-a", 0, 20),
-        ("first", "current", "key-a", 0, 20),
-        ("earlier", "earlier-trace", "key-a", 60, 0),
-        ("unrelated", "current", "other-key", 90, 0),
+        ("first", "current", "key-a", start_ms, 0, 20),
+        ("first", "current", "key-a", start_ms, 0, 20),
+        (
+            "earlier",
+            "earlier-trace",
+            "key-a",
+            start_ms - 86_400_000,
+            60,
+            0,
+        ),
+        (
+            "expired",
+            "old-trace",
+            "key-a",
+            start_ms - 8 * 86_400_000,
+            90,
+            0,
+        ),
+        ("unrelated", "current", "other-key", start_ms, 90, 0),
     ];
     insert_rows(
         client,
@@ -58,15 +73,15 @@ async fn prompt_cache_separates_trace_and_session_and_scopes_them_to_the_owner(
         InsertTable::SpendLogs,
         spend
             .into_iter()
-            .map(|(id, trace, key, read, write)| {
+            .map(|(id, trace, key, time, read, write)| {
                 BTreeMap::from([
                     ("request_id".into(), json!(id)),
                     ("team_id".into(), json!("team-a")),
                     ("api_key".into(), json!(key)),
                     ("trace_id".into(), json!(trace)),
                     ("session_id".into(), json!("conversation")),
-                    ("start_time".into(), json!(start_ms)),
-                    ("end_time".into(), json!(start_ms + 1)),
+                    ("start_time".into(), json!(time)),
+                    ("end_time".into(), json!(time + 1)),
                     ("prompt_tokens".into(), json!(100)),
                     ("cache_read_tokens".into(), json!(read)),
                     ("cache_write_tokens".into(), json!(write)),
