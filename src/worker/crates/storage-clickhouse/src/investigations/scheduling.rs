@@ -129,10 +129,13 @@ impl ScheduleRepository for Investigations {
             return Ok(());
         }
         let current: StoredLens = decode(previous.value.clone())?;
-        if current.lens.version != lens.version || current.due_at == due_at(&current.lens) {
+        if current.deleted
+            || current.lens.version != lens.version
+            || current.due_at == due_at(&current.lens)
+        {
             return Ok(());
         }
-        let corrected = stored(&current.lens)?;
+        let corrected = stored(&current.lens, false)?;
         match writer
             .commit(vec![Change {
                 previous,

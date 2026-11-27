@@ -839,6 +839,7 @@ it("lists investigations without edit or run controls for read-only viewers", as
   renderWithProviders(<InvestigationsView readOnly />);
   const row = await screen.findByRole("row", { name: lens.settings.name });
   expect(within(row).queryByRole("button", { name: /now/ })).not.toBeInTheDocument();
+  expect(within(row).queryByRole("button", { name: `Delete ${lens.settings.name}` })).not.toBeInTheDocument();
   await user.click(row);
   expect(await screen.findByRole("heading", { level: 2, name: lens.settings.name })).toBeVisible();
   expect(screen.queryByRole("dialog")).not.toBeInTheDocument();

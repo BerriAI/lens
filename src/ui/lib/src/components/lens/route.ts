@@ -42,6 +42,8 @@ const INBOX_PARSERS = {
   priority: parseAsStringLiteral(["all", "high", "medium", "low"]).withDefault("all"),
 };
 
+const FINDINGS_VIEW_PARSERS = { findings_view: parseAsStringLiteral(["investigations"]) };
+
 const ALERT_PARSERS = {
   alert_settings: parseAsStringLiteral(["signals", "rules", "slack"]),
   alert_signal: parseAsString.withDefault(""),
@@ -121,6 +123,7 @@ const SESSION_PARSERS = {
   ...AGENT_LIST_PARSERS,
   ...CONNECT_PROJECT_PARSERS,
   ...INBOX_PARSERS,
+  ...FINDINGS_VIEW_PARSERS,
   ...ALERT_PARSERS,
   ...RESULT_PARSERS,
   ...DIALOG_PARSERS,
@@ -144,6 +147,7 @@ const CLEARED_AGENT_VIEW = {
   ...nulls(Object.keys(LEGACY_PARSERS)),
   ...nulls(Object.keys(DIALOG_PARSERS)),
   ...nulls(Object.keys(INBOX_PARSERS)),
+  ...nulls(Object.keys(FINDINGS_VIEW_PARSERS)),
   ...nulls(Object.keys(GITHUB_PARSERS)),
   lens: null,
   issue: null,
@@ -280,6 +284,27 @@ export function useIssueRoute() {
       (next: string | null) => void setParams({ ...CLEARED_RESULTS, lens: null, issue: next }, { history: "push" }),
       [setParams],
     ),
+  };
+}
+
+export function useFindingsViewRoute() {
+  const [{ findings_view }, setParams] = useQueryStates(
+    { tab: LENS_PARSERS.tab, ...FINDINGS_VIEW_PARSERS, ...ISSUE_ROUTE_PARSERS, ...DIALOG_PARSERS, ...LIST_PARSERS },
+    { history: "push" },
+  );
+  return {
+    managingInvestigations: findings_view === "investigations",
+    setManagingInvestigations: (open: boolean) =>
+      void setParams({
+        tab: "findings",
+        findings_view: open ? "investigations" : null,
+        ...CLEARED_RESULTS,
+        lens: null,
+        issue: null,
+        dialog: null,
+        target: null,
+        search: null,
+      }),
   };
 }
 

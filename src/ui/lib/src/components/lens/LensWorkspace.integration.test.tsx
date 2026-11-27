@@ -49,6 +49,52 @@ beforeEach(() => {
   });
 });
 
+it("manages investigations from Findings and deletes only after confirmation", async () => {
+  const user = userEvent.setup();
+  const [first, second] = createLensDemoData().lenses;
+  const kept = { ...second, settings: { ...second.settings, name: "Keep this investigation" } };
+  let lenses = [first, kept];
+  const remove = vi.fn();
+  network.mockImplementation(async (input, init) => {
+    const { method, path } = await readRequest(input, init);
+    if (method === "DELETE") {
+      remove(path);
+      if (path !== `/lens/admin/${first.id}`) return Response.json({ detail: "Unknown investigation" }, { status: 404 });
+      lenses = [kept];
+      return new Response(null, { status: 204 });
+    }
+    if (path === "/lens") return Response.json({ lenses, workers: [], tracing_enabled: true });
+    if (path === "/v1/traces/agents") return Response.json({ agents: [] });
+    return defaultResponse(path, true);
+  });
+  renderWithProviders(
+    <LensHostProvider host={{ surface: "embedded" }}>
+      <LensWorkspace accessToken="live-token" userRole="Admin" readOnly={false} />
+    </LensHostProvider>,
+    { searchParams: "?tab=findings" },
+  );
+  await user.click(await screen.findByRole("button", { name: "Manage investigations" }));
+  const row = await screen.findByRole("row", { name: first.settings.name });
+  const deleteButton = within(row).getByRole("button", { name: `Delete ${first.settings.name}` });
+  await user.click(deleteButton);
+  const confirmation = screen.getByRole("dialog", { name: "Delete investigation?" });
+  expect(confirmation).toHaveTextContent(first.settings.name);
+  expect(confirmation).toHaveTextContent("Past spend records will be kept");
+  await user.click(within(confirmation).getByRole("button", { name: "Cancel" }));
+  expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
+  expect(row).toBeVisible();
+  expect(remove).not.toHaveBeenCalled();
+
+  await user.click(deleteButton);
+  await user.click(within(screen.getByRole("dialog")).getByRole("button", { name: "Delete investigation" }));
+  await waitFor(() => expect(screen.queryByRole("dialog")).not.toBeInTheDocument());
+  expect(remove).toHaveBeenCalledExactlyOnceWith(`/lens/admin/${first.id}`);
+  expect(screen.queryByRole("row", { name: first.settings.name })).not.toBeInTheDocument();
+  expect(screen.getByRole("row", { name: kept.settings.name })).toBeVisible();
+  await user.click(screen.getByRole("button", { name: "Back to findings" }));
+  expect(await screen.findByRole("region", { name: "Findings settings" })).toBeVisible();
+});
+
 it("connects gateway models on the first embedded visit before opening Settings", async () => {
   let connected = false;
   const connect = vi.fn();

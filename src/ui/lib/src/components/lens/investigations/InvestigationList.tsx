@@ -8,7 +8,7 @@ import {
   type TableOptions,
 } from "@tanstack/react-table";
 import { createContext, useContext, type ReactNode } from "react";
-import { ChevronRight, Pencil, Play } from "lucide-react";
+import { ChevronRight, Pencil, Play, Trash2 } from "lucide-react";
 
 import { useMediaQuery } from "usehooks-ts";
 import { useNow } from "../../../hooks/useNow";
@@ -47,6 +47,7 @@ interface ListContextValue {
   readonly demo: boolean;
   readonly onEdit: (id: string) => void;
   readonly onRunNow: (id: string) => void;
+  readonly onDelete: (lens: Lens) => void;
 }
 
 const ListContext = createContext<ListContextValue | null>(null);
@@ -120,7 +121,7 @@ function FindingCount({ row: { original: item } }: Cell) {
 }
 
 function ActionsCell({ row: { original: item } }: Cell) {
-  const { readOnly, demo, onEdit, onRunNow } = useList();
+  const { readOnly, demo, onEdit, onRunNow, onDelete } = useList();
   if (item.kind === "finding")
     return <ChevronRight aria-hidden="true" className="mr-2 ml-auto size-3.5 text-muted-foreground/60" />;
   if (readOnly && !demo) return null;
@@ -153,6 +154,19 @@ function ActionsCell({ row: { original: item } }: Cell) {
       >
         <Pencil className="size-3.5" />
       </button>
+      <button
+        type="button"
+        aria-label={`Delete ${settings.name}`}
+        title={demo ? "Turn off Demo data to delete an investigation" : "Delete"}
+        disabled={readOnly}
+        onClick={(event) => {
+          event.stopPropagation();
+          onDelete(item.lens);
+        }}
+        className={cn(ACTION, "hover:text-destructive")}
+      >
+        <Trash2 aria-hidden="true" className="size-3.5" />
+      </button>
     </span>
   );
 }
@@ -165,7 +179,7 @@ const COLUMNS: ColumnDef<InvestigationRow>[] = [
   { id: "findings", size: 64, header: "Open", cell: FindingCount, meta: { numeric: true } },
   {
     id: "actions",
-    size: 76,
+    size: 104,
     header: "Actions",
     cell: ActionsCell,
     meta: { headerClassName: "sr-only", className: "pl-0 pr-3" },
@@ -180,6 +194,7 @@ export interface InvestigationListProps {
   readonly onSelect: (row: InvestigationRow | null) => void;
   readonly onEdit: (id: string) => void;
   readonly onRunNow: (id: string) => void;
+  readonly onDelete: (lens: Lens) => void;
   readonly actions?: ReactNode;
   /** Body of the side panel for the selected row. */
   readonly children: (row: InvestigationRow) => ReactNode;
@@ -193,6 +208,7 @@ export function InvestigationList({
   onSelect,
   onEdit,
   onRunNow,
+  onDelete,
   actions,
   children,
 }: InvestigationListProps) {
@@ -241,7 +257,7 @@ export function InvestigationList({
             <SearchBox.Suggestions />
           </SearchBox.Root>
         </div>
-        <ListContext.Provider value={{ now, connected, readOnly, demo, onEdit, onRunNow }}>
+        <ListContext.Provider value={{ now, connected, readOnly, demo, onEdit, onRunNow, onDelete }}>
           <InspectorTable.Root table={table}>
             <InspectorTable.Grid aria-label="Investigations" className="lens-table text-xs md:min-w-[860px]">
               <InspectorTable.Header />

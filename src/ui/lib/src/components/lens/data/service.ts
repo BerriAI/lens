@@ -47,6 +47,7 @@ export interface LensApi {
   refreshGateway(): Promise<GatewayStatus>;
   connectGateway(): Promise<GatewayStatus>;
   saveLens(id: string | undefined, settings: Settings): Promise<Lens>;
+  deleteLens(lensId: string): Promise<void>;
   startRun(lensId: string, request?: RunWindow): Promise<void>;
   watchAll(): Promise<components["schemas"]["WatchAllResult"]>;
   signalConfig(): Promise<SignalConfig>;
@@ -146,6 +147,7 @@ export function liveLensApi(client: LensClient, apiClient: ApiClient, accessToke
           ? client.PUT("/lens/admin/{lens_id}", { ...lens(id), body: settings })
           : client.POST("/lens", { headers, body: settings }),
       ),
+    deleteLens: (lensId) => sent(client.DELETE("/lens/admin/{lens_id}", lens(lensId))),
     startRun: (lensId, request = {}) => sent(client.POST("/lens/admin/{lens_id}/runs", { ...lens(lensId), body: request })),
     watchAll: () => required(client.POST("/lens/admin/watch-all", { headers })),
     signalConfig: () => required(client.GET("/lens/admin/signals", { headers })),

@@ -25,7 +25,7 @@ import {
   type Priority,
 } from "../model/inbox";
 import type { Finding } from "../model/types";
-import { useDialogRoute, useEvidenceRoute, useInboxFilters, useIssueRoute } from "../route";
+import { useDialogRoute, useEvidenceRoute, useFindingsViewRoute, useInboxFilters, useIssueRoute } from "../route";
 import { FINDING_PANEL_WIDTH_KEY } from "../storage";
 import { LensPageHeader } from "../ui/LensPageHeader";
 import { useWorkerConnected } from "../hooks/useWorkerConnected";
@@ -188,6 +188,7 @@ export function FindingsView({ agent = "", readOnly = false }: { agent?: string;
   const update = useLensUpdate();
   const { issueKey, setIssueKey } = useIssueRoute();
   const { openDialog } = useDialogRoute();
+  const { setManagingInvestigations } = useFindingsViewRoute();
   const filters = useInboxFilters();
   const now = useNow(30000);
   const all = filterInbox(inboxRows(list.data?.lenses ?? []), {
@@ -230,9 +231,14 @@ export function FindingsView({ agent = "", readOnly = false }: { agent?: string;
           page="findings"
           title="Findings"
           actions={!readOnly && (
-            <Button size="sm" onClick={() => openDialog("new")}>
-              <Plus aria-hidden="true" className="size-4" />New investigation
-            </Button>
+            <>
+              <Button size="sm" variant="outline" onClick={() => setManagingInvestigations(true)}>
+                Manage investigations
+              </Button>
+              <Button size="sm" onClick={() => openDialog("new")}>
+                <Plus aria-hidden="true" className="size-4" />New investigation
+              </Button>
+            </>
           )}
           description={
             agent ? "Issues and improvements from this agent’s traces." : "Issues and improvements across your agents."

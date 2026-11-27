@@ -18,6 +18,12 @@ pub trait LensRepository: Send + Sync {
 
     fn create(&self, lens: &Lens) -> impl Future<Output = Result<Lens, RepositoryError>> + Send;
 
+    fn delete(
+        &self,
+        lens_id: &str,
+        scope: &Scope,
+    ) -> impl Future<Output = Result<bool, RepositoryError>> + Send;
+
     fn replace(
         &self,
         expected: &Lens,

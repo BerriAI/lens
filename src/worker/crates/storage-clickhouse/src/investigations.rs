@@ -13,7 +13,10 @@ use lens_contract::{
     investigations::{Lens, Scope, public},
     worker::Job,
 };
-use lens_investigations::{LensRepository, RepositoryError, can_access, due_at};
+use lens_investigations::{
+    LensRepository, RepositoryError, TerminalStatus, can_access, current_job, due_at, end_job,
+    replace_job,
+};
 use percent_encoding::{AsciiSet, NON_ALPHANUMERIC, utf8_percent_encode};
 use serde::{Deserialize, Serialize, de::DeserializeOwned};
 use serde_json::Value;
@@ -39,6 +42,8 @@ struct StoredLens {
     lens: Lens,
     #[serde(deserialize_with = "Option::deserialize")]
     due_at: Option<DateTime<Utc>>,
+    #[serde(default, skip_serializing_if = "std::ops::Not::not")]
+    deleted: bool,
 }
 
 #[derive(Deserialize, Serialize)]
@@ -78,10 +83,11 @@ fn decode<T: DeserializeOwned>(value: Value) -> Result<T, RepositoryError> {
     serde_json::from_value(value).map_err(|error| RepositoryError::Unavailable(Box::new(error)))
 }
 
-fn stored(lens: &Lens) -> Result<Value, RepositoryError> {
+fn stored(lens: &Lens, deleted: bool) -> Result<Value, RepositoryError> {
     document(StoredLens {
         lens: lens.clone(),
-        due_at: due_at(lens),
+        due_at: if deleted { None } else { due_at(lens) },
+        deleted,
     })
 }
 
@@ -129,28 +135,32 @@ impl Investigations {
         &self,
         writer: writes::Writer,
         previous: Snapshot,
-        current: &Lens,
+        current: &StoredLens,
         candidate: &Lens,
+        deleted: bool,
         records: Vec<Change>,
     ) -> Result<Lens, RepositoryError> {
-        if current.id != candidate.id {
+        if current.lens.id != candidate.id {
             return Err(failure(Error::InvalidState));
         }
-        if document(candidate)? == document(current)? {
+        if current.deleted == deleted && document(candidate)? == document(&current.lens)? {
             writer.commit(records).await?;
-            return Ok(current.clone());
+            return Ok(current.lens.clone());
         }
         let updated = Lens {
             version: current
+                .lens
                 .version
                 .checked_add(1)
                 .ok_or_else(|| failure(Error::InvalidState))?,
             ..candidate.clone()
         };
-        let archives = self.archive_changes(&previous, current, &updated).await?;
+        let archives = self
+            .archive_changes(&previous, &current.lens, &updated)
+            .await?;
         let changes = std::iter::once(Change {
             previous,
-            value: stored(&updated)?,
+            value: stored(&updated, deleted)?,
         })
         .chain(archives)
         .chain(records)
@@ -176,7 +186,7 @@ impl LensRepository for Investigations {
                     continue;
                 }
                 let stored: StoredLens = decode(record.value)?;
-                if can_access(scope, &stored.lens.scope) {
+                if !stored.deleted && can_access(scope, &stored.lens.scope) {
                     lenses.push(stored.lens);
                 }
             }
@@ -191,7 +201,8 @@ impl LensRepository for Investigations {
         if snapshot.value.is_null() {
             return Ok(None);
         }
-        Ok(Some(decode::<StoredLens>(snapshot.value)?.lens))
+        let stored: StoredLens = decode(snapshot.value)?;
+        Ok((!stored.deleted).then_some(stored.lens))
     }
 
     async fn create(&self, lens: &Lens) -> Result<Lens, RepositoryError> {
@@ -203,10 +214,34 @@ impl LensRepository for Investigations {
         writer
             .commit(vec![Change {
                 previous,
-                value: stored(lens)?,
+                value: stored(lens, false)?,
             }])
             .await?;
         Ok(lens.clone())
+    }
+
+    async fn delete(&self, lens_id: &str, scope: &Scope) -> Result<bool, RepositoryError> {
+        let writer = self.writer(lens_id).await?;
+        let previous = self.snapshot(lens_id).await?;
+        if previous.value.is_null() {
+            return Ok(false);
+        }
+        let current: StoredLens = decode(previous.value.clone())?;
+        if current.deleted || !can_access(scope, &current.lens.scope) {
+            return Ok(false);
+        }
+        let candidate = current_job(&current.lens).map_or_else(
+            || current.lens.clone(),
+            |job| {
+                replace_job(
+                    &current.lens,
+                    end_job(job, TerminalStatus::Cancelled, Utc::now()),
+                )
+            },
+        );
+        self.publish_lens(writer, previous, &current, &candidate, true, Vec::new())
+            .await?;
+        Ok(true)
     }
 
     async fn replace(&self, expected: &Lens, candidate: &Lens) -> Result<Lens, RepositoryError> {
@@ -218,11 +253,11 @@ impl LensRepository for Investigations {
         if previous.value.is_null() {
             return Err(RepositoryError::Conflict);
         }
-        let current = decode::<StoredLens>(previous.value.clone())?.lens;
-        if current.version != expected.version {
+        let current: StoredLens = decode(previous.value.clone())?;
+        if current.deleted || current.lens.version != expected.version {
             return Err(RepositoryError::Conflict);
         }
-        self.publish_lens(writer, previous, &current, candidate, Vec::new())
+        self.publish_lens(writer, previous, &current, candidate, false, Vec::new())
             .await
     }
 
