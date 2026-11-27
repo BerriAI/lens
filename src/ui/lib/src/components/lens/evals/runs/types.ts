@@ -1,3 +1,5 @@
+import type { AgentIo } from "../agentIo";
+
 // Mirrors the eval types in schema/lens.v1.json, generated from the lens-contract Rust crate
 export type RunStatus = "running" | "scoring" | "done" | "failed";
 
@@ -96,6 +98,7 @@ export interface Gate {
 }
 
 export interface EvalSpec {
+  readonly agent_io?: AgentIo | null;
   readonly agent: string;
   readonly dataset_id: string;
   readonly revision?: number | null;
@@ -108,9 +111,9 @@ export interface EvalSpec {
 
 export interface EvalDefinition {
   readonly name: string;
-  readonly spec: Required<Omit<EvalSpec, "revision">> & {
+  readonly spec: Required<Omit<EvalSpec, "revision" | "agent_io">> & {
     readonly revision: number | null;
-    readonly agent_io?: { readonly version: number; readonly connection: string } | null;
+    readonly agent_io?: AgentIo | null;
   };
   readonly updated_at: string;
 }

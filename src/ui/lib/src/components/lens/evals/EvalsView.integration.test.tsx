@@ -8,7 +8,7 @@ import { createLensDemo } from "../data/demo/createLensDemo";
 import type { Dataset, DatasetSummary } from "../datasets/types";
 import { EvalsView } from "./EvalsView";
 import { RunsTab } from "./runs/RunsTab";
-import { diff, evalRun, runCase, step, summary, trial } from "./runs/testRuns";
+import { diff, evalRun, httpAgentIo, runCase, step, summary, trial } from "./runs/testRuns";
 import type { EvalDefinition, EvalRun, RunCase } from "./runs/types";
 
 vi.mock("../../../lib/http/requests", async (importOriginal) => ({
@@ -257,6 +257,53 @@ describe("Evals", () => {
     });
     expect(await screen.findByRole("heading", { name: "refund-order" })).toBeInTheDocument();
     expect(new URLSearchParams(onUrlUpdate.mock.lastCall?.[0].queryString).get("eval")).toBe("refund-order");
+  });
+
+  it("registers an HTTP API with contract 2 and shows its local runner setup after saving", async () => {
+    const user = userEvent.setup();
+    const created: EvalDefinition = {
+      ...definition,
+      name: "api-regressions",
+      spec: { ...definition.spec, agent_io: { ...httpAgentIo, submit: { ...httpAgentIo.submit, path: "/tasks", accepted_status: 202 }, completion: {
+        kind: "poll", id_pointer: "/id", path_template: "/tasks/{id}", status_pointer: "/status",
+        success: ["completed"], failure: ["failed", "cancelled"], interval_ms: 1000, timeout_ms: 600000,
+      } } },
+    };
+    proxy.get.mockImplementation((path: string, request: GatewayRequest) => {
+      if (path === "/lens/evals/api-regressions") return created;
+      if (path === "/lens/evals/runs" && request.query.eval === created.name) return [];
+      return serve(path, request);
+    });
+    proxy.put.mockResolvedValue(created);
+    renderWithLens(<EvalsView />, { searchParams: "?tab=evals" });
+    await user.click(await screen.findByRole("button", { name: "New eval" }));
+    const form = screen.getByRole("form", { name: "New eval" });
+    fireEvent.change(within(form).getByRole("textbox", { name: "Name" }), { target: { value: created.name } });
+    await user.click(within(form).getByRole("combobox", { name: "Dataset" }));
+    await user.click(await screen.findByRole("option", { name: "Refund agent regressions@2" }));
+    fireEvent.change(within(form).getByRole("combobox", { name: "Execution type" }), { target: { value: "http" } });
+    fireEvent.change(within(form).getByRole("textbox", { name: "POST path" }), { target: { value: "/tasks" } });
+    fireEvent.change(within(form).getByRole("textbox", { name: "Accepted HTTP status" }), { target: { value: "202" } });
+    fireEvent.change(within(form).getByRole("combobox", { name: "Response handling" }), { target: { value: "poll" } });
+    fireEvent.change(within(form).getByRole("textbox", { name: "GET polling path" }), { target: { value: "/tasks/{id}" } });
+    await user.click(within(form).getByRole("button", { name: "Create eval" }));
+    await waitFor(() => expect(proxy.put).toHaveBeenCalledWith("/lens/evals/api-regressions", expect.objectContaining({
+      body: expect.objectContaining({ agent_io: created.spec.agent_io, scorers: [{ kind: "judge", prompt: "Does the answer satisfy the expected outcome for this case?", model: "" }] }),
+    })));
+    const written = vi.mocked(fetch).mock.calls.find(([input, init]) =>
+      (input instanceof Request ? input.method : init?.method) === "PUT");
+    expect(written).toBeDefined();
+    const [input, init] = written!;
+    expect(new Headers(input instanceof Request ? input.headers : init?.headers).get("X-Lens-Contract")).toBe("2");
+    const setup = await screen.findByRole("region", { name: "HTTP API runner setup" });
+    expect(within(setup).getByText(/uv run lens eval --name 'api-regressions'/)).toBeVisible();
+    fireEvent.change(within(setup).getByRole("textbox", { name: "Agent origin" }), { target: { value: "https://agent.example.com" } });
+    fireEvent.change(within(setup).getByRole("combobox", { name: "Authentication" }), { target: { value: "none" } });
+    expect(within(setup).getByText(/auth = "none"/)).toBeVisible();
+    expect(within(setup).getByText(/export AGENT_BASE_URL='https:\/\/agent.example.com'/)).toBeVisible();
+    expect(proxy.put).toHaveBeenCalledOnce();
+    await user.click(screen.getByRole("button", { name: "API setup" }));
+    expect(await screen.findByRole("dialog", { name: "API setup" })).toBeVisible();
   });
 
   it("opens GitHub setup for an eval with no runs, then opens the first run once it arrives", async () => {

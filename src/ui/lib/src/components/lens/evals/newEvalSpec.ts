@@ -1,6 +1,9 @@
 import type { EvalSpec, Gate, Scorer } from "./runs/types";
+import { buildAgentIo, EMPTY_AGENT_IO, type AgentIoDraft } from "./agentIo";
 
 export interface NewEvalDraft {
+  readonly execution: "code" | "http";
+  readonly api: AgentIoDraft;
   readonly name: string;
   readonly datasetId: string;
   readonly agent: string;
@@ -18,6 +21,8 @@ export interface NewEvalDraft {
 }
 
 export const EMPTY_DRAFT: NewEvalDraft = {
+  execution: "code",
+  api: EMPTY_AGENT_IO,
   name: "",
   datasetId: "",
   agent: "",
@@ -52,6 +57,11 @@ export function buildEvalSpec(draft: NewEvalDraft): DraftResult {
     return { ok: false, error: "Name must be lowercase letters, digits, - or _" };
   if (!draft.datasetId) return { ok: false, error: "Pick a dataset" };
   if (!draft.agent.trim()) return { ok: false, error: "Agent is required" };
+  const mapping = draft.execution === "http" ? buildAgentIo(draft.api) : null;
+  if (mapping && !mapping.ok) return mapping;
+  const agentIo = mapping?.ok ? mapping.value : undefined;
+  if (agentIo && !agentIo.trace && (draft.taskCompleted || draft.calledBefore || draft.costPerCase.trim()))
+    return { ok: false, error: "Task completed, tool order and cost gates need a trace mapping. Use an LLM judge to score API output alone" };
   if (draft.calledBefore && (!draft.first.trim() || !draft.then.trim()))
     return { ok: false, error: "Name both tools for the ordering check" };
   if (draft.judge && !draft.prompt.trim()) return { ok: false, error: "The judge needs a question" };
@@ -82,6 +92,9 @@ export function buildEvalSpec(draft: NewEvalDraft): DraftResult {
   return {
     ok: true,
     name,
-    spec: { agent: draft.agent.trim(), dataset_id: draft.datasetId, scorers, trials, baseline: "main", gate },
+    spec: {
+      agent: draft.agent.trim(), dataset_id: draft.datasetId, scorers, trials, baseline: "main", gate,
+      ...(agentIo ? { agent_io: agentIo } : {}),
+    },
   };
 }

@@ -9,7 +9,7 @@ import {
 import { testQueryClient } from "../../../../tests/test-utils";
 import { EvalsView } from "./EvalsView";
 import { RunEval } from "./runs/RunEval";
-import { evalRun } from "./runs/testRuns";
+import { evalRun, httpAgentIo } from "./runs/testRuns";
 import type { EvalDefinition, EvalRun } from "./runs/types";
 
 vi.mock("../../../lib/http/requests", async (importOriginal) => ({
@@ -258,7 +258,7 @@ describe("Eval execution overview", () => {
       ...definition,
       spec: {
         ...definition.spec,
-        agent_io: { version: 1, connection: "agent-service" },
+        agent_io: httpAgentIo,
       },
     };
     proxy.get.mockImplementation((path: string, request: GatewayRequest) =>

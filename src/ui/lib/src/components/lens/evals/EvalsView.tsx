@@ -20,6 +20,14 @@ import { Inspector } from "../../shared/Inspector";
 import { InspectorTable } from "../../shared/InspectorTable";
 import { StateMessage } from "../../shared/StateMessage";
 import { Button } from "../../ui/button";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+} from "../../ui/dialog";
+import { HttpAgentSetup } from "./runs/HttpAgentSetup";
 import { useDatasets } from "../datasets/api";
 import type { DatasetSummary } from "../datasets/types";
 import { useEvalRunRoute } from "../route";
@@ -130,7 +138,7 @@ function EvalList({ onOpen }: { onOpen: (name: string) => void }) {
           role="status"
           icon={<FlaskConical className="size-5" />}
           title="No evals yet"
-          description="Create an eval to choose test cases and scoring rules, then connect your agent code to run it."
+          description="Create an eval to choose test cases and scoring rules, then connect an agent API or your code."
         />
       </div>
     );
@@ -264,6 +272,7 @@ function EvalPage({
 }) {
   const definition = useEvalDefinition(name);
   const datasets = useDatasets();
+  const [apiSetup, setApiSetup] = useState(false);
   if (definition.isPending) return loading("Loading eval…");
   if (definition.error) return failed("Couldn't load eval", definition.error);
   const spec = definition.data.spec;
@@ -272,6 +281,17 @@ function EvalPage({
     <div className="flex min-h-0 flex-1 flex-col overflow-hidden bg-card">
       <LensPageHeader
         title={name}
+        actions={
+          spec.agent_io ? (
+            <Button
+              size="sm"
+              variant="outline"
+              onClick={() => setApiSetup(true)}
+            >
+              API setup
+            </Button>
+          ) : undefined
+        }
         navigation={
           <Button
             variant="ghost"
@@ -321,6 +341,19 @@ function EvalPage({
         revision={spec.revision ?? dataset?.revision ?? 1}
         onOpen={onOpenRun}
       />
+      {apiSetup && (
+        <Dialog open onOpenChange={setApiSetup}>
+          <DialogContent className="max-h-[calc(100dvh-2rem)] overflow-y-auto sm:max-w-2xl">
+            <DialogHeader>
+              <DialogTitle>API setup</DialogTitle>
+              <DialogDescription>
+                Run this saved eval from your machine or CI
+              </DialogDescription>
+            </DialogHeader>
+            <HttpAgentSetup definition={definition.data} />
+          </DialogContent>
+        </Dialog>
+      )}
     </div>
   );
 }

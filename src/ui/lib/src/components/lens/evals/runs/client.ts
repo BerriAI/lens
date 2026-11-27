@@ -24,7 +24,7 @@ export function liveEvalRunsApi(apiClient: ApiClient, accessToken: string): Eval
     evals: () => apiClient.get<EvalDefinition[]>("/lens/evals", { accessToken, headers: READ_CONTRACT }),
     evalDefinition: (name) => apiClient.get<EvalDefinition>(evalPath(name), { accessToken, headers: READ_CONTRACT }),
     saveEval: (name, spec) =>
-      apiClient.put<EvalDefinition>(evalPath(name), { accessToken, headers: CONTRACT, body: spec }),
+      apiClient.put<EvalDefinition>(evalPath(name), { accessToken, headers: spec.agent_io ? READ_CONTRACT : CONTRACT, body: spec }),
     list: (filter) =>
       apiClient.get<EvalRun[]>("/lens/evals/runs", {
         accessToken,

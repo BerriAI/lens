@@ -8,7 +8,7 @@ import {
   testQueryClient,
 } from "../../../../tests/test-utils";
 import type { DatasetSummary } from "../datasets/types";
-import { evalRun, summary } from "../evals/runs/testRuns";
+import { evalRun, httpAgentIo, summary } from "../evals/runs/testRuns";
 import type { EvalDefinition, EvalRun } from "../evals/runs/types";
 import { GitHubEvalSetupDialog } from "./GitHubEvalSetupDialog";
 
@@ -95,6 +95,22 @@ beforeEach(() => {
 });
 
 describe("GitHub eval workflow setup", () => {
+  it("generates a named HTTP workflow and local profile without a task callback", async () => {
+    const user = userEvent.setup();
+    const httpDefinition = { ...definition, spec: { ...definition.spec, agent_io: httpAgentIo } };
+    gateway.get.mockImplementation((path) => path === "/lens/evals" ? [httpDefinition] : serve()(path));
+    renderWithLens(<GitHubEvalSetupDialog agent={agent} definition={httpDefinition} onOpenChange={vi.fn()} />);
+    await prepare(user);
+    expect(screen.getByText(/auth = "bearer"/)).toBeVisible();
+    const workflow = screen.getByText(/name: Lens evals/);
+    expect(workflow).toHaveTextContent('eval-name: "agent-regressions"');
+    expect(workflow).toHaveTextContent("AGENT_API_KEY: ${{ secrets.AGENT_API_KEY }}");
+    expect(screen.queryByText(/Implement task\(\)/)).not.toBeInTheDocument();
+    expect(screen.queryByRole("tab", { name: "evals/agent_regressions.py" })).not.toBeInTheDocument();
+    fireEvent.change(screen.getByRole("combobox", { name: "Authentication" }), { target: { value: "none" } });
+    expect(screen.getByText(/name: Lens evals/)).not.toHaveTextContent("AGENT_API_KEY:");
+    expect(gateway.put).not.toHaveBeenCalled();
+  });
   it("chooses this agent’s eval and carries repository, runtime and dataset into reviewable setup files", async () => {
     const user = userEvent.setup();
     renderWithLens(
