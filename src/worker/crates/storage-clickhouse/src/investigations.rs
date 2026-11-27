@@ -96,6 +96,10 @@ impl Investigations {
         self.0.read(&key("lens", (id,))?).await.map_err(failure)
     }
 
+    pub async fn id_reserved(&self, id: &str) -> Result<bool, RepositoryError> {
+        Ok(!self.snapshot(id).await?.value.is_null())
+    }
+
     async fn archive_changes(
         &self,
         parent: &Snapshot,

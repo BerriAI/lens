@@ -52,7 +52,7 @@ beforeEach(() => {
 it("manages investigations from Findings and deletes only after confirmation", async () => {
   const user = userEvent.setup();
   const [first, second] = createLensDemoData().lenses;
-  const kept = { ...second, settings: { ...second.settings, name: "Keep this investigation" } };
+  const kept = { ...second, id: "auto-agent-kept", settings: { ...second.settings, name: "Automatic analysis" } };
   let lenses = [first, kept];
   const remove = vi.fn();
   network.mockImplementation(async (input, init) => {
@@ -80,6 +80,7 @@ it("manages investigations from Findings and deletes only after confirmation", a
   const confirmation = screen.getByRole("dialog", { name: "Delete investigation?" });
   expect(confirmation).toHaveTextContent(first.settings.name);
   expect(confirmation).toHaveTextContent("Past spend records will be kept");
+  expect(confirmation).not.toHaveTextContent("Lens won’t recreate it");
   await user.click(within(confirmation).getByRole("button", { name: "Cancel" }));
   expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
   expect(row).toBeVisible();
@@ -91,6 +92,11 @@ it("manages investigations from Findings and deletes only after confirmation", a
   expect(remove).toHaveBeenCalledExactlyOnceWith(`/lens/admin/${first.id}`);
   expect(screen.queryByRole("row", { name: first.settings.name })).not.toBeInTheDocument();
   expect(screen.getByRole("row", { name: kept.settings.name })).toBeVisible();
+  await user.click(screen.getByRole("button", { name: "Delete Automatic analysis" }));
+  const automaticConfirmation = screen.getByRole("dialog", { name: "Delete investigation?" });
+  expect(automaticConfirmation).toHaveTextContent("Lens won’t recreate it");
+  expect(automaticConfirmation).toHaveTextContent("Pause automatic analysis instead if you might want to resume it");
+  await user.click(within(automaticConfirmation).getByRole("button", { name: "Cancel" }));
   await user.click(screen.getByRole("button", { name: "Back to findings" }));
   expect(await screen.findByRole("region", { name: "Findings settings" })).toBeVisible();
 });

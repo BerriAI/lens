@@ -229,6 +229,8 @@ export function InvestigationsView({ readOnly = false }: InvestigationsViewProps
               <DialogTitle>Delete investigation?</DialogTitle>
               <DialogDescription>
                 “{deleting.settings.name}” will be removed and its runs will stop. Past spend records will be kept.
+                {deleting.id.startsWith("auto-agent-") &&
+                  " Lens won’t recreate it. Pause automatic analysis instead if you might want to resume it."}
               </DialogDescription>
             </DialogHeader>
             {actions.error && <p role="alert" className="text-sm text-destructive">{actions.error.message}</p>}

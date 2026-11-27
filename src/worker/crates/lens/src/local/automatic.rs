@@ -70,6 +70,9 @@ impl LocalControl {
                 continue;
             }
             let lens = new_analysis(&agent, &model, worker.scope.clone(), Utc::now())?;
+            if self.repository.id_reserved(&lens.id).await? {
+                continue;
+            }
             match self.repository.create(&lens).await {
                 Ok(_) => self.wake.notify(),
                 Err(RepositoryError::Conflict) => {}
