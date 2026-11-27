@@ -574,11 +574,11 @@ async fn interrupted_investigation_reuses_grouping_and_finished_checks_after_res
     let failure = failed.clone();
     Mock::given(method("POST")).and(path("/v1/chat/completions")).respond_with(move |request: &Request| {
         let body: Value = request.body_json().unwrap();
-        let prompt: Value = serde_json::from_str(body["messages"][1]["content"].as_str().unwrap()).unwrap();
+        let prompt: Value = serde_json::from_str(body["messages"][0]["content"].as_str().unwrap().rsplit_once("\n\n").unwrap().1).unwrap();
         let content = match prompt["stage"].as_str() {
             Some("context_review") => {
                 extraction.fetch_add(1, Ordering::SeqCst);
-                let supplied: Value = serde_json::from_str(body["messages"][2]["content"].as_str().unwrap()).unwrap();
+                let supplied: Value = serde_json::from_str(body["messages"][1]["content"].as_str().unwrap()).unwrap();
                 let id = &supplied["supplied"]["execution"]["id"];
                 let evidence = json!({"execution_id":id,"span_id":"aabbccdd00112233","quote":"Your invoice is paid","role":"support"});
                 json!({"result":{"observations":[
@@ -592,7 +592,7 @@ async fn interrupted_investigation_reuses_grouping_and_finished_checks_after_res
                     return ResponseTemplate::new(409).set_body_json(json!({"error":{"message":"injected late failure","type":"test_failure"}}));
                 }
                 if call == 0 && with_finding {
-                    let supplied: Value = serde_json::from_str(body["messages"][2]["content"].as_str().unwrap()).unwrap();
+                    let supplied: Value = serde_json::from_str(body["messages"][1]["content"].as_str().unwrap()).unwrap();
                     json!({"result":{"findings":[{
                         "title":"Invoice status reported","description":"The agent reports the invoice status","check_id":"invoice","kind":"pattern",
                         "evidence":[{"execution_id":supplied["supplied"]["execution_ids"][0],"span_id":"aabbccdd00112233","quote":"Your invoice is paid","role":"support"}]

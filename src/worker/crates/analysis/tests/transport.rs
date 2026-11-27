@@ -92,19 +92,83 @@ async fn chat_request_and_usage_preserve_contract(
     assert_eq!(body["response_format"], json!({"type":"json_object"}));
     assert_eq!(body[limit], 400);
     assert_eq!(body["messages"][0]["role"], "system");
+    let marked = |text: &str| json!([{"type":"text","text":text,"prompt_cache_breakpoint":{"mode":"explicit"}}]);
+    let conversation = body["messages"].as_array().unwrap();
+    let turns: Vec<_> = conversation[conversation.len() - 3..]
+        .iter()
+        .map(|message| message["content"].clone())
+        .collect();
     assert_eq!(
-        body["messages"][1]["content"],
-        json!([{"type":"text","text":"Return JSON","prompt_cache_breakpoint":{"mode":"explicit"}}])
+        turns,
+        [marked("Evidence A"), json!("{}"), marked("Evidence B")]
     );
+    let task = &conversation[conversation.len() - 4]["content"][0];
+    assert!(task["text"].as_str().unwrap().ends_with("Return JSON"));
+    assert_eq!(task["prompt_cache_breakpoint"], json!({"mode":"explicit"}));
+}
+
+#[rstest]
+#[case::openai(Provider::OpenAi, &["system", "system", "user", "assistant", "user", "system"], false)]
+#[case::compatible(Provider::OpenAiCompatible, &["system", "user", "assistant", "user", "user"], true)]
+#[tokio::test]
+async fn compatible_endpoint_gets_one_system_message_and_an_unchanged_prefix_on_repair(
+    catalog: Arc<Catalog>,
+    mut request: ModelRequest,
+    #[case] provider: Provider,
+    #[case] roles: &[&str],
+    #[case] joined: bool,
+) {
+    let server = MockServer::start().await;
+    respond_times(&server, "/chat/completions", 200, completion(), 2).await;
+    let client = client(catalog, deployment(&server, provider));
+    let policy = lens_inference::request_messages(&request).unwrap()[0]
+        .content
+        .clone();
+    client
+        .complete(&client.prepare("analysis", &request).await.unwrap())
+        .await
+        .unwrap();
+    request.messages.push(lens_contract::worker::ModelMessage {
+        role: lens_contract::worker::ModelMessageRole::System,
+        content: "Correct the result".into(),
+    });
+    client
+        .complete(&client.prepare("analysis", &request).await.unwrap())
+        .await
+        .unwrap();
+    let bodies: Vec<Value> = server
+        .received_requests()
+        .await
+        .unwrap()
+        .iter()
+        .map(|request| request.body_json().unwrap())
+        .collect();
+    let text = |content: &Value| {
+        content
+            .as_str()
+            .or_else(|| content[0]["text"].as_str())
+            .unwrap()
+            .to_owned()
+    };
+    let first: Vec<_> = bodies[0]["messages"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .map(|message| (message["role"].clone(), text(&message["content"])))
+        .collect();
+    let repair: Vec<_> = bodies[1]["messages"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .map(|message| (message["role"].clone(), text(&message["content"])))
+        .collect();
     assert_eq!(
-        body["messages"][2]["content"],
-        json!([{"type":"text","text":"Evidence A","prompt_cache_breakpoint":{"mode":"explicit"}}])
+        repair.iter().map(|(role, _)| role).collect::<Vec<_>>(),
+        roles
     );
-    assert_eq!(body["messages"][3]["content"], "{}");
-    assert_eq!(
-        body["messages"][4]["content"],
-        json!([{"type":"text","text":"Evidence B","prompt_cache_breakpoint":{"mode":"explicit"}}])
-    );
+    assert_eq!(repair[..first.len()], first[..]);
+    assert_eq!(repair.last().unwrap().1, "Correct the result");
+    assert_eq!(first[0].1 == format!("{policy}\n\nReturn JSON"), joined);
 }
 
 #[rstest]
@@ -1866,7 +1930,12 @@ async fn anthropic_model_behind_a_gateway_gets_cache_markers_in_chat_format(
     let body: Value = server.received_requests().await.unwrap()[0]
         .body_json()
         .unwrap();
-    let marked: Vec<Option<Value>> = [1, 2, 4]
+    let first = if provider == Provider::OpenAiCompatible {
+        0
+    } else {
+        1
+    };
+    let marked: Vec<Option<Value>> = [first, first + 1, first + 3]
         .map(|index| {
             body["messages"][index]["content"][0]
                 .get("cache_control")
@@ -1874,7 +1943,7 @@ async fn anthropic_model_behind_a_gateway_gets_cache_markers_in_chat_format(
         })
         .to_vec();
     assert_eq!(marked, vec![marker; 3]);
-    assert!(body["messages"][3]["content"].is_string());
+    assert!(body["messages"][first + 2]["content"].is_string());
 }
 
 #[rstest]

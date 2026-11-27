@@ -3,7 +3,7 @@ use crate::{
     Error, Provider,
     catalog::{CacheMarks, ResolvedDeployment},
 };
-use lens_contract::worker::ModelMessage;
+use lens_contract::worker::{ModelMessage, ModelMessageRole};
 use litellm_cost::{PromptConvention, Usage};
 use serde::Deserialize;
 use serde_json::{Value, json};
@@ -21,17 +21,30 @@ pub(super) fn request(
         CacheMarks::Native => Some(("prompt_cache_breakpoint", json!({"mode":"explicit"}))),
         CacheMarks::Forwarded => Some(("cache_control", json!({"type":"ephemeral"}))),
     };
-    let messages: Vec<_> = messages
+    let parts: Vec<_> = messages
         .iter()
         .enumerate()
-        .map(|(index, message)| {
+        .map(|(index, message)| Part {
+            role: message.role,
+            text: message.content.clone(),
+            marked: boundaries.contains(&index),
+        })
+        .collect();
+    let parts = if deployment.config.provider == Provider::OpenAiCompatible {
+        single_leading_system(parts)
+    } else {
+        parts
+    };
+    let messages: Vec<_> = parts
+        .into_iter()
+        .map(|part| {
             let content = match &mark {
-                Some((name, value)) if boundaries.contains(&index) => {
-                    json!([{"type":"text","text":message.content,*name:value}])
+                Some((name, value)) if part.marked => {
+                    json!([{"type":"text","text":part.text,*name:value}])
                 }
-                _ => json!(message.content),
+                _ => json!(part.text),
             };
-            json!({"role":message.role,"content":content})
+            json!({"role":part.role,"content":content})
         })
         .collect();
     let limit = if deployment.config.provider == Provider::OpenAi {
@@ -50,6 +63,41 @@ pub(super) fn request(
         body["stream_options"] = json!({"include_usage":true});
     }
     Ok(body)
+}
+
+struct Part {
+    role: ModelMessageRole,
+    text: String,
+    marked: bool,
+}
+
+fn single_leading_system(parts: Vec<Part>) -> Vec<Part> {
+    let leading = parts
+        .iter()
+        .take_while(|part| part.role == ModelMessageRole::System)
+        .count();
+    let mut parts = parts.into_iter();
+    let opening: Vec<_> = parts.by_ref().take(leading).collect();
+    let system = (!opening.is_empty()).then(|| Part {
+        role: ModelMessageRole::System,
+        marked: opening.iter().any(|part| part.marked),
+        text: opening
+            .into_iter()
+            .map(|part| part.text)
+            .collect::<Vec<_>>()
+            .join("\n\n"),
+    });
+    system
+        .into_iter()
+        .chain(parts.map(|part| Part {
+            role: if part.role == ModelMessageRole::System {
+                ModelMessageRole::User
+            } else {
+                part.role
+            },
+            ..part
+        }))
+        .collect()
 }
 
 #[derive(Deserialize)]
