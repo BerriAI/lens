@@ -130,6 +130,10 @@ struct TraceSpansRowEncoding {
     pub input_tokens: u32,
     #[serde(deserialize_with = "super::number::deserialize")]
     pub output_tokens: u32,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub cache_read_tokens: Option<u32>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub cache_write_tokens: Option<u32>,
     pub litellm_request_id: String,
     #[serde(default)]
     pub call_keys: Vec<litellm_traces::CallKey>,

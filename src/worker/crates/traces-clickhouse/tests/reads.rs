@@ -22,6 +22,104 @@ fn make_reader(client: &Client, connection: Connection) -> (TraceReader, ClickHo
 }
 
 #[rstest]
+#[tokio::test]
+async fn prompt_cache_separates_trace_and_session_and_scopes_them_to_the_owner(
+    #[future(awt)] migrated_database: TestResult<SeededDatabase>,
+) -> TestResult {
+    let fixture = migrated_database?;
+    let client = &fixture.database.client;
+    let writer = Connection::writer(&fixture.database.url)?;
+    let start_ms = 1_790_000_000_000_i64;
+    insert_rows(
+        client,
+        &writer,
+        DATABASE,
+        InsertTable::OtelTraces,
+        vec![BTreeMap::from([
+            ("Timestamp".into(), json!(start_ms * 1_000_000)),
+            ("TraceId".into(), json!("current")),
+            ("SpanId".into(), json!("model")),
+            ("ObservationType".into(), json!("llm")),
+            ("TeamId".into(), json!("team-a")),
+            ("ApiKeyHash".into(), json!("key-a")),
+        ])],
+    )
+    .await?;
+    let spend = [
+        ("first", "current", "key-a", start_ms, 0, 20),
+        ("first", "current", "key-a", start_ms, 0, 20),
+        (
+            "earlier",
+            "earlier-trace",
+            "key-a",
+            start_ms - 86_400_000,
+            60,
+            0,
+        ),
+        (
+            "expired",
+            "old-trace",
+            "key-a",
+            start_ms - 8 * 86_400_000,
+            90,
+            0,
+        ),
+        ("unrelated", "current", "other-key", start_ms, 90, 0),
+    ];
+    insert_rows(
+        client,
+        &writer,
+        DATABASE,
+        InsertTable::SpendLogs,
+        spend
+            .into_iter()
+            .map(|(id, trace, key, time, read, write)| {
+                BTreeMap::from([
+                    ("request_id".into(), json!(id)),
+                    ("team_id".into(), json!("team-a")),
+                    ("api_key".into(), json!(key)),
+                    ("trace_id".into(), json!(trace)),
+                    ("session_id".into(), json!("conversation")),
+                    ("start_time".into(), json!(time)),
+                    ("end_time".into(), json!(time + 1)),
+                    ("prompt_tokens".into(), json!(100)),
+                    ("cache_read_tokens".into(), json!(read)),
+                    ("cache_write_tokens".into(), json!(write)),
+                ])
+            })
+            .collect(),
+    )
+    .await?;
+    let connection = Connection::reader(&fixture.database.url, DATABASE)?;
+    let (reader, store) = make_reader(client, connection);
+    let access = ReadAccessParams {
+        all_teams: false,
+        user_id: String::new(),
+        team_ids: vec!["team-a".into()],
+    };
+    let trace = reader
+        .get_trace_page(&store, &access, "current", "", None, 10)
+        .await?
+        .ok_or("missing trace")?;
+    let cache = trace.prompt_cache.ok_or("missing prompt cache")?;
+    let trace = cache.trace.ok_or("missing trace usage")?;
+    let session = cache.session.ok_or("missing session usage")?;
+    assert_eq!(
+        (trace.input_tokens, trace.read_tokens, trace.write_tokens),
+        (100, 0, 20)
+    );
+    assert_eq!(
+        (
+            session.input_tokens,
+            session.read_tokens,
+            session.write_tokens
+        ),
+        (200, 60, 20)
+    );
+    Ok(())
+}
+
+#[rstest]
 #[case::own_key("receipt-key", true)]
 #[case::other_key("other-key", false)]
 #[tokio::test]

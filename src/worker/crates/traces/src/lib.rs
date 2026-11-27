@@ -49,6 +49,7 @@ pub use shared::{Shared, SharedIdentity};
 pub use tenant::Tenant;
 pub use ui::{ChatRole, UiContent, UiField, UiMessage, UiToolCall, to_ui_content};
 pub use view::{
-    AgentNode, RunSource, RunSourceType, Span, SpanDetail, SpanErrorPage, SpanStatus, SpendMatch,
-    Trace, TraceConversationPage, TraceConversationTurn, TracePage, TraceSummary,
+    AgentNode, PromptCacheUsage, RunSource, RunSourceType, Span, SpanDetail, SpanErrorPage,
+    SpanStatus, SpendMatch, Trace, TraceConversationPage, TraceConversationTurn, TracePage,
+    TracePromptCache, TraceSummary,
 };

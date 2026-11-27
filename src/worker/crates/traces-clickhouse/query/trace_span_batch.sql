@@ -11,6 +11,10 @@ SELECT o.TraceId AS trace_id, o.SpanAttributes['lens.original_trace_id'] AS orig
               (PARTITION BY o.TeamId, o.ApiKeyHash, o.TraceId, o.SpanId),
           o.InputPreview) AS input_preview, o.ReplyPreview AS reply_preview, o.Model AS model,
        o.InputTokens AS input_tokens, o.OutputTokens AS output_tokens,
+       if(o.SpanName = 'claude_code.llm_request' AND o.Framework IN ('claude-code', 'claude-agent-sdk'),
+          accurateCastOrNull(trim(o.SpanAttributes['cache_read_tokens']), 'UInt32'), NULL) AS cache_read_tokens,
+       if(o.SpanName = 'claude_code.llm_request' AND o.Framework IN ('claude-code', 'claude-agent-sdk'),
+          accurateCastOrNull(trim(o.SpanAttributes['cache_creation_tokens']), 'UInt32'), NULL) AS cache_write_tokens,
        o.LiteLLMRequestId AS litellm_request_id,
        o.CallKeys AS call_keys, o.CallEvidence AS call_evidence,
        -- Rows written before ToolCallId keep the call id only in their attributes.

@@ -105,6 +105,7 @@ pub fn trace(spans: Vec<Span>) -> Trace {
         },
         agents: vec![],
         spans,
+        prompt_cache: None,
         next_cursor: None,
         gateway_spend_pending: false,
     }

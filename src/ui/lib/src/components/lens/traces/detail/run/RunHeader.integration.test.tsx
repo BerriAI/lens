@@ -8,6 +8,44 @@ import researchTrace from "../../__fixtures__/research_trace.json";
 import type { Trace } from "../../types";
 import { RunHeader } from "./RunHeader";
 
+it("shows a trace with no hits and the weighted session cache rate", () => {
+  const trace: Trace = {
+    ...(researchTrace as Trace),
+    prompt_cache: {
+      trace: { input_tokens: 100, read_tokens: 0, write_tokens: 20 },
+      session: { input_tokens: 400, read_tokens: 250, write_tokens: 20 },
+      has_session: true,
+      grouped_session: false,
+    },
+  };
+  renderHeader(trace);
+  expect(screen.getByRole("button", { name: "Trace cache: 0% read" })).toBeVisible();
+  expect(screen.getByRole("button", { name: "Session cache: 62.5% read" })).toBeVisible();
+});
+
+it("shows that cache data is unavailable instead of reporting zero hits", () => {
+  renderHeader(researchTrace as Trace);
+  expect(screen.getByRole("button", { name: "Trace cache: Unavailable" })).toBeVisible();
+});
+
+function renderHeader(trace: Trace) {
+  return renderWithProviders(
+    <Tabs value="steps">
+      <RunHeader
+        trace={trace}
+        handoff={{ text: "Read trace", copied: "Copied" }}
+        onBack={() => {}}
+        embedded
+        refreshing={false}
+        onRefresh={() => {}}
+        live={false}
+        canLive={false}
+        onLiveChange={() => {}}
+      />
+    </Tabs>,
+  );
+}
+
 it("copies a hosted run link through the dashboard without credentials or stale filters", async () => {
   const previousUrl = window.location.href;
   const origin = window.location.origin;

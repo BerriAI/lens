@@ -30,6 +30,8 @@ fn row(span_id: &str, parent: &str, name: &str, kind: &str, agent: &str) -> Trac
         model: String::new(),
         input_tokens: 0,
         output_tokens: 0,
+        cache_read_tokens: None,
+        cache_write_tokens: None,
         litellm_request_id: String::new(),
         call_keys: Vec::new(),
         call_evidence: None,
@@ -76,6 +78,36 @@ fn spend(request_id: &str, response_id: &str, cost: f64) -> SpendByResponseIdsRo
         spend: Some(cost),
         start_ms: T0 / MS,
     }
+}
+
+#[rstest]
+#[case::reported(Some(60), Some(20), Some((100, 60, 20)))]
+#[case::zero_hits(Some(0), None, Some((100, 0, 0)))]
+#[case::unknown(None, None, None)]
+#[case::impossible(Some(85), Some(20), None)]
+fn session_prompt_cache_counts_only_reported_usage(
+    #[case] read: Option<u32>,
+    #[case] write: Option<u32>,
+    #[case] expected: Option<(u64, u64, u64)>,
+) {
+    let rows = [
+        TraceSpansRow {
+            original_trace_id: "transport-one".into(),
+            cache_read_tokens: read,
+            cache_write_tokens: write,
+            ..llm("llm-one", "", "agent", "one")
+        },
+        llm("llm-two", "", "agent", "two"),
+    ];
+    let trace = resolve_trace("session", "reference", &rows, &[]).unwrap();
+    let cache = trace.prompt_cache.unwrap();
+    assert!(cache.grouped_session);
+    assert_eq!(
+        cache
+            .trace
+            .map(|usage| (usage.input_tokens, usage.read_tokens, usage.write_tokens)),
+        expected
+    );
 }
 
 /// root agent -> llm, task tool -> researcher subagent (N times) -> llm + search tool + middleware.

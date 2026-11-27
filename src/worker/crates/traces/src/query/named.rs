@@ -157,6 +157,10 @@ pub struct TraceSpansRow {
     pub model: String,
     pub input_tokens: u32,
     pub output_tokens: u32,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub cache_read_tokens: Option<u32>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub cache_write_tokens: Option<u32>,
     pub litellm_request_id: String,
     #[serde(default)]
     pub call_keys: Vec<crate::CallKey>,

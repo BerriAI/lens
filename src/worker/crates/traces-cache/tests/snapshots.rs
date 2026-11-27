@@ -36,6 +36,8 @@ fn row(span_id: &str, parent: &str, name: &str, kind: &str, agent: &str) -> Trac
         model: String::new(),
         input_tokens: 0,
         output_tokens: 0,
+        cache_read_tokens: None,
+        cache_write_tokens: None,
         litellm_request_id: String::new(),
         call_keys: Vec::new(),
         call_evidence: None,

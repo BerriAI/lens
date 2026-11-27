@@ -83,6 +83,17 @@ pub trait TraceStore: Sync {
         params: &SpendByResponseIdsParams,
     ) -> impl Future<Output = Result<Vec<SpendByResponseIdsRow>, StoreError<Self::Error>>> + Send;
 
+    fn gateway_prompt_cache(
+        &self,
+        _access: &litellm_traces::query::named::ReadAccessParams,
+        _rows: &[TraceSpansRow],
+        _trace: &litellm_traces::Trace,
+        _snapshot_ms: u64,
+    ) -> impl Future<Output = Result<litellm_traces::TracePromptCache, StoreError<Self::Error>>> + Send
+    {
+        async { Ok(litellm_traces::TracePromptCache::default()) }
+    }
+
     fn span_detail(
         &self,
         params: &SpanDetailParams,
