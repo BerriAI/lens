@@ -20,6 +20,7 @@ export function useInvestigationActions() {
     save: (input: { id?: string; settings: Settings }): Promise<Lens> => save.mutateAsync(input),
     pause: (lens: Lens) => attempt((api) => api.saveLens(lens.id, { ...traceSettings(lens.settings), enabled: false })),
     cancelRun: (lens: Lens) => attempt((api) => api.cancelRun(lens.id)),
+    deleteLens: (lens: Lens) => attempt((api) => api.deleteLens(lens.id)),
     startRun: (lens: Lens, request: RunWindow) => attempt((api) => api.startRun(lens.id, request)),
     review: (lens: Lens, finding: Finding, status: Finding["status"], reason: string) =>
       attempt((api) => api.reviewFinding(lens.id, finding.id, status, reason)),

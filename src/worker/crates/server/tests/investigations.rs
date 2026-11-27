@@ -2,13 +2,14 @@ mod identity;
 #[path = "sessions/support.rs"]
 pub mod support;
 
+use chrono::{Duration, Utc};
 use lens_contract::{
     auth::{Identity, Role},
     execution::ExecutionId,
-    investigations::{FindingSource, Lens, Scope, Worker},
-    worker::{Evidence, EvidenceRole, Job, LensSettings},
+    investigations::{BudgetReservation, FindingSource, Lens, Scope, Worker},
+    worker::{Evidence, EvidenceRole, Job, JobStatus, LensSettings},
 };
-use lens_investigations::{LensRepository, RepositoryError};
+use lens_investigations::{LensRepository, RepositoryError, ScheduleRepository};
 use lens_server::investigations::{InvestigationAccess, InvestigationAccessError};
 use litellm_storage_clickhouse::investigations::Investigations;
 use rstest::{fixture, rstest};
@@ -221,6 +222,7 @@ async fn recorded_python_investigations_replay_over_http_and_clickhouse(
 #[case::admin(Role::ProxyAdmin,"GET","/lens",json!(null),200)]
 #[case::viewer_read(Role::ProxyAdminViewer,"GET","/lens/parity-lens",json!(null),200)]
 #[case::viewer_write(Role::ProxyAdminViewer,"POST","/lens/admin/parity-lens/cancel",json!(null),403)]
+#[case::viewer_delete(Role::ProxyAdminViewer,"DELETE","/lens/admin/parity-lens",json!(null),403)]
 #[case::internal_read(Role::InternalUser,"GET","/lens/admin/parity-lens/runs/job",json!(null),403)]
 #[case::internal_write(Role::InternalUser,"PATCH","/lens/admin/parity-lens/findings/finding",json!({"status":"resolved"}),403)]
 #[case::extra_scope(Role::ProxyAdmin,"POST","/lens",json!({"name":"x","model":"analysis","context":"expected","scope":{"team_id":"other"}}),422)]
@@ -464,6 +466,128 @@ async fn create_run_cancel_and_restart_preserve_frozen_settings_and_public_defau
     assert_eq!(response.json::<Value>().await.unwrap(), cancelled);
 }
 
+#[rstest]
+#[case::scheduled(false)]
+#[case::running(true)]
+#[tokio::test]
+async fn deleting_an_investigation_removes_it_from_the_schedule_and_keeps_spend(
+    #[future(awt)] database: Database,
+    mut seed: Lens,
+    #[case] running: bool,
+) {
+    let now = Utc::now();
+    let next_due = now + Duration::hours(1);
+    seed.settings.enabled = true;
+    seed.next_run_at = next_due;
+    seed.spent = 2.5;
+    seed.jobs[0].status = if running {
+        JobStatus::Running
+    } else {
+        JobStatus::Completed
+    };
+    seed.jobs[0].cost = seed.spent;
+    seed.jobs[0].lease_until = running.then_some(next_due);
+    seed.reservations = running
+        .then(|| BudgetReservation {
+            id: "in-flight".into(),
+            job_id: seed.jobs[0].id.clone(),
+            amount: 0.5,
+            month: seed.budget_month.clone(),
+            expires_at: Some(next_due),
+        })
+        .into_iter()
+        .collect();
+    let scope = Scope {
+        all_teams: true,
+        ..Scope::default()
+    };
+    let repository = Investigations(database.store.clone());
+    repository.initialize().await.unwrap();
+    repository.create(&seed).await.unwrap();
+    assert!(repository.next_due(&scope, &now).await.unwrap().is_some());
+    assert_eq!(
+        repository
+            .due(&scope, &next_due, 20, None)
+            .await
+            .unwrap()
+            .len(),
+        1
+    );
+    let server = serve(&database, true, true).await;
+    let endpoint = server
+        .url
+        .join(&format!("/lens/admin/{}", seed.id))
+        .unwrap();
+
+    let deleted = server
+        .client
+        .delete(endpoint.clone())
+        .bearer_auth(ADMIN)
+        .send()
+        .await
+        .unwrap();
+    assert_eq!(deleted.status(), 204);
+    let listing: Value = server
+        .client
+        .get(server.url.join("/lens").unwrap())
+        .bearer_auth(ADMIN)
+        .send()
+        .await
+        .unwrap()
+        .error_for_status()
+        .unwrap()
+        .json()
+        .await
+        .unwrap();
+    assert_eq!(listing["lenses"], json!([]));
+    assert!(repository.get(&seed.id).await.unwrap().is_none());
+    assert_eq!(
+        server
+            .client
+            .delete(endpoint)
+            .bearer_auth(ADMIN)
+            .send()
+            .await
+            .unwrap()
+            .status(),
+        404
+    );
+    assert!(matches!(
+        repository.replace(&seed, &seed).await,
+        Err(RepositoryError::Conflict)
+    ));
+
+    let retained = repository
+        .update_idempotent(&seed.id, |lens| Ok::<_, RepositoryError>(lens.clone()))
+        .await
+        .unwrap()
+        .unwrap();
+    assert_eq!(retained.spent, seed.spent);
+    assert_eq!(json!(retained.reservations), json!(seed.reservations));
+    let job = repository
+        .job(&seed.id, &seed.jobs[0].id)
+        .await
+        .unwrap()
+        .unwrap();
+    assert_eq!(job.cost, seed.jobs[0].cost);
+    assert_eq!(
+        job.status,
+        if running {
+            JobStatus::Cancelled
+        } else {
+            JobStatus::Completed
+        }
+    );
+    assert!(repository.next_due(&scope, &now).await.unwrap().is_none());
+    assert!(
+        repository
+            .due(&scope, &next_due, 20, None)
+            .await
+            .unwrap()
+            .is_empty()
+    );
+}
+
 struct ConcurrentUpdate {
     inner: Investigations,
     conflicting: AtomicBool,
@@ -477,6 +601,9 @@ impl LensRepository for ConcurrentUpdate {
     }
     async fn create(&self, lens: &Lens) -> Result<Lens, RepositoryError> {
         self.inner.create(lens).await
+    }
+    async fn delete(&self, id: &str, scope: &Scope) -> Result<bool, RepositoryError> {
+        self.inner.delete(id, scope).await
     }
     async fn replace(&self, expected: &Lens, candidate: &Lens) -> Result<Lens, RepositoryError> {
         if self.conflicting.swap(false, Ordering::SeqCst) {
@@ -651,6 +778,9 @@ impl LensRepository for ContendedRepository {
     }
     async fn create(&self, lens: &Lens) -> Result<Lens, RepositoryError> {
         Ok(lens.clone())
+    }
+    async fn delete(&self, _: &str, _: &Scope) -> Result<bool, RepositoryError> {
+        Err(RepositoryError::Conflict)
     }
     async fn replace(&self, _: &Lens, candidate: &Lens) -> Result<Lens, RepositoryError> {
         if self.attempts.fetch_add(1, Ordering::SeqCst) < self.failures {

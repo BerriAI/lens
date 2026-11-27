@@ -9520,7 +9520,8 @@ export interface paths {
         /** Update Lens */
         put: operations["update_lens_lens__lens_id__put"];
         post?: never;
-        delete?: never;
+        /** Delete Lens */
+        delete: operations["delete_lens_lens_admin__lens_id__delete"];
         options?: never;
         head?: never;
         patch?: never;
@@ -64732,6 +64733,25 @@ export interface operations {
                 content: {
                     "application/json": components["schemas"]["HTTPValidationError"];
                 };
+            };
+        };
+    };
+    delete_lens_lens_admin__lens_id__delete: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                lens_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
             };
         };
     };

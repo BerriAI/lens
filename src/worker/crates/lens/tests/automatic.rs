@@ -139,6 +139,26 @@ async fn automatic_analysis_waits_for_ten_traces_and_preserves_pauses(
         worker.claim().await.unwrap().is_none(),
         "one active analysis per agent"
     );
+
+    assert!(
+        worker
+            .repository
+            .delete(&lens.id, &lens.scope)
+            .await
+            .unwrap()
+    );
+    let keys = server.store.keys("lens-writer/", "", 10).await.unwrap();
+    let [writer_key] = keys.as_slice() else {
+        panic!("expected exactly one investigation writer");
+    };
+    let before = server.store.read(writer_key).await.unwrap();
+    worker.reconcile_automatic().await.unwrap();
+    assert!(worker.repository.get(&lens.id).await.unwrap().is_none());
+    assert_eq!(
+        server.store.read(writer_key).await.unwrap().head.revision,
+        before.head.revision,
+        "reconciliation must not acquire the deleted investigation's writer lease"
+    );
 }
 
 async fn seed_traces(server: &datasets::support::Server, numbers: std::ops::RangeInclusive<u64>) {

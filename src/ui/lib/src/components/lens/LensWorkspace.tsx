@@ -30,6 +30,7 @@ import {
   LENS_TABS,
   useAlertsRoute,
   useDialogRoute,
+  useFindingsViewRoute,
   useGitHubRoute,
   useIssueRoute,
   useLensRoute,
@@ -116,6 +117,7 @@ function LensContent({ userRole, readOnly }: Omit<WorkspaceProps, "accessToken">
   const github = useGitHubRoute();
   const alerts = useAlertsRoute();
   const { dialog } = useDialogRoute();
+  const { managingInvestigations, setManagingInvestigations } = useFindingsViewRoute();
   const { issueKey } = useIssueRoute();
   const { trace, openTrace, openSignal } = useOpenTraceRouting();
   const agents = useLensAgents(accessToken);
@@ -377,7 +379,16 @@ function LensContent({ userRole, readOnly }: Omit<WorkspaceProps, "accessToken">
                     </TabsContent>
                     <TabsContent value="findings" className={PANEL}>
                       {canViewInvestigations ? (
-                        dialog === "new" && canConfigure && isAdmin ? (
+                        managingInvestigations ? (
+                          <>
+                            <div className="shrink-0 border-b p-3">
+                              <Button size="sm" variant="outline" onClick={() => setManagingInvestigations(false)}>
+                                Back to findings
+                              </Button>
+                            </div>
+                            <InvestigationsView readOnly={readOnly || !isAdmin || demo} />
+                          </>
+                        ) : dialog === "new" && canConfigure && isAdmin ? (
                           <InvestigationsView readOnly={false} />
                         ) : (
                           <FindingsView agent={agents.agent ?? undefined} readOnly={readOnly || !isAdmin} />

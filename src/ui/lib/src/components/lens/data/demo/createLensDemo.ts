@@ -104,6 +104,9 @@ function demoLensApi(data: LensDemoData, storage?: DemoStorage): LensApi {
       data.lenses = [...data.lenses.filter((lens) => lens.id !== saved.id), saved];
       return saved;
     },
+    deleteLens: async () => {
+      throw new Error("Turn off Demo data to delete an investigation");
+    },
     startRun: async (id) => {
       const lens = await found(data.lenses.find((lens) => lens.id === id));
       lens.jobs = [

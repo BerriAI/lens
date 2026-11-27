@@ -9,7 +9,7 @@ use axum::{
     Json, Router,
     body::Bytes,
     extract::{DefaultBodyLimit, Path, RawQuery, State},
-    http::{HeaderMap, Method},
+    http::{HeaderMap, Method, StatusCode},
     routing::{get, patch, post, put},
 };
 use base64::{Engine, engine::general_purpose::URL_SAFE};
@@ -78,7 +78,11 @@ where
         .public_route("/lens", get(list::<R, D, A>).post(create::<R, D, A>))
         .admin_route(&authentication, "/watch-all", post(watch_all::<R, D, A>))
         .public_route("/lens/{lens_id}", get(read::<R, D, A>))
-        .admin_route(&authentication, "/{lens_id}", put(update::<R, D, A>))
+        .admin_route(
+            &authentication,
+            "/{lens_id}",
+            put(update::<R, D, A>).delete(delete::<R, D, A>),
+        )
         .admin_route(
             &authentication,
             "/{lens_id}/runs",
@@ -291,6 +295,20 @@ async fn update<R: SessionRepository, D: LensRepository, A: InvestigationAccess>
         })
         .await?,
     ))
+}
+
+async fn delete<R: SessionRepository, D: LensRepository, A: InvestigationAccess>(
+    State(app): State<Arc<App<R, D, A>>>,
+    Path(id): Path<String>,
+    headers: HeaderMap,
+    method: Method,
+) -> Result<StatusCode, InvestigationError> {
+    let identity = auth::identity(&app.authentication, &headers, &method).await?;
+    let scope = scope(&identity, true)?;
+    if !app.repository.delete(&id, &scope).await? {
+        return Err(InvestigationError::NotFound);
+    }
+    Ok(StatusCode::NO_CONTENT)
 }
 
 async fn run<R: SessionRepository, D: LensRepository, A: InvestigationAccess>(

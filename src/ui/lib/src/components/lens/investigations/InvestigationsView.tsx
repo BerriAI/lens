@@ -1,9 +1,10 @@
 "use client";
 
-import type { ReactNode } from "react";
+import { useState, type ReactNode } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { Plus } from "lucide-react";
 import { Button } from "../../ui/button";
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "../../ui/dialog";
 import { cn } from "../../../lib/cva.config";
 
 import { useInvalidateLenses } from "../data/mutations";
@@ -61,6 +62,7 @@ export function InvestigationsView({ readOnly = false }: InvestigationsViewProps
   const api = useLensApi();
   const invalidateLenses = useInvalidateLenses();
   const actions = useInvestigationActions();
+  const [deleting, setDeleting] = useState<Lens | null>(null);
   const { dialog, target, openDialog, closeDialog } = useDialogRoute();
   const { issueKey, setIssueKey } = useIssueRoute();
   const { lensId, setLensId, setTab } = useLensRoute();
@@ -105,7 +107,16 @@ export function InvestigationsView({ readOnly = false }: InvestigationsViewProps
     closeDialog();
     if (!target) setLensId(saved.id);
   };
-  const bannerError = screen.kind === "failed" ? undefined : actions.error ?? list.error;
+  const closeDelete = () => {
+    actions.reset();
+    setDeleting(null);
+  };
+  const deleteInvestigation = async (target: Lens) => {
+    if (!(await actions.deleteLens(target))) return;
+    if (lensId === target.id || peeked?.lens.id === target.id) setLensId(null);
+    closeDelete();
+  };
+  const bannerError = screen.kind === "failed" ? undefined : (deleting ? null : actions.error) ?? list.error;
   const browsing = screen.kind === "list";
   const showReadiness = browsing && !readOnly && !status.loading && !status.ready;
 
@@ -136,6 +147,10 @@ export function InvestigationsView({ readOnly = false }: InvestigationsViewProps
             onSelect={selectRow}
             onEdit={(id) => openDialog("edit", id)}
             onRunNow={(id) => openDialog("run_now", id)}
+            onDelete={(selected) => {
+              actions.reset();
+              setDeleting(selected);
+            }}
             actions={
               !readOnly && (
                 <>
@@ -207,6 +222,29 @@ export function InvestigationsView({ readOnly = false }: InvestigationsViewProps
         refresh={refresh}
       />
       {content(screen)}
+      {!readOnly && deleting && (
+        <Dialog open onOpenChange={(open) => !open && !actions.busy && closeDelete()}>
+          <DialogContent showCloseButton={false}>
+            <DialogHeader>
+              <DialogTitle>Delete investigation?</DialogTitle>
+              <DialogDescription>
+                “{deleting.settings.name}” will be removed and its runs will stop. Past spend records will be kept.
+                {deleting.id.startsWith("auto-agent-") &&
+                  " Lens won’t recreate it. Pause automatic analysis instead if you might want to resume it."}
+              </DialogDescription>
+            </DialogHeader>
+            {actions.error && <p role="alert" className="text-sm text-destructive">{actions.error.message}</p>}
+            <DialogFooter>
+              <Button variant="outline" disabled={actions.busy} onClick={closeDelete}>
+                Cancel
+              </Button>
+              <Button variant="destructive" disabled={actions.busy} onClick={() => void deleteInvestigation(deleting)}>
+                {actions.busy ? "Deleting…" : "Delete investigation"}
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
+      )}
       {dialog === "run_now" && dialogLens && (
         <RunNowDialog
           lens={dialogLens}

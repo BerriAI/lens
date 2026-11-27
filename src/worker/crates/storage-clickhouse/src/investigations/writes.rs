@@ -371,7 +371,14 @@ impl Investigations {
             .unzip();
         let included: Vec<_> = plain.into_iter().chain(recorded).collect();
         match self
-            .publish_lens(writer, previous, &current.lens, &candidate, records)
+            .publish_lens(
+                writer,
+                previous,
+                &current,
+                &candidate,
+                current.deleted,
+                records,
+            )
             .await
         {
             Ok(lens) => {
