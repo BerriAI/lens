@@ -60,6 +60,32 @@ beforeEach(() => {
 });
 
 describe("Lens Home connection", () => {
+  it("creates a standalone key inline and shows the selected framework example", async () => {
+    const user = userEvent.setup();
+    const gateway = serve();
+    await standaloneHome();
+    await user.click(screen.getByRole("button", { name: "Your own agent" }));
+    await user.click(await screen.findByRole("button", { name: "Create tracing key" }));
+    expect(gateway.post).toHaveBeenCalledWith("/lens/admin/tracing/keys", expect.anything());
+    await user.click(screen.getByRole("radio", { name: "Vercel AI SDK" }));
+    expect(screen.getByRole("button", { name: "Copy Vercel AI SDK example" })).toBeInTheDocument();
+    expect(screen.getByText(/import \{ generateText \} from "ai";/)).toBeVisible();
+    expect(screen.getByText(/OTEL_EXPORTER_OTLP_TRACES_ENDPOINT=/)).not.toHaveTextContent(secret);
+  });
+
+  it("shows a virtual key placeholder and no tracing key creation on the gateway path", async () => {
+    const user = userEvent.setup();
+    const gateway = serve();
+    renderWithLens(home());
+    await user.click(screen.getByRole("radio", { name: /Through the LiteLLM gateway/ }));
+    await user.click(screen.getByRole("button", { name: "Your own agent" }));
+    expect(screen.getByText(/OTEL_EXPORTER_OTLP_TRACES_HEADERS=/)).toHaveTextContent(
+      "Authorization=Bearer%20$LITELLM_API_KEY",
+    );
+    expect(screen.queryByRole("button", { name: "Create tracing key" })).not.toBeInTheDocument();
+    expect(gateway.post).not.toHaveBeenCalled();
+  });
+
   it("creates a key and copies complete setup instructions in one action without requiring a name", async () => {
     const user = userEvent.setup();
     const gateway = serve();
@@ -543,6 +569,10 @@ describe("Lens Home connection", () => {
           name: /Through the LiteLLM gateway/,
         }),
       ).toBeChecked();
+      await userEvent.click(screen.getByRole("button", { name: "Your own agent" }));
+      expect(screen.getByText(/OTEL_EXPORTER_OTLP_TRACES_ENDPOINT=/)).toHaveTextContent(
+        `${window.location.origin}/litellm/v1/traces`,
+      );
     } finally {
       window.history.replaceState(null, "", "/");
     }
