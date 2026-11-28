@@ -44,9 +44,9 @@ pub struct ListTracesRow {
     pub team_id: String,
     pub api_key_hash: String,
     pub user_id: String,
-    #[serde(default)]
+    #[serde(default, skip_serializing_if = "String::is_empty")]
     pub key_alias: String,
-    #[serde(default)]
+    #[serde(default, skip_serializing_if = "String::is_empty")]
     pub user_email: String,
     pub name: String,
     pub service: String,
@@ -187,9 +187,9 @@ pub struct TraceSpansRow {
     pub team_id: String,
     pub api_key_hash: String,
     pub user_id: String,
-    #[serde(default)]
+    #[serde(default, skip_serializing_if = "String::is_empty")]
     pub key_alias: String,
-    #[serde(default)]
+    #[serde(default, skip_serializing_if = "String::is_empty")]
     pub user_email: String,
 }
 
