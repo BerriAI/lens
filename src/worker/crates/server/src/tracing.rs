@@ -133,7 +133,10 @@ struct App<R, B> {
     config: TraceConfig,
 }
 
-pub fn router<R: SessionRepository + 'static, B: TraceReader + 'static>(
+pub fn router<
+    R: SessionRepository + lens_auth::mcp::McpRepository + 'static,
+    B: TraceReader + 'static,
+>(
     authentication: Arc<Authentication<R>>,
     reader: B,
     config: TraceConfig,
@@ -168,6 +171,7 @@ pub fn router<R: SessionRepository + 'static, B: TraceReader + 'static>(
         .public_route("/lens/logs", get(logs::<R, B>))
         .public_route("/lens/logs/{record_id}", get(log::<R, B>))
         .public_route("/lens/mcp", post(mcp::handle::<R, B>))
+        .public_route("/lens/mcp/{connection_id}", post(mcp::handle_named::<R, B>))
         .public_route(
             "/lens/traces/{trace_id}/conversation",
             get(conversation::<R, B>),
@@ -177,10 +181,11 @@ pub fn router<R: SessionRepository + 'static, B: TraceReader + 'static>(
             crate::routing::redirect_trailing_slash,
         ))
         .with_state(Arc::new(App {
-            authentication,
+            authentication: authentication.clone(),
             reader,
             config,
         }))
+        .merge(crate::connectors::router(authentication))
 }
 
 fn scope(identity: &lens_contract::auth::Identity) -> Result<ReadAccessParams, TraceHttpError> {

@@ -8,6 +8,7 @@ pub mod github;
 pub mod ingestion;
 mod insert;
 pub mod investigations;
+mod mcp;
 mod migrate;
 mod read;
 pub mod sessions;

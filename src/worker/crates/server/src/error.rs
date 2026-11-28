@@ -6,6 +6,38 @@ use axum::{
 use serde::Serialize;
 
 #[derive(Debug, thiserror::Error)]
+pub(crate) enum McpHttpError {
+    #[error(transparent)]
+    Authentication(#[from] lens_auth::Error),
+    #[error(transparent)]
+    Connection(#[from] lens_auth::McpError),
+    #[error(transparent)]
+    Store(#[from] lens_auth::StoreError),
+    #[error(transparent)]
+    Trace(#[from] TraceHttpError),
+}
+
+impl IntoResponse for McpHttpError {
+    fn into_response(self) -> Response {
+        use lens_auth::McpError;
+        let detail = self.to_string();
+        let status = match self {
+            Self::Authentication(error) => return SessionError::from(error).into_response(),
+            Self::Trace(error) => return error.into_response(),
+            Self::Connection(McpError::Invalid(_)) => StatusCode::BAD_REQUEST,
+            Self::Connection(McpError::Exists) => StatusCode::CONFLICT,
+            Self::Connection(McpError::Forbidden) => StatusCode::FORBIDDEN,
+            Self::Connection(McpError::Unauthorized | McpError::Expired | McpError::Revoked) => {
+                StatusCode::UNAUTHORIZED
+            }
+            Self::Connection(McpError::NotFound) => StatusCode::NOT_FOUND,
+            _ => StatusCode::SERVICE_UNAVAILABLE,
+        };
+        (status, Json(serde_json::json!({"detail":detail}))).into_response()
+    }
+}
+
+#[derive(Debug, thiserror::Error)]
 pub enum GitHubError {
     #[error(
         "The stored GitHub connection could not be opened. Reconnect GitHub or restore the Lens admin credential used when connecting"

@@ -3,6 +3,7 @@
 mod error;
 mod gateway;
 pub mod ingestion;
+pub mod mcp;
 
 use chrono::{DateTime, Utc};
 use lens_contract::auth::{Identity, Role, SessionView};
@@ -12,7 +13,7 @@ use std::future::Future;
 use std::sync::RwLock;
 use subtle::ConstantTimeEq;
 
-pub use error::{Error, IngestionError, StoreError};
+pub use error::{Error, IngestionError, McpError, StoreError};
 
 pub const SESSION_LIFETIME_SECONDS: i64 = 8 * 60 * 60;
 pub const GATEWAY_SESSION_LIFETIME_SECONDS: i64 = 60 * 60;

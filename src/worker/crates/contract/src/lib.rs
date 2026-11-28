@@ -9,6 +9,7 @@ pub mod execution;
 pub mod feedback;
 pub mod ingestion;
 pub mod investigations;
+pub mod mcp;
 pub mod optimizations;
 pub mod profiles;
 pub mod schema;
