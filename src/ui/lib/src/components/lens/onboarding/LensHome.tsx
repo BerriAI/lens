@@ -10,6 +10,7 @@ import { useLensAccessToken } from "../data/LensServices";
 import { useConnectProjectRoute } from "../route";
 import { useOnboarding } from "./OnboardingContext";
 import { HomeConnectionStatus } from "./HomeConnectionStatus";
+import { OwnAgentSetup } from "./OwnAgentSetup";
 import { SetupAgentPrompt } from "./SetupAgentPrompt";
 import {
   SETUP_AGENTS,
@@ -105,7 +106,11 @@ export function LensHome({
     record: TracingKeyRecord;
   } | null>(null);
   const [manageKeys, setManageKeys] = useState(false);
-  const [manual, setManual] = useState(false);
+  const [setupMode, setSetupMode] = useState<
+    "coding-agent" | "manual" | "own-agent"
+  >("coding-agent");
+  const manual = setupMode === "manual";
+  const ownAgent = setupMode === "own-agent";
   const embedded = useLensHost().surface !== "standalone";
   const [chosenPath, setPath] = useState<SetupPath | null>(null);
   const path =
@@ -122,6 +127,10 @@ export function LensHome({
         "",
       )
     : "";
+  const hostedRoot = hostedApiRoot(globalThis.location?.pathname ?? "");
+  const ownAgentGatewayUrl = hostedRoot?.endsWith("/lens")
+    ? `${globalThis.location.origin}${hostedRoot.slice(0, -"/lens".length)}`
+    : gatewayUrl;
   const [preparing, setPreparing] = useState(false);
   const selected = progress.keyId
     ? (keys.data?.find((key) => key.id === progress.keyId) ??
@@ -375,19 +384,34 @@ export function LensHome({
                     ? "Connect through the LiteLLM gateway"
                     : "Connect to Lens standalone"}
                 </h3>
-                <Button
-                  variant="link"
-                  size="sm"
-                  className="h-auto px-0 text-xs"
-                  aria-expanded={manual}
-                  disabled={preparing}
-                  onClick={() => setManual((value) => !value)}
-                >
-                  {manual ? "Use a coding agent" : "Set up manually"}
-                </Button>
+                <div className="flex flex-wrap items-center gap-3">
+                  <Button
+                    variant="link"
+                    size="sm"
+                    className="h-auto px-0 text-xs"
+                    aria-expanded={manual}
+                    disabled={preparing}
+                    onClick={() =>
+                      setSetupMode(manual || ownAgent ? "coding-agent" : "manual")
+                    }
+                  >
+                    {manual || ownAgent ? "Use a coding agent" : "Set up manually"}
+                  </Button>
+                  <Button
+                    variant={ownAgent ? "default" : "outline"}
+                    size="sm"
+                    aria-pressed={ownAgent}
+                    disabled={preparing}
+                    onClick={() => setSetupMode("own-agent")}
+                  >
+                    Your own agent
+                  </Button>
+                </div>
               </div>
               {gateway ? (
-                manual ? (
+                ownAgent ? (
+                  <OwnAgentSetup path="gateway" baseUrl={ownAgentGatewayUrl} />
+                ) : manual ? (
                   <div className="space-y-3">
                     <p className="text-sm leading-6 text-muted-foreground">
                       Point your agent’s telemetry at your LiteLLM gateway and
@@ -446,7 +470,7 @@ export function LensHome({
                     prominent
                   />
                 )
-              ) : manual ? (
+              ) : manual || ownAgent ? (
                 <div className="space-y-5" id="tracing-key">
                   <div className="space-y-3">
                     <h4 className="lens-section-label">1. Get a tracing key</h4>
@@ -470,34 +494,47 @@ export function LensHome({
                     <h4 className="lens-section-label">
                       2. Configure your project
                     </h4>
-                    <p className="text-sm leading-6 text-muted-foreground">
-                      Add these variables where your project loads its
-                      environment. Configure your framework’s OpenTelemetry
-                      exporter and include
-                      <code> gen_ai.agent.name</code> on its root agent span.
-                    </p>
+                    {!ownAgent && (
+                      <p className="text-sm leading-6 text-muted-foreground">
+                        Add these variables where your project loads its
+                        environment. Configure your framework’s OpenTelemetry
+                        exporter and include
+                        <code> gen_ai.agent.name</code> on its root agent span.
+                      </p>
+                    )}
                     {ready ? (
-                      <CodeBlock
-                        code={environment(tracingKey)}
-                        display={environment(
-                          tracingKey ? maskSecret(tracingKey) : undefined,
-                        )}
-                        copyLabel="Copy project environment"
-                        wrap
-                        onCopied={startWatching}
-                      />
+                      ownAgent ? (
+                        <OwnAgentSetup
+                          path="standalone"
+                          baseUrl={traceUrl}
+                          tracingKey={tracingKey}
+                          onCopied={startWatching}
+                        />
+                      ) : (
+                        <CodeBlock
+                          code={environment(tracingKey)}
+                          display={environment(
+                            tracingKey ? maskSecret(tracingKey) : undefined,
+                          )}
+                          copyLabel="Copy project environment"
+                          wrap
+                          onCopied={startWatching}
+                        />
+                      )
                     ) : (
                       <p className="text-sm text-muted-foreground">
                         Restore the Lens connection to get your tracing
                         endpoint.
                       </p>
                     )}
-                    <p className="text-xs leading-5 text-muted-foreground">
-                      For Moyai, use <code>LITELLM_TRACE_ENDPOINT</code> with an
-                      HTTPS URL ending in <code>/v1/traces</code> and save the
-                      key as <code>LITELLM_TRACE_API_KEY</code>. Its tracing is
-                      built in.
-                    </p>
+                    {!ownAgent && (
+                      <p className="text-xs leading-5 text-muted-foreground">
+                        For Moyai, use <code>LITELLM_TRACE_ENDPOINT</code> with an
+                        HTTPS URL ending in <code>/v1/traces</code> and save the
+                        key as <code>LITELLM_TRACE_API_KEY</code>. Its tracing is
+                        built in.
+                      </p>
+                    )}
                   </div>
                 </div>
               ) : (
@@ -518,8 +555,8 @@ export function LensHome({
                   onCopied={startWatching}
                 />
               )}
-              {!gateway && !manual && keyChoices}
-              {!gateway && tracingKey && !manual && (
+              {!gateway && !manual && !ownAgent && keyChoices}
+              {!gateway && tracingKey && !manual && !ownAgent && (
                 <details className="text-sm" id="tracing-key">
                   <summary className="w-fit cursor-pointer text-muted-foreground">
                     Your tracing key
