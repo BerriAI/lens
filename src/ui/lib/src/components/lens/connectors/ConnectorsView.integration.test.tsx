@@ -157,7 +157,9 @@ it("keeps the new token available while the follow-up read is pending or fails",
   expect(await screen.findByRole("alert")).toHaveTextContent(
     "Could not load connections",
   );
-  expect(screen.getByLabelText("New MCP token")).toHaveValue("test-only-mcp-token");
+  expect(screen.getByLabelText("New MCP token")).toHaveValue(
+    "test-only-mcp-token",
+  );
   await user.click(screen.getByRole("button", { name: "Copy token" }));
   expect(await navigator.clipboard.readText()).toBe("test-only-mcp-token");
   expect(
@@ -185,8 +187,9 @@ it("revokes a connection and updates Access from the server", async () => {
     await screen.findByRole("button", { name: "Revoke", exact: true }),
   );
   const dialog = await screen.findByRole("dialog", {
-    name: "Revoke this connection?",
+    name: 'Revoke "My coding agent"?',
   });
+  expect(dialog).not.toHaveTextContent("Gateway keys");
   await user.click(
     within(dialog).getByRole("button", { name: "Revoke connection" }),
   );

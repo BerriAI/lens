@@ -92,6 +92,7 @@ function LiveConnectors() {
       ? creation
       : null;
   const data = overview.data ?? createdSetup?.overview;
+  const revoking = data?.connections.find((item) => item.id === revoke);
   const selected = data?.connections.find(
     (connection) => connection.id === route.connection,
   );
@@ -415,10 +416,14 @@ function LiveConnectors() {
       >
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>Revoke this connection?</DialogTitle>
+            <DialogTitle>
+              Revoke {revoking ? `"${revoking.name}"` : "this connection"}?
+            </DialogTitle>
             <DialogDescription>
               Requests through this connection will be denied. You can create a
-              new connection later. Gateway keys retain their other permissions
+              new connection later
+              {revoking?.authentication === "gateway" &&
+                ". Gateway keys retain their other permissions"}
             </DialogDescription>
           </DialogHeader>
           {error && (
