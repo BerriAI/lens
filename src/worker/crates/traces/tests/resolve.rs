@@ -936,6 +936,28 @@ fn ambiguous_response_id_keeps_cost_unknown() {
 }
 
 #[rstest]
+#[case::attributed("owner", "owner", "dev@example.com")]
+#[case::unattributed("", "", "")]
+#[case::different_users("owner", "other", "")]
+fn resolved_owner_email_requires_a_shared_nonempty_user_id(
+    #[case] first_user: &str,
+    #[case] second_user: &str,
+    #[case] expected_email: &str,
+) {
+    let first = TraceSpansRow {
+        user_id: first_user.into(),
+        user_email: "dev@example.com".into(),
+        ..llm("first", "", "agent", "")
+    };
+    let second = TraceSpansRow {
+        user_id: second_user.into(),
+        ..llm("second", "first", "agent", "")
+    };
+    let trace = resolve_trace("trace", "ref", &[first, second], &[]).unwrap();
+    assert_eq!(trace.summary.owner.unwrap().user_email, expected_email);
+}
+
+#[rstest]
 fn listed_summary_keeps_rollup_counts_with_unknown_cost() {
     let summary = listed_summary(&ListTracesRow {
         trace_id: "t1".into(),

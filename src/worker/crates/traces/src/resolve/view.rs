@@ -369,7 +369,7 @@ fn resolved_owner(rows: &[TraceSpansRow]) -> Option<TraceOwner> {
         .map_or("", |row| row.key_alias.as_str());
     let user_email = rows
         .iter()
-        .filter(|row| same_user && !row.user_email.is_empty())
+        .filter(|row| same_user && !first.user_id.is_empty() && !row.user_email.is_empty())
         .max_by_key(|row| (row.start_ns, row.user_email.as_str()))
         .map_or("", |row| row.user_email.as_str());
     trace_owner(

@@ -15,7 +15,6 @@ FROM agent_traces_by_key
 GROUP BY TraceId`;
 
 function ownerRows(range?: TimeWindow): string {
-  const since = range ? `fromUnixTimestamp64Milli(${range.startMs})` : "now() - INTERVAL 1 DAY";
   return `${RUN_SELECT},
        TeamId AS owner_team, ApiKeyHash AS owner_hash,
        if(length(groupUniqArrayArray(UserIds)) = 1, arrayElement(groupUniqArrayArray(UserIds), 1), '') AS owner_user,
@@ -28,7 +27,13 @@ LEFT JOIN (
          argMaxIf(UserEmail, tuple(Timestamp, UserEmail, UserId), UserEmail != '') AS user_email,
          argMaxIf(UserId, tuple(Timestamp, UserEmail, UserId), UserEmail != '') AS email_user
   FROM otel_traces
-  WHERE Timestamp >= ${since}
+  WHERE ${timeBound(range, "Timestamp", true)}
+    AND (TeamId, ApiKeyHash, TraceId) IN (
+      SELECT TeamId, ApiKeyHash, TraceId
+      FROM agent_traces_by_key
+      GROUP BY TeamId, ApiKeyHash, TraceId
+      HAVING ${timeBound(range, "min(StartTs)", true)}
+    )
   GROUP BY TeamId, ApiKeyHash, TraceId
 ) AS labels USING (TeamId, ApiKeyHash, TraceId)
 GROUP BY TeamId, ApiKeyHash, TraceId`;
@@ -77,10 +82,10 @@ function filterPredicate(filter: SearchFilter<RunField>): string {
   return isNegatedOp(filter.op) ? `NOT (${predicate})` : predicate;
 }
 
-const timeBound = (range: TimeWindow | undefined): string =>
+const timeBound = (range: TimeWindow | undefined, column = "min(StartTs)", boundDefaultEnd = false): string =>
   range
-    ? `min(StartTs) >= fromUnixTimestamp64Milli(${range.startMs}) AND min(StartTs) < fromUnixTimestamp64Milli(${range.endMs})`
-    : "min(StartTs) >= now() - INTERVAL 1 DAY";
+    ? `${column} >= fromUnixTimestamp64Milli(${range.startMs}) AND ${column} < fromUnixTimestamp64Milli(${range.endMs})`
+    : `${column} >= now() - INTERVAL 1 DAY${boundDefaultEnd ? ` AND ${column} < now()` : ""}`;
 
 export const runPredicates = (query: SearchQuery<RunField>): string[] => [
   ...query.text.map(textPredicate),
@@ -89,8 +94,8 @@ export const runPredicates = (query: SearchQuery<RunField>): string[] => [
 
 /** The runs list as a trace query: one row per trace from the per-key rollup, filtered like the list. */
 export function runQuerySql(query: SearchQuery<RunField>, range?: TimeWindow): string {
-  const having = [timeBound(range), ...runPredicates(query)].join("\n   AND ");
   const withOwner = query.filters.some(({ field }) => field === "user" || field === "key" || field === "team");
+  const having = [timeBound(range, "min(StartTs)", withOwner), ...runPredicates(query)].join("\n   AND ");
   return `${withOwner ? ownerRows(range) : RUN_ROWS}\nHAVING ${having}\nORDER BY min(StartTs) DESC\nLIMIT 100`;
 }
 
