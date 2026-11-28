@@ -13,7 +13,7 @@ use crate::{ClickHouseTraces, Config, Connection, Error};
 
 struct Summaries;
 
-const RESOLUTION_VERSION: u32 = 3;
+const RESOLUTION_VERSION: u32 = 4;
 const MAX_RUN_BYTES: usize = 2 * 1024 * 1024;
 const RETRY_DELAY_MS: u64 = 60_000;
 

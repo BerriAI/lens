@@ -8,7 +8,7 @@ use crate::{
     store::StoreError,
 };
 use litellm_traces::{
-    SpendLookup, TraceSummary, listed_summary,
+    SpendLookup, TraceSummary, listed_owner, listed_summary,
     query::named::{
         ListTracesRow, ReadAccessParams, TracePageSpansParams, TraceSpansParams, TraceSpansRow,
     },
@@ -105,6 +105,7 @@ fn summary(row: &ListTracesRow, listed: Option<&ListedRun>) -> TraceSummary {
     match listed {
         Some(ListedRun::Resolved(summary, _)) => {
             let mut summary = (**summary).clone();
+            summary.owner = listed_owner(row);
             if summary.input_preview.is_empty() && !row.input_preview.is_empty() {
                 summary.input_preview = row.input_preview.clone();
             }

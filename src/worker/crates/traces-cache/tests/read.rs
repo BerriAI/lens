@@ -374,6 +374,8 @@ fn span(index: usize) -> TraceSpansRow {
         team_id: "team".into(),
         api_key_hash: "key".into(),
         user_id: "user".into(),
+        key_alias: String::new(),
+        user_email: String::new(),
     }
 }
 
@@ -384,6 +386,8 @@ fn run(trace_id: &str, trace_ref: &str) -> ListTracesRow {
         team_id: "team".into(),
         api_key_hash: "key".into(),
         user_id: "user".into(),
+        key_alias: String::new(),
+        user_email: String::new(),
         name: "listed".into(),
         service: "test".into(),
         input_preview: String::new(),

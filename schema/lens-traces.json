@@ -811,5 +811,34 @@
         "default": null
       }
     }
+  },
+  "TraceOwner": {
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "title": "TraceOwner",
+    "type": "object",
+    "properties": {
+      "user_id": {
+        "type": "string"
+      },
+      "user_email": {
+        "type": "string"
+      },
+      "key_alias": {
+        "type": "string"
+      },
+      "api_key_hash": {
+        "type": "string"
+      },
+      "team_id": {
+        "type": "string"
+      }
+    },
+    "required": [
+      "user_id",
+      "user_email",
+      "key_alias",
+      "api_key_hash",
+      "team_id"
+    ]
   }
 }

@@ -82,6 +82,7 @@ impl Credentials {
                             user_id: key.tenant.user_id,
                             org_id: key.tenant.org_id,
                             api_key_hash: key.tenant.api_key_hash,
+                            ..Tenant::default()
                         },
                         expires_at: key
                             .expires_at

@@ -6,11 +6,33 @@ import { isNegatedOp, valueMatcher } from "../../../../shared/search/language";
 import type { SearchFilter, SearchQuery } from "../../../../shared/search/searchQuery";
 import type { RunField } from "./runQuery";
 
-const RUN_ROWS = `SELECT TraceId AS trace_id, any(RootName) AS name, any(RootInput) AS input, sum(ErrorCount) AS errors,
+const RUN_SELECT = `SELECT TraceId AS trace_id, any(RootName) AS name, any(RootInput) AS input, sum(ErrorCount) AS errors,
        if(sum(ErrorCount) > 0 OR ifNull(any(RootStatus), '') IN ('STATUS_CODE_ERROR', 'error'), 'error', 'ok') AS status,
-       groupUniqArrayArray(AgentNames) AS agents, groupUniqArrayArray(Models) AS models
+       groupUniqArrayArray(AgentNames) AS agents, groupUniqArrayArray(Models) AS models`;
+
+const RUN_ROWS = `${RUN_SELECT}
 FROM agent_traces_by_key
 GROUP BY TraceId`;
+
+function ownerRows(range?: TimeWindow): string {
+  const since = range ? `fromUnixTimestamp64Milli(${range.startMs})` : "now() - INTERVAL 1 DAY";
+  return `${RUN_SELECT},
+       TeamId AS owner_team, ApiKeyHash AS owner_hash,
+       if(length(groupUniqArrayArray(UserIds)) = 1, arrayElement(groupUniqArrayArray(UserIds), 1), '') AS owner_user,
+       any(labels.key_alias) AS owner_alias,
+       if(owner_user != '' AND owner_user = any(labels.email_user), any(labels.user_email), '') AS owner_email
+FROM agent_traces_by_key
+LEFT JOIN (
+  SELECT TeamId, ApiKeyHash, TraceId,
+         argMaxIf(KeyAlias, tuple(Timestamp, KeyAlias), KeyAlias != '') AS key_alias,
+         argMaxIf(UserEmail, tuple(Timestamp, UserEmail, UserId), UserEmail != '') AS user_email,
+         argMaxIf(UserId, tuple(Timestamp, UserEmail, UserId), UserEmail != '') AS email_user
+  FROM otel_traces
+  WHERE Timestamp >= ${since}
+  GROUP BY TeamId, ApiKeyHash, TraceId
+) AS labels USING (TeamId, ApiKeyHash, TraceId)
+GROUP BY TeamId, ApiKeyHash, TraceId`;
+}
 
 const sqlString = (value: string): string => `'${value.replaceAll("\\", "\\\\").replaceAll("'", "\\'")}'`;
 
@@ -38,6 +60,9 @@ const FIELD_PREDICATES: Record<RunField, (value: string) => string> = {
   model: (value) => anyMatches("models", likePattern(value)),
   input: (value) => matches("input", likePattern(value)),
   trace_id: (value) => matches("trace_id", likePattern(value)),
+  user: (value) => anyMatches("arrayFilter(x -> x != '', [owner_user, owner_email])", likePattern(value)),
+  key: (value) => anyMatches("arrayFilter(x -> x != '', [owner_alias, owner_hash, left(owner_hash, 12)])", likePattern(value)),
+  team: (value) => anyMatches("arrayFilter(x -> x != '', [owner_team])", likePattern(value)),
 };
 
 const FREE_TEXT_COLUMNS = ["trace_id", "input", "name"] as const;
@@ -65,7 +90,8 @@ export const runPredicates = (query: SearchQuery<RunField>): string[] => [
 /** The runs list as a trace query: one row per trace from the per-key rollup, filtered like the list. */
 export function runQuerySql(query: SearchQuery<RunField>, range?: TimeWindow): string {
   const having = [timeBound(range), ...runPredicates(query)].join("\n   AND ");
-  return `${RUN_ROWS}\nHAVING ${having}\nORDER BY min(StartTs) DESC\nLIMIT 100`;
+  const withOwner = query.filters.some(({ field }) => field === "user" || field === "key" || field === "team");
+  return `${withOwner ? ownerRows(range) : RUN_ROWS}\nHAVING ${having}\nORDER BY min(StartTs) DESC\nLIMIT 100`;
 }
 
 /** Runs `sql` through the trace query API; the quoted heredoc keeps the SQL's own quotes intact. */

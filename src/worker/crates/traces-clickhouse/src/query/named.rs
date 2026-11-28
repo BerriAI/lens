@@ -50,6 +50,10 @@ struct ListTracesRowEncoding {
     pub team_id: String,
     pub api_key_hash: String,
     pub user_id: String,
+    #[serde(default)]
+    pub key_alias: String,
+    #[serde(default)]
+    pub user_email: String,
     pub name: String,
     pub service: String,
     pub input_preview: String,
@@ -156,6 +160,10 @@ struct TraceSpansRowEncoding {
     pub team_id: String,
     pub api_key_hash: String,
     pub user_id: String,
+    #[serde(default)]
+    pub key_alias: String,
+    #[serde(default)]
+    pub user_email: String,
 }
 
 #[derive(Debug, Deserialize, Serialize)]
@@ -371,11 +379,11 @@ mod tests {
     #[case::quoted(true)]
     fn rows_decode_into_neutral_contracts(#[case] quoted: bool) {
         round_trip::<ListTracesRow>(
-            json!({"trace_id": "trace", "trace_ref": "ref", "team_id": "team", "api_key_hash": "key", "user_id": "user", "name": "agent", "service": "service", "input_preview": "input", "status": "STATUS_CODE_OK", "start_ms": -1, "duration_ms": 20, "span_count": u64::MAX, "agent_count": 1, "agent_invocations": 2, "agent_names": ["agent"], "frameworks": ["claude-agent-sdk"], "llm_calls": 3, "tool_calls": 4, "input_tokens": 5, "output_tokens": 6, "models": ["model"], "error_count": 0, "request_ids": ["request"]}),
+            json!({"trace_id": "trace", "trace_ref": "ref", "team_id": "team", "api_key_hash": "key", "user_id": "user", "key_alias": "work", "user_email": "dev@example.com", "name": "agent", "service": "service", "input_preview": "input", "status": "STATUS_CODE_OK", "start_ms": -1, "duration_ms": 20, "span_count": u64::MAX, "agent_count": 1, "agent_invocations": 2, "agent_names": ["agent"], "frameworks": ["claude-agent-sdk"], "llm_calls": 3, "tool_calls": 4, "input_tokens": 5, "output_tokens": 6, "models": ["model"], "error_count": 0, "request_ids": ["request"]}),
             quoted,
         );
         round_trip::<TraceSpansRow>(
-            json!({"trace_id": "trace", "original_trace_id": "original", "span_id": "span", "parent_span_id": "parent", "name": "agent", "type": "agent", "wrapper_candidate": 1, "agent": "agent", "framework": "claude-agent-sdk", "status": "STATUS_CODE_ERROR", "status_message": "error", "error_truncated": 1, "start_ns": -1, "duration_ns": u64::MAX, "service": "service", "input_preview": "input", "reply_preview": "reply", "model": "model", "input_tokens": u32::MAX, "output_tokens": 6, "litellm_request_id": "request", "call_keys": ["provider_response:request"], "call_evidence": "complete", "tool_call_id": "call", "source_type": "slack", "source_url": "https://acme.slack.com/archives/C1/p1", "source_title": "thread", "source_user": "tin@berri.ai", "team_id": "team", "api_key_hash": "key", "user_id": "user"}),
+            json!({"trace_id": "trace", "original_trace_id": "original", "span_id": "span", "parent_span_id": "parent", "name": "agent", "type": "agent", "wrapper_candidate": 1, "agent": "agent", "framework": "claude-agent-sdk", "status": "STATUS_CODE_ERROR", "status_message": "error", "error_truncated": 1, "start_ns": -1, "duration_ns": u64::MAX, "service": "service", "input_preview": "input", "reply_preview": "reply", "model": "model", "input_tokens": u32::MAX, "output_tokens": 6, "litellm_request_id": "request", "call_keys": ["provider_response:request"], "call_evidence": "complete", "tool_call_id": "call", "source_type": "slack", "source_url": "https://acme.slack.com/archives/C1/p1", "source_title": "thread", "source_user": "tin@berri.ai", "team_id": "team", "api_key_hash": "key", "user_id": "user", "key_alias": "work", "user_email": "dev@example.com"}),
             quoted,
         );
         round_trip::<SpanDetailRow>(

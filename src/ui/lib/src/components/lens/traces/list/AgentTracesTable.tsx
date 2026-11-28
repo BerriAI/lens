@@ -317,6 +317,18 @@ function LastActivityCell({ run }: { run: TraceSummary }) {
   return <span title={formatActivityTimestamp(run.last_activity_time)}>{formatRunTimestamp(run.last_activity_time)}</span>;
 }
 
+function OwnerCell({ owner }: { owner: TraceSummary["owner"] }) {
+  if (!owner) return null;
+  const key = owner.key_alias || owner.api_key_hash.slice(0, 12);
+  const user = owner.user_email || owner.user_id;
+  return (
+    <div className="min-w-0">
+      {key && <div className="truncate" title={owner.key_alias || owner.api_key_hash}>{key}</div>}
+      {user && <div className="truncate text-muted-foreground" title={user}>{user}</div>}
+    </div>
+  );
+}
+
 const RUN_COLUMNS: ColumnDef<TraceSummary>[] = [
   {
     id: "time",
@@ -360,6 +372,7 @@ const RUN_COLUMNS: ColumnDef<TraceSummary>[] = [
       ),
     },
   },
+  { id: "owner", size: 180, header: "Owner", cell: ({ row }) => <OwnerCell owner={row.original.owner} /> },
   { id: "input", header: "First Input", cell: ({ row }) => <InputCell run={row.original} /> },
   { id: "output", header: "Last Output", cell: ({ row }) => <OutputCell run={row.original} /> },
   {

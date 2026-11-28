@@ -69,6 +69,7 @@ fn tenant() -> Tenant {
         api_key_hash: "key-1".to_owned(),
         org_id: "org-1".to_owned(),
         user_id: "user-1".to_owned(),
+        ..Default::default()
     }
 }
 
@@ -107,6 +108,7 @@ async fn generic_log_records_persist_typed_values_and_stable_identity(
                 api_key_hash: "key-2".to_owned(),
                 org_id: "org-2".to_owned(),
                 user_id: "user-2".to_owned(),
+                ..Default::default()
             },
         )?)
         .collect::<Vec<_>>();

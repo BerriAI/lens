@@ -86,6 +86,7 @@ async fn ingest(isolated: &Isolated, payload: Value, ledger: Vec<BTreeMap<String
         api_key_hash: KEY.into(),
         org_id: String::new(),
         user_id: "long-user".into(),
+        ..Default::default()
     };
     let writer = isolated.config.storage().writer();
     let database = isolated.config.storage().database();

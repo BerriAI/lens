@@ -10,6 +10,7 @@ fn tenant() -> Tenant {
         api_key_hash: "key-a".into(),
         org_id: "org-a".into(),
         user_id: "user-a".into(),
+        ..Default::default()
     }
 }
 

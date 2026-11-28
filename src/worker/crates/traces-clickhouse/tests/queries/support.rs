@@ -146,6 +146,19 @@ pub async fn seed_interleaved_agent_runs(fixture: &SeededDatabase) -> TestResult
             ("AgentName".into(), json!(agent)),
             ("TeamId".into(), json!("team-a")),
             ("ApiKeyHash".into(), json!("key-a")),
+            ("UserId".into(), json!("user-a")),
+            (
+                "KeyAlias".into(),
+                json!(if trace_id == "a-new" { "work key" } else { "" }),
+            ),
+            (
+                "UserEmail".into(),
+                json!(if trace_id == "a-new" {
+                    "dev@example.com"
+                } else {
+                    ""
+                }),
+            ),
         ])
     })
     .collect();

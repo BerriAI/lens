@@ -128,6 +128,8 @@ pub fn span_rows(spans: Vec<DecodedSpan>, tenant: &Tenant) -> Vec<InsertRow> {
                 ("TeamId", Value::from(tenant.team_id.as_str())),
                 ("ApiKeyHash", Value::from(tenant.api_key_hash.as_str())),
                 ("UserId", Value::from(tenant.user_id.as_str())),
+                ("KeyAlias", Value::from(tenant.key_alias.as_str())),
+                ("UserEmail", Value::from(tenant.user_email.as_str())),
                 ("ObservationType", json(normalized.observation_type)),
                 (
                     "WrapperCandidate",

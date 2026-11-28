@@ -19,7 +19,8 @@ SELECT o.TraceId AS trace_id, o.SpanAttributes['lens.original_trace_id'] AS orig
           AS tool_call_id,
        o.SpanAttributes['agent.source.type'] AS source_type, o.SpanAttributes['agent.source.url'] AS source_url,
        o.SpanAttributes['agent.source.title'] AS source_title, o.SpanAttributes['agent.source.user'] AS source_user,
-       o.UserId AS user_id, o.TeamId AS team_id, o.ApiKeyHash AS api_key_hash
+       o.UserId AS user_id, o.TeamId AS team_id, o.ApiKeyHash AS api_key_hash,
+       o.KeyAlias AS key_alias, o.UserEmail AS user_email
 FROM otel_traces AS o
 WHERE o.Timestamp >= fromUnixTimestamp64Milli({start_ms:Int64})
   AND o.Timestamp < fromUnixTimestamp64Milli({end_ms:Int64})

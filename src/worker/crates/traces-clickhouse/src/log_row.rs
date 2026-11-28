@@ -165,6 +165,14 @@ pub fn log_rows(records: Vec<DecodedLogRecord>, tenant: &Tenant) -> Result<Vec<I
                 ),
                 ("OrgId", Shared::new(Value::from(tenant.org_id.as_str()))),
                 ("UserId", Shared::new(Value::from(tenant.user_id.as_str()))),
+                (
+                    "KeyAlias",
+                    Shared::new(Value::from(tenant.key_alias.as_str())),
+                ),
+                (
+                    "UserEmail",
+                    Shared::new(Value::from(tenant.user_email.as_str())),
+                ),
             ];
             Ok(values
                 .into_iter()
@@ -220,6 +228,7 @@ mod tests {
             api_key_hash: "key-hash".to_owned(),
             org_id: "org".to_owned(),
             user_id: "user".to_owned(),
+            ..Default::default()
         }
     }
 

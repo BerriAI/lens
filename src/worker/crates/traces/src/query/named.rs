@@ -44,6 +44,10 @@ pub struct ListTracesRow {
     pub team_id: String,
     pub api_key_hash: String,
     pub user_id: String,
+    #[serde(default)]
+    pub key_alias: String,
+    #[serde(default)]
+    pub user_email: String,
     pub name: String,
     pub service: String,
     pub input_preview: String,
@@ -183,6 +187,10 @@ pub struct TraceSpansRow {
     pub team_id: String,
     pub api_key_hash: String,
     pub user_id: String,
+    #[serde(default)]
+    pub key_alias: String,
+    #[serde(default)]
+    pub user_email: String,
 }
 
 impl TraceSpansRow {

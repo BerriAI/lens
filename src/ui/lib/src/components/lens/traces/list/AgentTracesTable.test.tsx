@@ -206,6 +206,38 @@ describe("AgentTracesTable input cell", () => {
   });
 });
 
+describe("AgentTracesTable owner cell", () => {
+  const template = (traceList as TracePage).data[0] as TraceSummary;
+
+  it.each([
+    { alias: "Work key", email: "dev@example.com", keyLabel: "Work key", userLabel: "dev@example.com" },
+    { alias: "", email: "", keyLabel: "1234567890ab", userLabel: "dev-id" },
+  ])("shows $keyLabel and $userLabel", ({ alias, email, keyLabel, userLabel }) => {
+    const run = {
+      ...template,
+      owner: { key_alias: alias, api_key_hash: "1234567890abcdef", user_email: email, user_id: "dev-id", team_id: "infra" },
+    };
+    renderWithProviders(
+      inList(
+        <AgentTracesTable
+          traces={[run]}
+          findings={new Map()}
+          isLoading={false}
+          error={null}
+          hasMore={false}
+          onLoadMore={vi.fn()}
+          onSetUpTracing={vi.fn()}
+        />,
+      ),
+    );
+    const index = screen.getAllByRole("columnheader").findIndex((cell) => cell.textContent === "Owner");
+    const cell = within(screen.getByTestId("agent-trace-row")).getAllByRole("cell")[index];
+    expect(within(cell).getByText(keyLabel)).toBeVisible();
+    expect(within(cell).getByText(userLabel)).toBeVisible();
+    expect(within(cell).queryByText("1234567890abcdef")).not.toBeInTheDocument();
+  });
+});
+
 describe("AgentTracesTable output cell", () => {
   const template = (traceList as TracePage).data[0] as TraceSummary;
   const renderRun = (run: TraceSummary) => {

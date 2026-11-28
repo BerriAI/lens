@@ -395,6 +395,47 @@ async fn feedback_rows_are_written_to_the_feedback_table() {
 }
 
 #[rstest]
+#[case::gateway(SERVICE_TOKEN, "工程 key%", "user+test@example.com")]
+#[case::direct(KEY, "", "")]
+#[tokio::test]
+async fn owner_labels_are_taken_only_from_the_gateway(
+    #[case] token: &str,
+    #[case] key_alias: &str,
+    #[case] user_email: &str,
+) {
+    let store = MockServer::start().await;
+    Mock::given(method("POST"))
+        .respond_with(ResponseTemplate::new(200))
+        .expect(1)
+        .mount(&store)
+        .await;
+    let server = serve(&store.uri(), true).await;
+    let response = http_client()
+        .unwrap()
+        .post(format!("{}/v1/traces", server.url))
+        .bearer_auth(token)
+        .header("x-litellm-api-key-hash", "gateway-key")
+        .header("x-litellm-user-id", "gateway-user")
+        .header("x-litellm-key-alias", "%E5%B7%A5%E7%A8%8B%20key%25")
+        .header("x-litellm-user-email", "user%2Btest%40example.com")
+        .json(&export())
+        .send()
+        .await
+        .unwrap();
+    assert_eq!(response.status(), 200);
+    let requests = store.received_requests().await.unwrap();
+    let mut decoded = String::new();
+    std::io::Read::read_to_string(
+        &mut flate2::read::GzDecoder::new(requests[0].body.as_slice()),
+        &mut decoded,
+    )
+    .unwrap();
+    let row: serde_json::Value = serde_json::from_str(decoded.trim()).unwrap();
+    assert_eq!(row["KeyAlias"], key_alias);
+    assert_eq!(row["UserEmail"], user_email);
+}
+
+#[rstest]
 #[tokio::test]
 async fn ingestion_confirms_storage_and_overwrites_exporter_tenant() {
     let store = MockServer::start().await;

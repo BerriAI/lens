@@ -330,6 +330,8 @@ mod tests {
             team_id: String::new(),
             api_key_hash: String::new(),
             user_id: String::new(),
+            key_alias: String::new(),
+            user_email: String::new(),
         }
     }
 

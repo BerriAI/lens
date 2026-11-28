@@ -68,6 +68,15 @@ describe("runQuerySql", () => {
   it("falls back to the last day without a range", () => {
     expect(runQuerySql(query(""))).toContain("HAVING min(StartTs) >= now() - INTERVAL 1 DAY\nORDER BY");
   });
+
+  it("uses scoped trace labels and the per-key identity when copying an owner filter", () => {
+    const sql = runQuerySql(query("user:dev@example.com key:1234567890ab team:infra"), RANGE);
+    expect(sql).toContain("FROM otel_traces");
+    expect(sql).toContain("USING (TeamId, ApiKeyHash, TraceId)\nGROUP BY TeamId, ApiKeyHash, TraceId");
+    expect(sql).toContain("arrayExists(x -> x ILIKE 'dev@example.com', arrayFilter(x -> x != '', [owner_user, owner_email]))");
+    expect(sql).toContain("arrayExists(x -> x ILIKE '1234567890ab', arrayFilter(x -> x != '', [owner_alias, owner_hash, left(owner_hash, 12)]))");
+    expect(sql).toContain("arrayExists(x -> x ILIKE 'infra', arrayFilter(x -> x != '', [owner_team]))");
+  });
 });
 
 describe("traceQueryCommand", () => {

@@ -534,6 +534,15 @@ async fn run_candidates_filter_agents_before_pagination(
             .collect::<Vec<_>>(),
         ["a-new", "a-middle"]
     );
+    let owner = first.data[0].owner.as_ref().ok_or("missing trace owner")?;
+    assert_eq!(owner.key_alias, "work key");
+    assert_eq!(owner.user_email, "dev@example.com");
+    let older = first.data[1]
+        .owner
+        .as_ref()
+        .ok_or("missing older trace owner")?;
+    assert!(older.key_alias.is_empty());
+    assert_eq!(older.api_key_hash, "key-a");
     let next = reader
         .list_traces(
             &store,
@@ -729,6 +738,7 @@ async fn stored_claude_code_session_lists_its_first_prompt_and_last_reply(
         api_key_hash: "key-a".to_owned(),
         org_id: String::new(),
         user_id: String::new(),
+        ..Default::default()
     };
     insert_shared_rows(
         &fixture.database.client,

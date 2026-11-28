@@ -213,6 +213,7 @@ async fn reviewed() -> Reviewed {
         api_key_hash: KEY.into(),
         org_id: String::new(),
         user_id: USER.into(),
+        ..Default::default()
     };
     let writer = isolated.config.storage().writer();
     let database = isolated.config.storage().database();
