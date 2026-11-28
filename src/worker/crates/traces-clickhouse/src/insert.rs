@@ -277,6 +277,15 @@ impl Serialize for EncodedRow<'_> {
 }
 
 fn insert_value<'a>(name: &str, value: &'a Value) -> Result<Cow<'a, Value>, Error> {
+    if name == "Events.Timestamp" {
+        return value
+            .as_array()
+            .ok_or(Error::InvalidRow)?
+            .iter()
+            .map(|timestamp| insert_value("Timestamp", timestamp).map(Cow::into_owned))
+            .collect::<Result<Vec<_>, _>>()
+            .map(|timestamps| Cow::Owned(Value::Array(timestamps)));
+    }
     let multiplier = match name {
         "Timestamp" | "RawTimestamp" | "ObservedTimestamp" => 1,
         "start_time" | "end_time" | "completion_start_time" => 1_000_000,

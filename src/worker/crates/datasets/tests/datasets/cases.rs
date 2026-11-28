@@ -264,6 +264,7 @@ fn span_conversion_keeps_history_and_only_assistant_output() {
         input: "raw question".into(),
         output: "raw answer".into(),
         attributes: [("agent.version".into(), "v7".into())].into(),
+        events: Vec::new(),
     };
     let Candidate::Case(case) = case_from_span(
         &detail,
@@ -312,6 +313,7 @@ fn non_message_spans_use_the_legacy_fallbacks(
         input: input.into(),
         output: output.into(),
         attributes: Default::default(),
+        events: Vec::new(),
     };
     let Candidate::Case(case) = case_from_span(&detail, CaseSource::default(), Limits::default())
     else {
@@ -333,6 +335,7 @@ fn empty_raw_span_is_skipped_with_its_actual_span_id() {
         input: " \u{1e}".into(),
         output: "".into(),
         attributes: Default::default(),
+        events: Vec::new(),
     };
     assert_eq!(
         case_from_span(&detail, CaseSource::default(), Limits::default()),

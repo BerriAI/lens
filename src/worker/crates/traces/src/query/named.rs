@@ -220,6 +220,12 @@ pub struct SpanDetailRow {
     pub input: String,
     pub output: String,
     pub attributes: BTreeMap<String, String>,
+    #[serde(default)]
+    pub event_timestamps_ns: Vec<String>,
+    #[serde(default)]
+    pub event_names: Vec<String>,
+    #[serde(default)]
+    pub event_attributes: Vec<BTreeMap<String, String>>,
 }
 
 #[derive(Clone, Debug, Deserialize, Serialize)]

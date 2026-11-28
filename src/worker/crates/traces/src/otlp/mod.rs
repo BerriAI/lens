@@ -14,6 +14,7 @@ use crate::{Error, NormalizedSpan, Shared};
 #[derive(Serialize)]
 pub struct DecodedEvent {
     pub name: String,
+    pub time_ns: u64,
     pub attributes: BTreeMap<String, String>,
 }
 

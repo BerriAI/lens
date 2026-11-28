@@ -6,7 +6,9 @@ use litellm_traces_cache::TraceStore;
 use litellm_traces_clickhouse::{
     Connection, InsertTable, Parameter, QueryScope, ReadQuery, execute_named_read, insert_rows,
     insert_shared_rows,
-    query::named::{ListTraces, ListTracesParams, TraceSpans, TraceSpansParams},
+    query::named::{
+        ListTraces, ListTracesParams, SpanDetail, SpanDetailParams, TraceSpans, TraceSpansParams,
+    },
     query_help, query_sql, span_rows,
 };
 use rstest::{fixture, rstest};
@@ -760,6 +762,87 @@ async fn stored_claude_code_session_lists_its_first_prompt_and_last_reply(
         (
             "Say MINIMAL-COMMENTARY, read README.txt, run a Bash command printing MINIMAL-EXPECTED that exits 3 without retrying, then reply MINIMAL-FINAL.",
             "Both subagents are done. They both ran in the background, not one in the foreground as you asked.\n\n- **Reader:** NATIVE-READER LENS-REPLAY-ALPHA (the marker from README.txt)\n- **Checker:** NATIVE-CHECKER 15 (from `python3`, 7+8)\n\nNATIVE-AGE"
+        )
+    );
+    Ok(())
+}
+
+#[rstest]
+#[tokio::test]
+async fn stored_span_events_are_returned_with_the_span_detail(
+    #[future(awt)] migrated_database: TestResult<SeededDatabase>,
+    admin_access: TestResult<contracts::ReadAccessParams>,
+) -> TestResult {
+    let fixture = migrated_database?;
+    let trace_id = "0af7651916cd43dd8448eb211c80319c";
+    let span_id = "b7ad6b7169203331";
+    let body = serde_json::json!({"resourceSpans": [{"scopeSpans": [{"spans": [{
+        "traceId": trace_id,
+        "spanId": span_id,
+        "name": "operation",
+        "startTimeUnixNano": "1700000000000000000",
+        "endTimeUnixNano": "1700000001000000000",
+        "events": [
+            {
+                "timeUnixNano": "1700000000250000001",
+                "name": "exception",
+                "attributes": [
+                    {"key": "exception.type", "value": {"stringValue": "ValueError"}},
+                    {"key": "exception.stacktrace", "value": {"stringValue": "frame"}},
+                ],
+            },
+            {"timeUnixNano": "1700000000500000002", "name": "checkpoint"},
+        ],
+    }]}]}]})
+    .to_string();
+    let tenant = litellm_traces::Tenant {
+        team_id: "team-a".to_owned(),
+        api_key_hash: "key-a".to_owned(),
+        org_id: String::new(),
+        user_id: String::new(),
+    };
+    insert_shared_rows(
+        &fixture.database.client,
+        &Connection::writer(&fixture.database.url)?,
+        DATABASE,
+        InsertTable::OtelTraces,
+        span_rows(
+            litellm_traces::decode_otlp(body.as_bytes(), Some("application/json"))?,
+            &tenant,
+        ),
+    )
+    .await?;
+    let reader = Connection::reader(&fixture.database.url, DATABASE)?;
+    let params = SpanDetailParams {
+        access: admin_access?,
+        trace_id: trace_id.to_owned(),
+        trace_ref: String::new(),
+        span_id: span_id.to_owned(),
+    };
+    let detail = fetch::<SpanDetail>(&fixture.database.client, &reader, &params)
+        .await?
+        .into_iter()
+        .next()
+        .ok_or("missing span")?;
+    assert_eq!(
+        (
+            detail.event_timestamps_ns,
+            detail.event_names,
+            detail.event_attributes
+        ),
+        (
+            vec![
+                "1700000000250000001".to_owned(),
+                "1700000000500000002".to_owned()
+            ],
+            vec!["exception".to_owned(), "checkpoint".to_owned()],
+            vec![
+                BTreeMap::from([
+                    ("exception.stacktrace".to_owned(), "frame".to_owned()),
+                    ("exception.type".to_owned(), "ValueError".to_owned()),
+                ]),
+                BTreeMap::new(),
+            ],
         )
     );
     Ok(())

@@ -204,6 +204,15 @@ pub struct SpanDetail {
     pub input: String,
     pub output: String,
     pub attributes: BTreeMap<String, String>,
+    pub events: Vec<SpanEvent>,
+}
+
+#[macro_rules_attribute::apply(crate::response_type)]
+#[derive(Debug, PartialEq)]
+pub struct SpanEvent {
+    pub name: String,
+    pub timestamp_ns: String,
+    pub attributes: BTreeMap<String, String>,
 }
 
 #[macro_rules_attribute::apply(crate::response_type)]

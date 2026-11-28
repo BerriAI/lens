@@ -1,5 +1,5 @@
 use std::{
-    collections::{HashMap, HashSet},
+    collections::{BTreeMap, HashMap, HashSet},
     sync::{
         Mutex,
         atomic::{AtomicUsize, Ordering},
@@ -8,7 +8,7 @@ use std::{
 };
 
 use litellm_traces::{
-    CallEvidenceKind, CallKey, ObservationType, SpanStatus,
+    CallEvidenceKind, CallKey, ObservationType, SpanEvent, SpanStatus,
     query::named::{
         ListTracesParams, ListTracesRow, ReadAccessParams, SpanDetailParams, SpanDetailRow,
         SpanErrorParams, SpanErrorRow, SpendByResponseIdsParams, SpendByResponseIdsRow,
@@ -1279,4 +1279,45 @@ async fn conversation_without_an_authorized_session_does_not_query_turns(#[case]
     assert_eq!(page.is_some(), exists);
     assert!(page.is_none_or(|page| page.turns.is_empty() && page.next_cursor.is_none()));
     assert_eq!(store.calls(Operation::ConversationTurns), 0);
+}
+
+#[rstest]
+#[tokio::test]
+async fn span_detail_pairs_each_stored_event_with_its_time_and_attributes() {
+    let store = FakeStore::with_spans("ref", vec![span(0)]);
+    store.state.lock().unwrap().span_detail = Some(SpanDetailRow {
+        span_id: "span-0".into(),
+        input: String::new(),
+        output: String::new(),
+        attributes: BTreeMap::new(),
+        event_timestamps_ns: vec!["10".into(), "20".into()],
+        event_names: vec!["exception".into(), "checkpoint".into()],
+        event_attributes: vec![
+            BTreeMap::from([("exception.type".to_owned(), "ValueError".to_owned())]),
+            BTreeMap::new(),
+        ],
+    });
+    let detail = TraceReader::new(usize::MAX)
+        .get_span(&store, &access(), "trace", "span-0", "ref")
+        .await
+        .unwrap()
+        .unwrap();
+    assert_eq!(
+        detail.events,
+        vec![
+            SpanEvent {
+                name: "exception".into(),
+                timestamp_ns: "10".into(),
+                attributes: BTreeMap::from([(
+                    "exception.type".to_owned(),
+                    "ValueError".to_owned()
+                )]),
+            },
+            SpanEvent {
+                name: "checkpoint".into(),
+                timestamp_ns: "20".into(),
+                attributes: BTreeMap::new(),
+            },
+        ]
+    );
 }

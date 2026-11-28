@@ -50,6 +50,6 @@ pub use tenant::Tenant;
 pub use ui::{ChatRole, UiContent, UiField, UiMessage, UiToolCall, to_ui_content};
 pub use view::{
     AgentNode, PromptCacheUsage, RunSource, RunSourceType, Span, SpanDetail, SpanErrorPage,
-    SpanStatus, SpendMatch, Trace, TraceConversationPage, TraceConversationTurn, TracePage,
-    TracePromptCache, TraceSummary,
+    SpanEvent, SpanStatus, SpendMatch, Trace, TraceConversationPage, TraceConversationTurn,
+    TracePage, TracePromptCache, TraceSummary,
 };

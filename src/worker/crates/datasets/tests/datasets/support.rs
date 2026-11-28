@@ -143,6 +143,7 @@ impl Detail {
             input: self.raw_input.clone(),
             output: self.raw_output.clone(),
             attributes: self.attributes.clone(),
+            events: Vec::new(),
         }
     }
 }
