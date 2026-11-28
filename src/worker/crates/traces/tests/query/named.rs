@@ -48,13 +48,21 @@ fn named_requests_preserve_all_access_cases(
 }
 
 #[rstest]
-fn result_contracts_preserve_public_field_names() {
-    round_trip::<ListTracesRow>(
+#[case::legacy(json!({}))]
+#[case::with_owner_labels(json!({"key_alias": "work", "user_email": "dev@example.com"}))]
+fn result_contracts_preserve_public_field_names(#[case] owner_labels: Value) {
+    let with_labels = |mut row: Value| {
+        row.as_object_mut()
+            .unwrap()
+            .extend(owner_labels.as_object().unwrap().clone());
+        row
+    };
+    round_trip::<ListTracesRow>(with_labels(
         json!({"trace_id": "trace", "trace_ref": "ref", "team_id": "team", "api_key_hash": "key", "user_id": "user", "name": "agent", "service": "service", "input_preview": "input", "status": "STATUS_CODE_OK", "start_ms": -1, "duration_ms": 20, "span_count": u64::MAX, "agent_count": 1, "agent_invocations": 2, "agent_names": ["agent"], "frameworks": ["framework"], "llm_calls": 3, "tool_calls": 4, "input_tokens": 5, "output_tokens": 6, "models": ["model"], "error_count": 0, "request_ids": ["request"]}),
-    );
-    round_trip::<TraceSpansRow>(
+    ));
+    round_trip::<TraceSpansRow>(with_labels(
         json!({"trace_id": "trace", "original_trace_id": "original", "span_id": "span", "parent_span_id": "parent", "name": "agent", "type": "agent", "wrapper_candidate": 1, "agent": "agent", "framework": "framework", "status": "STATUS_CODE_ERROR", "status_message": "error", "error_truncated": 1, "start_ns": -1, "duration_ns": u64::MAX, "service": "service", "input_preview": "input", "reply_preview": "reply", "model": "model", "input_tokens": u32::MAX, "output_tokens": 6, "litellm_request_id": "request", "call_keys": ["provider_response:request"], "call_evidence": "complete", "tool_call_id": "call", "source_type": "slack", "source_url": "https://acme.slack.com/archives/C1/p1", "source_title": "thread", "source_user": "tin@berri.ai", "team_id": "team", "api_key_hash": "key", "user_id": "user"}),
-    );
+    ));
     round_trip::<SpanDetailRow>(
         json!({"span_id": "span", "input": "input", "output": "output", "attributes": {"count": "42"}}),
     );

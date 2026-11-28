@@ -22,7 +22,8 @@ const content =
   )) +
   (await compile(definitions.LogListRequest, "LogListRequest", options)) +
   (await compile(definitions.OtelLogPage, "OtelLogPage", options)) +
-  (await compile(definitions.OtelLogRecord, "OtelLogRecord", options));
+  (await compile(definitions.OtelLogRecord, "OtelLogRecord", options)) +
+  (await compile(definitions.TraceOwner, "TraceOwner", options));
 
 if (process.argv.includes("--check")) {
   if ((await readFile(output, "utf8")) !== content)

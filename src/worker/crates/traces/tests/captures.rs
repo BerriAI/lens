@@ -217,6 +217,8 @@ fn trace_span(span: DecodedSpan) -> TraceSpansRow {
         team_id: "fixture-team".into(),
         api_key_hash: "fixture-key".into(),
         user_id: "fixture-user".into(),
+        key_alias: String::new(),
+        user_email: String::new(),
     }
 }
 
@@ -308,6 +310,8 @@ fn unrelated_transport(call: &TraceSpansRow) -> TraceSpansRow {
         team_id: call.team_id.clone(),
         api_key_hash: call.api_key_hash.clone(),
         user_id: call.user_id.clone(),
+        key_alias: String::new(),
+        user_email: String::new(),
     }
 }
 

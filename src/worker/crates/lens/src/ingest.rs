@@ -246,11 +246,21 @@ fn forwarded_owner(headers: &HeaderMap) -> Tenant {
             .unwrap_or_default()
             .to_owned()
     };
+    let label = |name: &str| {
+        percent_encoding::percent_decode_str(&named(name))
+            .decode_utf8()
+            .ok()
+            .filter(|value| !value.chars().any(char::is_control))
+            .map(|value| value.into_owned())
+            .unwrap_or_default()
+    };
     Tenant {
         team_id: named("x-litellm-team-id"),
         api_key_hash: named("x-litellm-api-key-hash"),
         org_id: named("x-litellm-org-id"),
         user_id: named("x-litellm-user-id"),
+        key_alias: label("x-litellm-key-alias"),
+        user_email: label("x-litellm-user-email"),
     }
 }
 
@@ -263,6 +273,7 @@ fn gateway_owner(attributes: &BTreeMap<String, String>) -> Option<Tenant> {
             api_key_hash: stamp("litellm.api_key.hash"),
             org_id: stamp("litellm.metadata.user_api_key_org_id"),
             user_id: stamp("litellm.metadata.user_api_key_user_id"),
+            ..Tenant::default()
         })
 }
 

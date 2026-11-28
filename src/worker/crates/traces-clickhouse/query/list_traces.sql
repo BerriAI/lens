@@ -52,16 +52,23 @@ LIMIT {limit:UInt32}
 )
 SELECT page.*,
        identities.agent_names AS agent_names, identities.agent_count AS agent_count,
-       identities.frameworks AS frameworks
+       identities.frameworks AS frameworks,
+       identities.key_alias AS key_alias,
+       if(page.user_id != '' AND page.user_id = identities.owner_user_id, identities.user_email, '') AS user_email
 FROM page
 LEFT JOIN (
     SELECT TeamId, ApiKeyHash, TraceId,
            arraySort(groupUniqArrayIf(AgentName, AgentName != '')) AS agent_names,
            arraySort(groupUniqArrayIf(toString(Framework), Framework != '')) AS frameworks,
-           uniqExactIf(if(AgentName = '', SpanName, AgentName), ObservationType = 'agent') AS agent_count
+           uniqExactIf(if(AgentName = '', SpanName, AgentName), ObservationType = 'agent') AS agent_count,
+           argMaxIf(KeyAlias, tuple(Timestamp, KeyAlias), KeyAlias != '') AS key_alias,
+           argMaxIf(UserEmail, tuple(Timestamp, UserEmail, UserId), UserEmail != '') AS user_email,
+           argMaxIf(UserId, tuple(Timestamp, UserEmail, UserId), UserEmail != '') AS owner_user_id
     FROM otel_traces
     WHERE Timestamp >= fromUnixTimestamp64Milli({start_ms:Int64})
       AND TraceId IN (SELECT trace_id FROM page)
+      AND ({all_teams:UInt8} = 1 OR ({user_id:String} != '' AND UserId = {user_id:String})
+           OR has({team_ids:Array(String)}, TeamId))
     GROUP BY TeamId, ApiKeyHash, TraceId
 ) AS identities
 ON page.team_id = identities.TeamId AND page.api_key_hash = identities.ApiKeyHash

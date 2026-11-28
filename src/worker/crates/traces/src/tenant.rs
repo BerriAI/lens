@@ -9,4 +9,8 @@ pub struct Tenant {
     pub org_id: String,
     #[serde(default)]
     pub user_id: String,
+    #[serde(skip)]
+    pub key_alias: String,
+    #[serde(skip)]
+    pub user_email: String,
 }

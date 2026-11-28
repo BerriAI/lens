@@ -6,4 +6,4 @@ mod view;
 
 pub use calls::{LedgerRequest, MatchedRequest, ModelCall, model_calls};
 pub use spend::SpendLookup;
-pub use view::{iso_time, listed_summary, resolve_trace};
+pub use view::{iso_time, listed_owner, listed_summary, resolve_trace};

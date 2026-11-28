@@ -1,4 +1,4 @@
-import { Bot, Box, Braces, CircleDashed, Hash, SquareChevronRight } from "lucide-react";
+import { Bot, Box, Braces, CircleDashed, Hash, KeyRound, SquareChevronRight, User, Users } from "lucide-react";
 
 import type { TraceSummary } from "../../types";
 import { previewText, traceAgentNames } from "../../utils";
@@ -13,6 +13,9 @@ const RUN_FIELDS = {
   model: { group: "Run attributes", icon: Box, suggestValues: true },
   input: { group: "Content", icon: Braces, suggestValues: false },
   trace_id: { group: "Identity", icon: Hash, suggestValues: false },
+  user: { group: "Identity", icon: User, suggestValues: true },
+  key: { group: "Identity", icon: KeyRound, suggestValues: true },
+  team: { group: "Identity", icon: Users, suggestValues: true },
 } as const satisfies Record<string, FieldSpec>;
 
 export type RunField = keyof typeof RUN_FIELDS;
@@ -21,6 +24,8 @@ export const RUN_QUERY: QueryLanguage<RunField> = { fields: RUN_FIELDS, ops: ALL
 
 const runStatus = (run: TraceSummary): "ok" | "error" =>
   run.status === "error" || run.error_count > 0 ? "error" : "ok";
+
+const present = (value: string | undefined): value is string => Boolean(value);
 
 /** Reads the run fields off a loaded page; free text searches trace id, input and name. */
 export const RUN_INDEX: ClientIndex<TraceSummary, RunField> = {
@@ -31,6 +36,9 @@ export const RUN_INDEX: ClientIndex<TraceSummary, RunField> = {
     model: (run) => run.models,
     input: (run) => [previewText(run.input_preview)],
     trace_id: (run) => [run.trace_id],
+    user: ({ owner }) => [owner?.user_email, owner?.user_id].filter(present),
+    key: ({ owner }) => [owner?.key_alias, owner?.api_key_hash, owner?.api_key_hash.slice(0, 12)].filter(present),
+    team: ({ owner }) => [owner?.team_id].filter(present),
   },
   freeText: (run) => [run.trace_id, previewText(run.input_preview), run.name],
 };

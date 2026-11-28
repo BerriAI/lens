@@ -102,6 +102,7 @@ pub fn trace(spans: Vec<Span>) -> Trace {
             spend: None,
             priced_calls: 0,
             source: None,
+            owner: None,
         },
         agents: vec![],
         spans,

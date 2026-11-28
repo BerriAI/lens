@@ -96,6 +96,16 @@ pub struct RunSource {
 
 #[macro_rules_attribute::apply(crate::response_type)]
 #[derive(Clone, Debug, PartialEq, serde::Deserialize)]
+pub struct TraceOwner {
+    pub user_id: String,
+    pub user_email: String,
+    pub key_alias: String,
+    pub api_key_hash: String,
+    pub team_id: String,
+}
+
+#[macro_rules_attribute::apply(crate::response_type)]
+#[derive(Clone, Debug, PartialEq, serde::Deserialize)]
 pub struct TraceSummary {
     #[cfg_attr(feature = "schema", schemars(extend("x-python-optional" = true)))]
     pub resolution_limited: bool,
@@ -104,6 +114,9 @@ pub struct TraceSummary {
     pub trace_ref: String,
     pub name: String,
     pub service: String,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[cfg_attr(feature = "schema", schemars(extend("x-python-optional" = true)))]
+    pub owner: Option<TraceOwner>,
     #[cfg_attr(feature = "schema", schemars(extend("x-python-optional" = true)))]
     pub agent_names: Vec<String>,
     #[cfg_attr(feature = "schema", schemars(extend("x-python-optional" = true)))]

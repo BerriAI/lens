@@ -68,6 +68,31 @@ describe("runQuerySql", () => {
   it("falls back to the last day without a range", () => {
     expect(runQuerySql(query(""))).toContain("HAVING min(StartTs) >= now() - INTERVAL 1 DAY\nORDER BY");
   });
+
+  it("uses scoped trace labels and the per-key identity when copying an owner filter", () => {
+    const sql = runQuerySql(query("user:dev@example.com key:1234567890ab team:infra"), RANGE);
+    expect(sql).toContain("FROM otel_traces");
+    expect(sql).toContain("USING (TeamId, ApiKeyHash, TraceId)\nGROUP BY TeamId, ApiKeyHash, TraceId");
+    expect(sql).toContain(
+      [
+        `WHERE Timestamp >= fromUnixTimestamp64Milli(${RANGE.startMs}) AND Timestamp < fromUnixTimestamp64Milli(${RANGE.endMs})`,
+        "    AND (TeamId, ApiKeyHash, TraceId) IN (",
+        "      SELECT TeamId, ApiKeyHash, TraceId",
+        "      FROM agent_traces_by_key",
+        "      GROUP BY TeamId, ApiKeyHash, TraceId",
+        `      HAVING min(StartTs) >= fromUnixTimestamp64Milli(${RANGE.startMs}) AND min(StartTs) < fromUnixTimestamp64Milli(${RANGE.endMs})`,
+      ].join("\n"),
+    );
+    expect(sql).toContain("arrayExists(x -> x ILIKE 'dev@example.com', arrayFilter(x -> x != '', [owner_user, owner_email]))");
+    expect(sql).toContain("arrayExists(x -> x ILIKE '1234567890ab', arrayFilter(x -> x != '', [owner_alias, owner_hash, left(owner_hash, 12)]))");
+    expect(sql).toContain("arrayExists(x -> x ILIKE 'infra', arrayFilter(x -> x != '', [owner_team]))");
+  });
+
+  it("ends the default owner window at query time for both spans and rollups", () => {
+    const sql = runQuerySql(query("key:work"));
+    expect(sql).toContain("WHERE Timestamp >= now() - INTERVAL 1 DAY AND Timestamp < now()");
+    expect(sql).toContain("HAVING min(StartTs) >= now() - INTERVAL 1 DAY AND min(StartTs) < now()");
+  });
 });
 
 describe("traceQueryCommand", () => {

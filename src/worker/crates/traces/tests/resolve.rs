@@ -43,6 +43,8 @@ fn row(span_id: &str, parent: &str, name: &str, kind: &str, agent: &str) -> Trac
         team_id: "team".into(),
         api_key_hash: "key".into(),
         user_id: String::new(),
+        key_alias: String::new(),
+        user_email: String::new(),
     }
 }
 
@@ -934,6 +936,28 @@ fn ambiguous_response_id_keeps_cost_unknown() {
 }
 
 #[rstest]
+#[case::attributed("owner", "owner", "dev@example.com")]
+#[case::unattributed("", "", "")]
+#[case::different_users("owner", "other", "")]
+fn resolved_owner_email_requires_a_shared_nonempty_user_id(
+    #[case] first_user: &str,
+    #[case] second_user: &str,
+    #[case] expected_email: &str,
+) {
+    let first = TraceSpansRow {
+        user_id: first_user.into(),
+        user_email: "dev@example.com".into(),
+        ..llm("first", "", "agent", "")
+    };
+    let second = TraceSpansRow {
+        user_id: second_user.into(),
+        ..llm("second", "first", "agent", "")
+    };
+    let trace = resolve_trace("trace", "ref", &[first, second], &[]).unwrap();
+    assert_eq!(trace.summary.owner.unwrap().user_email, expected_email);
+}
+
+#[rstest]
 fn listed_summary_keeps_rollup_counts_with_unknown_cost() {
     let summary = listed_summary(&ListTracesRow {
         trace_id: "t1".into(),
@@ -941,6 +965,8 @@ fn listed_summary_keeps_rollup_counts_with_unknown_cost() {
         team_id: "team".into(),
         api_key_hash: "key".into(),
         user_id: "owner".into(),
+        key_alias: "claude-work".into(),
+        user_email: "dev@example.com".into(),
         name: "deep_research_agent".into(),
         service: "agent-demo".into(),
         input_preview: "hi".into(),
@@ -960,6 +986,12 @@ fn listed_summary_keeps_rollup_counts_with_unknown_cost() {
         error_count: 1,
         request_ids: Vec::new(),
     });
+    let owner = summary.owner.as_ref().unwrap();
+    assert_eq!(owner.key_alias, "claude-work");
+    assert_eq!(owner.user_email, "dev@example.com");
+    assert_eq!(owner.api_key_hash, "key");
+    assert_eq!(owner.user_id, "owner");
+    assert_eq!(owner.team_id, "team");
     assert_eq!(summary.spend, None);
     assert_eq!(summary.status, SpanStatus::Ok);
     assert_eq!(

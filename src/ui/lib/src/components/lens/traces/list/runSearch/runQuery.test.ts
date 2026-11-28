@@ -46,6 +46,22 @@ describe("filterRuns", () => {
   it("combines field clauses with free text", () => {
     expect(ids("agent:*e* -status:error refund")).toEqual(["aaa111"]);
   });
+
+  it("matches authenticated email or ID, key alias or hash, and team", () => {
+    const owner = {
+      user_email: "dev@example.com",
+      user_id: "dev-id",
+      key_alias: "Work key",
+      api_key_hash: "1234567890abcdef",
+      team_id: "infra",
+    };
+    const owned = run({ owner });
+    const other = run({ owner: { ...owner, team_id: "other" } });
+    const items = [owned, other, run({})];
+    expect(filterRuns(items, 'user:dev@example.com key:"Work key" team:infra')).toEqual([owned]);
+    expect(filterRuns(items, "user:dev-id key:1234567890ab team:infra")).toEqual([owned]);
+    expect(filterRuns(items, "key:1234567890abcdef -team:other")).toEqual([owned]);
+  });
 });
 
 describe("RUN_INDEX values", () => {

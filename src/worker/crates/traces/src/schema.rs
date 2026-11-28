@@ -133,6 +133,7 @@ pub fn conversation_schemas() -> BTreeMap<&'static str, Schema> {
 
 pub fn ui_schemas() -> BTreeMap<&'static str, Schema> {
     BTreeMap::from([
+        ("TraceOwner", emitted::<crate::view::TraceOwner>()),
         (
             "TraceConversationPage",
             emitted::<crate::TraceConversationPage>(),

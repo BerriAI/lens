@@ -48508,6 +48508,7 @@ export interface components {
         };
         /** TraceSummary */
         TraceSummary: {
+            owner?: import("./traces").TraceOwner | null;
             /** Agent Count */
             agent_count: number;
             /** Agent Invocations */

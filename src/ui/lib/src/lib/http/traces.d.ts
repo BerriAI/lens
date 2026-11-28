@@ -197,3 +197,11 @@ export interface CodexProjection {
   truncated: boolean | null;
   [k: string]: unknown;
 }
+export interface TraceOwner {
+  user_id: string;
+  user_email: string;
+  key_alias: string;
+  api_key_hash: string;
+  team_id: string;
+  [k: string]: unknown;
+}

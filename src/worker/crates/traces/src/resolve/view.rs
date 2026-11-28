@@ -8,7 +8,7 @@ use crate::{
     query::named::{ListTracesRow, SpendByResponseIdsRow as SpendRow, TraceSpansRow},
     view::{
         AgentNode, PromptCacheUsage, RunSource, RunSourceType, Span, SpanStatus, SpendMatch, Trace,
-        TracePromptCache, TraceSummary,
+        TraceOwner, TracePromptCache, TraceSummary,
     },
 };
 
@@ -277,6 +277,7 @@ pub fn resolve_trace(
         trace_ref: trace_ref.to_owned(),
         name: spans[root].name.clone(),
         service: first.service.clone(),
+        owner: resolved_owner(rows),
         agent_names: agents
             .iter()
             .map(|agent| agent.name.clone())
@@ -331,6 +332,65 @@ pub fn resolve_trace(
     })
 }
 
+fn trace_owner(
+    user_id: &str,
+    user_email: &str,
+    key_alias: &str,
+    api_key_hash: &str,
+    team_id: &str,
+) -> Option<TraceOwner> {
+    (!user_id.is_empty()
+        || !user_email.is_empty()
+        || !key_alias.is_empty()
+        || !api_key_hash.is_empty()
+        || !team_id.is_empty())
+    .then(|| TraceOwner {
+        user_id: user_id.to_owned(),
+        user_email: user_email.to_owned(),
+        key_alias: key_alias.to_owned(),
+        api_key_hash: api_key_hash.to_owned(),
+        team_id: team_id.to_owned(),
+    })
+}
+
+fn resolved_owner(rows: &[TraceSpansRow]) -> Option<TraceOwner> {
+    let first = rows.first()?;
+    let same_key = |row: &TraceSpansRow| {
+        row.api_key_hash == first.api_key_hash && row.team_id == first.team_id
+    };
+    if !rows.iter().all(same_key) {
+        return None;
+    }
+    let same_user = rows.iter().all(|row| row.user_id == first.user_id);
+    let key_alias = rows
+        .iter()
+        .filter(|row| !row.key_alias.is_empty())
+        .max_by_key(|row| (row.start_ns, row.key_alias.as_str()))
+        .map_or("", |row| row.key_alias.as_str());
+    let user_email = rows
+        .iter()
+        .filter(|row| same_user && !first.user_id.is_empty() && !row.user_email.is_empty())
+        .max_by_key(|row| (row.start_ns, row.user_email.as_str()))
+        .map_or("", |row| row.user_email.as_str());
+    trace_owner(
+        if same_user { &first.user_id } else { "" },
+        user_email,
+        key_alias,
+        &first.api_key_hash,
+        &first.team_id,
+    )
+}
+
+pub fn listed_owner(row: &ListTracesRow) -> Option<TraceOwner> {
+    trace_owner(
+        &row.user_id,
+        &row.user_email,
+        &row.key_alias,
+        &row.api_key_hash,
+        &row.team_id,
+    )
+}
+
 pub fn listed_summary(row: &ListTracesRow) -> TraceSummary {
     TraceSummary {
         resolution_limited: true,
@@ -338,6 +398,7 @@ pub fn listed_summary(row: &ListTracesRow) -> TraceSummary {
         trace_ref: row.trace_ref.clone(),
         name: row.name.clone(),
         service: row.service.clone(),
+        owner: listed_owner(row),
         agent_names: row.agent_names.clone(),
         frameworks: row.frameworks.clone(),
         input_preview: row.input_preview.clone(),
