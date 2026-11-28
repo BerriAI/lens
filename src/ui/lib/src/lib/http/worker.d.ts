@@ -35,6 +35,17 @@ export type InvestigatorState =
   "starting" | "running" | "scheduled" | "stalled" | "failed" | "daily_limit" | "unavailable";
 /**
  * This interface was referenced by `LensWorker`'s JSON-Schema
+ * via the `definition` "McpOutcome".
+ */
+export type McpOutcome =
+  "success" | "tool_error" | "invalid_request" | "unauthorized" | "forbidden" | "expired" | "revoked";
+/**
+ * This interface was referenced by `LensWorker`'s JSON-Schema
+ * via the `definition` "McpAuthentication".
+ */
+export type McpAuthentication = "gateway" | "token";
+/**
+ * This interface was referenced by `LensWorker`'s JSON-Schema
  * via the `definition` "OptimizationJudge".
  */
 export type OptimizationJudge = "feedback" | "llm";
@@ -800,6 +811,103 @@ export interface MatrixCell {
   p95_latency_ms?: number | null;
   profile_id: string;
   request_count: number;
+  [k: string]: unknown;
+}
+/**
+ * This interface was referenced by `LensWorker`'s JSON-Schema
+ * via the `definition` "McpActivity".
+ */
+export interface McpActivity {
+  calls: McpCall[];
+  next_cursor?: string | null;
+  usage: McpUsage[];
+  usage_truncated: boolean;
+  [k: string]: unknown;
+}
+/**
+ * This interface was referenced by `LensWorker`'s JSON-Schema
+ * via the `definition` "McpCall".
+ */
+export interface McpCall {
+  at_ms: number;
+  client: string;
+  connection_id: string;
+  connection_name: string;
+  id: string;
+  latency_ms: number;
+  method: string;
+  outcome: McpOutcome;
+  owner_id: string;
+  owner_name: string;
+  tool?: string | null;
+  [k: string]: unknown;
+}
+/**
+ * This interface was referenced by `LensWorker`'s JSON-Schema
+ * via the `definition` "McpUsage".
+ */
+export interface McpUsage {
+  calls: number;
+  client: string;
+  connection_id: string;
+  connection_name: string;
+  errors: number;
+  last_success_ms?: number | null;
+  last_used_ms: number;
+  owner_id: string;
+  owner_name: string;
+  [k: string]: unknown;
+}
+/**
+ * This interface was referenced by `LensWorker`'s JSON-Schema
+ * via the `definition` "McpConnection".
+ */
+export interface McpConnection {
+  authentication: McpAuthentication;
+  client: string;
+  created_at: string;
+  expires_at: string;
+  id: string;
+  name: string;
+  owner_id: string;
+  owner_name: string;
+  revoked_at?: string | null;
+}
+/**
+ * This interface was referenced by `LensWorker`'s JSON-Schema
+ * via the `definition` "McpConnectionCreated".
+ */
+export interface McpConnectionCreated {
+  connection: McpConnection;
+  token?: string | null;
+  [k: string]: unknown;
+}
+/**
+ * This interface was referenced by `LensWorker`'s JSON-Schema
+ * via the `definition` "McpCreateRequest".
+ */
+export interface McpCreateRequest {
+  client: string;
+  expires_in_days?: number;
+  name: string;
+  owner_label?: string | null;
+  request_id: string;
+}
+/**
+ * This interface was referenced by `LensWorker`'s JSON-Schema
+ * via the `definition` "McpOverview".
+ */
+export interface McpOverview {
+  activity: McpActivity;
+  authentication: McpAuthentication;
+  can_create: boolean;
+  can_manage_all: boolean;
+  connections: McpConnection[];
+  from_ms: number;
+  gateway_url?: string | null;
+  retention_days: number;
+  scope: string;
+  to_ms: number;
   [k: string]: unknown;
 }
 /**

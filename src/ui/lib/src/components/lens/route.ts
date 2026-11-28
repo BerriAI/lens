@@ -1,6 +1,6 @@
 "use client";
 
-import { parseAsBoolean, parseAsInteger, parseAsString, parseAsStringLiteral, useQueryStates } from "nuqs";
+import { parseAsBoolean, parseAsInteger, parseAsNumberLiteral, parseAsString, parseAsStringLiteral, useQueryStates } from "nuqs";
 import { useCallback } from "react";
 import { OPEN_TRACE_PARSERS, RUN_FILTER_PARSERS } from "./traces/routing";
 import { TIME_RANGE_PARSERS } from "../shared/timeRange/routing";
@@ -17,6 +17,7 @@ export const LENS_TABS = {
   datasets: "Datasets",
   evals: "Evals",
   optimizations: "Model optimizations",
+  connectors: "Connectors",
   settings: "Settings",
 } as const;
 export type LensTab = keyof typeof LENS_TABS;
@@ -70,6 +71,17 @@ const OPTIMIZATION_PARSERS = {
   optimization_dataset: parseAsString,
   optimization_revision: parseAsInteger,
   optimization_search: parseAsString.withDefault(""),
+};
+
+export const CONNECTOR_SECTIONS = ["setup", "usage", "access", "tools"] as const;
+export type ConnectorSection = (typeof CONNECTOR_SECTIONS)[number];
+const CONNECTOR_PARSERS = {
+  connector: parseAsStringLiteral(["mcp"]),
+  mcp_section: parseAsStringLiteral(CONNECTOR_SECTIONS).withDefault("setup"),
+  mcp_connection: parseAsString,
+  mcp_hours: parseAsNumberLiteral([24, 168, 720] as const).withDefault(168),
+  mcp_cursor: parseAsString,
+  mcp_to: parseAsInteger,
 };
 
 const LEGACY_PARSERS = { dataset_tab: parseAsString };
@@ -132,6 +144,7 @@ const SESSION_PARSERS = {
   ...OPTIMIZATION_PARSERS,
   ...LEGACY_PARSERS,
   ...GITHUB_PARSERS,
+  ...CONNECTOR_PARSERS,
 };
 const nulls = <K extends string>(keys: readonly K[]) =>
   Object.fromEntries(keys.map((key) => [key, null])) as Record<K, null>;
@@ -543,4 +556,25 @@ export function useOpenSourceTrace() {
     },
     [setParams],
   );
+}
+
+export function useConnectorRoute() {
+  const [state, set] = useQueryStates(CONNECTOR_PARSERS, { history: "push" });
+  const first = { mcp_cursor: null, mcp_to: null };
+  return {
+    detail: state.connector === "mcp",
+    section: state.mcp_section,
+    connection: state.mcp_connection,
+    hours: state.mcp_hours,
+    cursor: state.mcp_cursor,
+    toMs: state.mcp_to,
+    open: () => void set({ connector: "mcp" }),
+    close: () => void set({ connector: null }),
+    sectionTo: (section: ConnectorSection) => void set({ mcp_section: section, ...first }),
+    setup: (id: string | null) => void set({ connector: "mcp", mcp_section: "setup", mcp_connection: id, ...first }),
+    activity: (id: string | null) => void set({ mcp_section: "usage", mcp_connection: id, ...first }),
+    window: (hours: number) => void set({ mcp_hours: hours === 24 || hours === 720 ? hours : 168, ...first }),
+    next: (cursor: string | null, toMs: number) => void set({ mcp_cursor: cursor, mcp_to: toMs }),
+    first: () => void set(first),
+  };
 }

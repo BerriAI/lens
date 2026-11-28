@@ -48,6 +48,7 @@ import { ProfilesView } from "./profiles/ProfilesView";
 import { LensHome } from "./onboarding/LensHome";
 import { AgentGitHubDialog } from "./agents/AgentGitHubDialog";
 import { LensPageActionsContext } from "./ui/LensPageHeader";
+import { ConnectorsView } from "./connectors/ConnectorsView";
 import { AlertsView } from "./alerts/AlertsView";
 
 type WorkspaceProps = {
@@ -409,6 +410,9 @@ function LensContent({ userRole, readOnly }: Omit<WorkspaceProps, "accessToken">
                         <p className="py-6 text-sm text-muted-foreground">Evals require proxy administrator access.</p>
                       )}
                     </TabsContent>
+                    <TabsContent value="connectors" className={PANEL}>
+                      <ConnectorsView demo={demo} onExitDemo={() => toggleDemo(false)} />
+                    </TabsContent>
                     <TabsContent value="optimizations" className={PANEL}>
                       <ModelOptimizations canView={canViewInvestigations} readOnly={readOnly || !isAdmin} />
                     </TabsContent>
@@ -474,6 +478,7 @@ function needsSetup(
   },
 ) {
   if (
+    location.tab === "connectors" ||
     location.tab === "settings" ||
     location.tab === "home" ||
     location.tab === "datasets" ||

@@ -3,13 +3,19 @@ use std::sync::Arc;
 use axum::{
     Json,
     body::Bytes,
-    extract::State,
+    extract::{Path, State},
     http::{HeaderMap, Method, StatusCode},
     response::{IntoResponse, Response},
 };
 use chrono::Utc;
-use futures_util::{StreamExt, stream};
-use lens_auth::SessionRepository;
+use lens_auth::{
+    McpError, SessionRepository,
+    mcp::{self, McpRepository, StoredConnection},
+};
+use lens_contract::{
+    auth::Identity,
+    mcp::{McpAuthentication, McpCall, McpConnection, McpOutcome},
+};
 use litellm_traces::request::{
     CONVERSATION_PAGE_SIZE_DEFAULT, CONVERSATION_PAGE_SIZE_MAX, TRACE_AGENT_NAME_MAX_LENGTH,
     TRACE_PAGE_SIZE_MAX, TraceConversationRequest, TraceDetailRequest, TraceSpanRequest,
@@ -20,7 +26,7 @@ use serde_json::{Value, json};
 use super::{App, TraceReader, scope};
 use crate::{
     auth,
-    error::{McpToolError as ToolError, TraceHttpError},
+    error::{McpHttpError, McpToolError as ToolError},
 };
 
 const PROTOCOL_VERSIONS: [&str; 3] = ["2025-06-18", "2025-03-26", "2024-11-05"];
@@ -325,28 +331,232 @@ fn respond(answer: Option<Value>) -> Response {
     )
 }
 
-pub(super) async fn handle<R: SessionRepository, B: TraceReader>(
+pub(super) async fn handle<R: SessionRepository + McpRepository, B: TraceReader>(
     State(app): State<Arc<App<R, B>>>,
     headers: HeaderMap,
     method: Method,
     body: Bytes,
-) -> Result<Response, TraceHttpError> {
-    let identity = auth::identity(&app.authentication, &headers, &method).await?;
-    let scope = scope(&identity)?;
-    Ok(match serde_json::from_slice::<Value>(&body) {
+) -> Result<Response, McpHttpError> {
+    handle_request(app, headers, method, body, None).await
+}
+
+pub(super) async fn handle_named<R: SessionRepository + McpRepository, B: TraceReader>(
+    State(app): State<Arc<App<R, B>>>,
+    Path(id): Path<String>,
+    headers: HeaderMap,
+    method: Method,
+    body: Bytes,
+) -> Result<Response, McpHttpError> {
+    handle_request(app, headers, method, body, Some(id)).await
+}
+
+fn metadata(
+    connection: Option<&McpConnection>,
+    identity: Option<&Identity>,
+    message: &Value,
+) -> McpCall {
+    let method = message
+        .get("method")
+        .and_then(Value::as_str)
+        .filter(|method| matches!(*method, "initialize" | "tools/list" | "tools/call" | "ping"))
+        .unwrap_or("request");
+    let tool = message
+        .pointer("/params/name")
+        .filter(|_| method == "tools/call")
+        .and_then(Value::as_str)
+        .and_then(|name| match name {
+            "list_agents" | "list_traces" | "get_trace" | "get_trace_conversation" | "get_span" => {
+                Some(name.to_owned())
+            }
+            _ => None,
+        });
+    McpCall {
+        id: uuid::Uuid::new_v4().to_string(),
+        at_ms: Utc::now().timestamp_millis(),
+        connection_id: connection
+            .map(|connection| connection.id.clone())
+            .or_else(|| identity.map(mcp::legacy_id))
+            .unwrap_or_default(),
+        connection_name: connection
+            .map(|connection| connection.name.clone())
+            .unwrap_or_else(|| "Existing credential".into()),
+        owner_id: connection
+            .map(|connection| connection.owner_id.clone())
+            .or_else(|| identity.and_then(|identity| identity.user_id.clone()))
+            .unwrap_or_default(),
+        owner_name: connection
+            .map(|connection| connection.owner_name.clone())
+            .unwrap_or_else(|| {
+                identity
+                    .filter(|identity| identity.token.is_some())
+                    .and_then(|identity| {
+                        identity
+                            .user_name
+                            .clone()
+                            .or_else(|| identity.user_id.clone())
+                    })
+                    .unwrap_or_else(|| "Shared administrator credential".into())
+            }),
+        client: connection
+            .map(|connection| connection.client.clone())
+            .unwrap_or_else(|| "Not reported".into()),
+        method: method.into(),
+        tool,
+        outcome: McpOutcome::Success,
+        latency_ms: 0,
+    }
+}
+
+async fn authenticate<R: SessionRepository + McpRepository, B>(
+    app: &App<R, B>,
+    headers: &HeaderMap,
+    method: &Method,
+    named: Option<&str>,
+    message: &Value,
+) -> Result<(Identity, Option<McpConnection>), McpHttpError> {
+    let bearer = headers
+        .get("authorization")
+        .and_then(|value| value.to_str().ok())
+        .and_then(|value| value.split_once(' '))
+        .filter(|(scheme, value)| scheme.eq_ignore_ascii_case("bearer") && !value.is_empty())
+        .map(|(_, value)| value);
+    let token_id = bearer.and_then(mcp::token_id);
+    if named.is_some()
+        && token_id
+            .as_deref()
+            .is_some_and(|token_id| Some(token_id) != named)
+    {
+        return Err(McpError::Unauthorized.into());
+    }
+    let id = named.or(token_id.as_deref());
+    let Some(id) = id else {
+        return Ok((
+            auth::identity(&app.authentication, headers, method).await?,
+            None,
+        ));
+    };
+    let id = uuid::Uuid::parse_str(id)
+        .map_err(|_| McpError::NotFound)?
+        .to_string();
+    let records = app.authentication.sessions.mcp_connections().await?;
+    let record = records
+        .into_iter()
+        .find(|record| record.connection.id == id)
+        .ok_or(McpError::Unauthorized)?;
+    let result = authenticate_record(app, headers, method, bearer, &record).await;
+    if let Err(error) = &result {
+        let mut call = metadata(Some(&record.connection), None, message);
+        call.outcome = match error {
+            McpHttpError::Connection(McpError::Expired) => McpOutcome::Expired,
+            McpHttpError::Connection(McpError::Revoked) => McpOutcome::Revoked,
+            McpHttpError::Connection(McpError::Forbidden) => McpOutcome::Forbidden,
+            _ => McpOutcome::Unauthorized,
+        };
+        app.authentication.sessions.mcp_record(&call).await?;
+    }
+    Ok((result?, Some(record.connection)))
+}
+
+async fn authenticate_record<R: SessionRepository + McpRepository, B>(
+    app: &App<R, B>,
+    headers: &HeaderMap,
+    method: &Method,
+    bearer: Option<&str>,
+    record: &StoredConnection,
+) -> Result<Identity, McpHttpError> {
+    let identity = match record.connection.authentication {
+        McpAuthentication::Token => {
+            mcp::check_token(record, bearer.ok_or(McpError::Unauthorized)?)?;
+            lens_auth::local_admin()
+        }
+        McpAuthentication::Gateway => {
+            let identity = auth::identity(&app.authentication, headers, method).await?;
+            if identity.token.is_none()
+                || identity.user_id.as_deref() != Some(&record.connection.owner_id)
+            {
+                return Err(McpError::Forbidden.into());
+            }
+            identity
+        }
+    };
+    mcp::check_active(&record.connection, Utc::now())?;
+    Ok(identity)
+}
+
+async fn recorded_answer<R: SessionRepository + McpRepository, B: TraceReader>(
+    app: &App<R, B>,
+    identity: &Identity,
+    connection: Option<&McpConnection>,
+    message: Value,
+) -> Result<Option<Value>, McpHttpError> {
+    let mut record = metadata(connection, Some(identity), &message);
+    let started = std::time::Instant::now();
+    let result = answer(app, scope(identity)?, message).await;
+    let Some(response) = &result else {
+        return Ok(None);
+    };
+    record.latency_ms = u64::try_from(started.elapsed().as_millis()).unwrap_or(u64::MAX);
+    record.outcome = if response.get("error").is_some() {
+        McpOutcome::InvalidRequest
+    } else if response.pointer("/result/isError") == Some(&Value::Bool(true)) {
+        McpOutcome::ToolError
+    } else {
+        McpOutcome::Success
+    };
+    app.authentication.sessions.mcp_record(&record).await?;
+    Ok(result)
+}
+
+async fn handle_request<R: SessionRepository + McpRepository, B: TraceReader>(
+    app: Arc<App<R, B>>,
+    headers: HeaderMap,
+    method: Method,
+    body: Bytes,
+    named: Option<String>,
+) -> Result<Response, McpHttpError> {
+    let parsed = serde_json::from_slice::<Value>(&body);
+    let (identity, connection) = authenticate(
+        &app,
+        &headers,
+        &method,
+        named.as_deref(),
+        parsed.as_ref().unwrap_or(&Value::Null),
+    )
+    .await?;
+    if let Err(error) = scope(&identity) {
+        let mut record = metadata(
+            connection.as_ref(),
+            Some(&identity),
+            parsed.as_ref().unwrap_or(&Value::Null),
+        );
+        record.outcome = McpOutcome::Forbidden;
+        app.authentication.sessions.mcp_record(&record).await?;
+        return Err(error.into());
+    }
+    Ok(match parsed {
         Ok(Value::Array(messages)) if (1..=BATCH_MAX).contains(&messages.len()) => {
-            let answers: Vec<Value> = stream::iter(messages)
-                .then(|message| answer(&app, scope.clone(), message))
-                .filter_map(std::future::ready)
-                .collect()
-                .await;
+            let mut answers = Vec::new();
+            for message in messages {
+                if let Some(answer) =
+                    recorded_answer(&app, &identity, connection.as_ref(), message).await?
+                {
+                    answers.push(answer);
+                }
+            }
             respond((!answers.is_empty()).then(|| Value::Array(answers)))
         }
-        Ok(message @ Value::Object(_)) => respond(answer(&app, scope, message).await),
-        _ => respond(Some(failure(
-            Value::Null,
-            -32600,
-            "Invalid JSON-RPC request",
-        ))),
+        Ok(message @ Value::Object(_)) => {
+            respond(recorded_answer(&app, &identity, connection.as_ref(), message).await?)
+        }
+        _ => {
+            let mut record = metadata(connection.as_ref(), Some(&identity), &Value::Null);
+            record.outcome = McpOutcome::InvalidRequest;
+            app.authentication.sessions.mcp_record(&record).await?;
+            respond(Some(failure(
+                Value::Null,
+                -32600,
+                "Invalid JSON-RPC request",
+            )))
+        }
     })
 }

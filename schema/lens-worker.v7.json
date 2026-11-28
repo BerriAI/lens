@@ -1924,6 +1924,339 @@
       ],
       "type": "object"
     },
+    "McpActivity": {
+      "properties": {
+        "calls": {
+          "items": {
+            "$ref": "#/definitions/McpCall"
+          },
+          "type": "array"
+        },
+        "next_cursor": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "usage": {
+          "items": {
+            "$ref": "#/definitions/McpUsage"
+          },
+          "type": "array"
+        },
+        "usage_truncated": {
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "usage",
+        "usage_truncated",
+        "calls"
+      ],
+      "type": "object"
+    },
+    "McpAuthentication": {
+      "enum": [
+        "gateway",
+        "token"
+      ],
+      "type": "string"
+    },
+    "McpCall": {
+      "properties": {
+        "at_ms": {
+          "type": "integer"
+        },
+        "client": {
+          "type": "string"
+        },
+        "connection_id": {
+          "type": "string"
+        },
+        "connection_name": {
+          "type": "string"
+        },
+        "id": {
+          "type": "string"
+        },
+        "latency_ms": {
+          "minimum": 0,
+          "type": "integer"
+        },
+        "method": {
+          "type": "string"
+        },
+        "outcome": {
+          "$ref": "#/definitions/McpOutcome"
+        },
+        "owner_id": {
+          "type": "string"
+        },
+        "owner_name": {
+          "type": "string"
+        },
+        "tool": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      },
+      "required": [
+        "id",
+        "at_ms",
+        "connection_id",
+        "connection_name",
+        "owner_id",
+        "owner_name",
+        "client",
+        "method",
+        "outcome",
+        "latency_ms"
+      ],
+      "type": "object"
+    },
+    "McpConnection": {
+      "additionalProperties": false,
+      "properties": {
+        "authentication": {
+          "$ref": "#/definitions/McpAuthentication"
+        },
+        "client": {
+          "type": "string"
+        },
+        "created_at": {
+          "format": "date-time",
+          "type": "string"
+        },
+        "expires_at": {
+          "format": "date-time",
+          "type": "string"
+        },
+        "id": {
+          "type": "string"
+        },
+        "name": {
+          "type": "string"
+        },
+        "owner_id": {
+          "type": "string"
+        },
+        "owner_name": {
+          "type": "string"
+        },
+        "revoked_at": {
+          "anyOf": [
+            {
+              "format": "date-time",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      },
+      "required": [
+        "id",
+        "name",
+        "client",
+        "owner_id",
+        "owner_name",
+        "authentication",
+        "created_at",
+        "expires_at"
+      ],
+      "type": "object"
+    },
+    "McpConnectionCreated": {
+      "properties": {
+        "connection": {
+          "$ref": "#/definitions/McpConnection"
+        },
+        "token": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      },
+      "required": [
+        "connection"
+      ],
+      "type": "object"
+    },
+    "McpCreateRequest": {
+      "additionalProperties": false,
+      "properties": {
+        "client": {
+          "type": "string"
+        },
+        "expires_in_days": {
+          "default": 90,
+          "format": "uint16",
+          "maximum": 65535,
+          "minimum": 0,
+          "type": "integer"
+        },
+        "name": {
+          "type": "string"
+        },
+        "owner_label": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "request_id": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "request_id",
+        "name",
+        "client"
+      ],
+      "type": "object"
+    },
+    "McpOutcome": {
+      "enum": [
+        "success",
+        "tool_error",
+        "invalid_request",
+        "unauthorized",
+        "forbidden",
+        "expired",
+        "revoked"
+      ],
+      "type": "string"
+    },
+    "McpOverview": {
+      "properties": {
+        "activity": {
+          "$ref": "#/definitions/McpActivity"
+        },
+        "authentication": {
+          "$ref": "#/definitions/McpAuthentication"
+        },
+        "can_create": {
+          "type": "boolean"
+        },
+        "can_manage_all": {
+          "type": "boolean"
+        },
+        "connections": {
+          "items": {
+            "$ref": "#/definitions/McpConnection"
+          },
+          "type": "array"
+        },
+        "from_ms": {
+          "type": "integer"
+        },
+        "gateway_url": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "retention_days": {
+          "format": "uint16",
+          "maximum": 65535,
+          "minimum": 0,
+          "type": "integer"
+        },
+        "scope": {
+          "type": "string"
+        },
+        "to_ms": {
+          "type": "integer"
+        }
+      },
+      "required": [
+        "connections",
+        "activity",
+        "authentication",
+        "can_create",
+        "can_manage_all",
+        "scope",
+        "from_ms",
+        "to_ms",
+        "retention_days"
+      ],
+      "type": "object"
+    },
+    "McpUsage": {
+      "properties": {
+        "calls": {
+          "minimum": 0,
+          "type": "integer"
+        },
+        "client": {
+          "type": "string"
+        },
+        "connection_id": {
+          "type": "string"
+        },
+        "connection_name": {
+          "type": "string"
+        },
+        "errors": {
+          "minimum": 0,
+          "type": "integer"
+        },
+        "last_success_ms": {
+          "anyOf": [
+            {
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "last_used_ms": {
+          "type": "integer"
+        },
+        "owner_id": {
+          "type": "string"
+        },
+        "owner_name": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "connection_id",
+        "connection_name",
+        "owner_id",
+        "owner_name",
+        "client",
+        "calls",
+        "errors",
+        "last_used_ms"
+      ],
+      "type": "object"
+    },
     "MetadataFilter": {
       "additionalProperties": false,
       "properties": {
