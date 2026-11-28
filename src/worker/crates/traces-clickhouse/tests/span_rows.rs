@@ -231,3 +231,58 @@ fn compatibility_id_keeps_provider_semantics_with_gateway_keys(tenant: Tenant) {
         json!(["litellm_request:gateway", "provider_response:response"])
     );
 }
+
+#[rstest]
+fn span_events_are_stored_in_order_with_their_time_name_and_attributes(tenant: Tenant) {
+    let body = export(vec![(
+        vec![],
+        vec![span(
+            &"02".repeat(8),
+            vec![],
+            json!({"events": [
+                {
+                    "timeUnixNano": "2000",
+                    "name": "exception",
+                    "attributes": [
+                        attribute("exception.type", "ValueError"),
+                        attribute("exception.message", "boom"),
+                        attribute("exception.stacktrace", "frame"),
+                    ],
+                },
+                {
+                    "timeUnixNano": "3000",
+                    "name": "checkpoint",
+                    "attributes": [attribute("step", "3")],
+                },
+            ]}),
+        )],
+    )]);
+    let stored = rows(&body, &tenant);
+    assert_eq!(stored[0]["Events.Timestamp"], json!([2000, 3000]));
+    assert_eq!(stored[0]["Events.Name"], json!(["exception", "checkpoint"]));
+    assert_eq!(
+        stored[0]["Events.Attributes"],
+        json!([
+            {
+                "exception.type": "ValueError",
+                "exception.message": "boom",
+                "exception.stacktrace": "frame",
+            },
+            {"step": "3"},
+        ])
+    );
+    assert_eq!(stored[0]["StatusMessage"], "boom");
+}
+
+#[rstest]
+fn span_without_events_stores_empty_event_columns(tenant: Tenant) {
+    let body = export(vec![(
+        vec![],
+        vec![span(&"02".repeat(8), vec![], json!({}))],
+    )]);
+    let stored = rows(&body, &tenant);
+    assert_eq!(
+        ["Events.Timestamp", "Events.Name", "Events.Attributes"].map(|column| &stored[0][column]),
+        [&json!([]); 3]
+    );
+}

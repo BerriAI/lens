@@ -110,6 +110,7 @@ function makeTrace(scene: Scenario, index: number, now: number) {
   };
   const details: SpanDetail[] = trace.spans.map((span) => ({
     span_id: span.span_id,
+    events: [],
     input:
       span.type === "tool"
         ? JSON.stringify({ query: scene.question })

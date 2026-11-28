@@ -46260,6 +46260,8 @@ export interface components {
             attributes: {
                 [key: string]: string;
             };
+            /** Events */
+            events: components["schemas"]["SpanEvent"][];
             /** Input */
             input: string;
             /** Input Ui */
@@ -46270,6 +46272,17 @@ export interface components {
             output_ui: components["schemas"]["UIMessages"] | components["schemas"]["UIFields"] | components["schemas"]["UIText"];
             /** Span Id */
             span_id: string;
+        };
+        /** SpanEvent */
+        SpanEvent: {
+            /** Attributes */
+            attributes: {
+                [key: string]: string;
+            };
+            /** Name */
+            name: string;
+            /** Timestamp Ns */
+            timestamp_ns: string;
         };
         /** SpanErrorPage */
         SpanErrorPage: {

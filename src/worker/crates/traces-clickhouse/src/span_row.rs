@@ -125,6 +125,33 @@ pub fn span_rows(spans: Vec<DecodedSpan>, tenant: &Tenant) -> Vec<InsertRow> {
                 ("Duration", json(span.end_ns - span.start_ns)),
                 ("StatusCode", Value::String(span.status_code)),
                 ("StatusMessage", Value::String(status_message)),
+                (
+                    "Events.Timestamp",
+                    json(
+                        span.events
+                            .iter()
+                            .map(|event| event.time_ns)
+                            .collect::<Vec<_>>(),
+                    ),
+                ),
+                (
+                    "Events.Name",
+                    json(
+                        span.events
+                            .iter()
+                            .map(|event| event.name.as_str())
+                            .collect::<Vec<_>>(),
+                    ),
+                ),
+                (
+                    "Events.Attributes",
+                    json(
+                        span.events
+                            .iter()
+                            .map(|event| &event.attributes)
+                            .collect::<Vec<_>>(),
+                    ),
+                ),
                 ("TeamId", Value::from(tenant.team_id.as_str())),
                 ("ApiKeyHash", Value::from(tenant.api_key_hash.as_str())),
                 ("UserId", Value::from(tenant.user_id.as_str())),

@@ -10,7 +10,7 @@ use crate::{
     spend::spend,
 };
 use litellm_traces::{
-    SpanDetail, SpanErrorPage, Trace, TracePage,
+    SpanDetail, SpanErrorPage, SpanEvent, Trace, TracePage,
     query::named::{
         ListTracesParams, ReadAccessParams, SpanDetailParams, SpanErrorParams, TraceIdentityParams,
         TraceSpansParams,
@@ -307,6 +307,17 @@ impl TraceReader {
             input: row.input,
             output: row.output,
             attributes: row.attributes,
+            events: row
+                .event_names
+                .into_iter()
+                .zip(row.event_timestamps_ns)
+                .zip(row.event_attributes)
+                .map(|((name, timestamp_ns), attributes)| SpanEvent {
+                    name,
+                    timestamp_ns,
+                    attributes,
+                })
+                .collect(),
         }))
     }
 

@@ -203,6 +203,26 @@ fn content_type_defaults_to_protobuf_and_rejects_unknown_values(
 }
 
 #[rstest]
+fn rejects_an_event_timestamp_that_cannot_be_stored() {
+    use prost::Message;
+    let span = opentelemetry_proto::tonic::trace::v1::Span {
+        trace_id: vec![1; 16],
+        span_id: vec![2; 8],
+        start_time_unix_nano: 1,
+        end_time_unix_nano: 2,
+        events: vec![opentelemetry_proto::tonic::trace::v1::span::Event {
+            time_unix_nano: i64::MAX as u64 + 1,
+            ..Default::default()
+        }],
+        ..Default::default()
+    };
+    assert!(matches!(
+        decode_otlp(&request_with(span).encode_to_vec(), None),
+        Err(litellm_traces::Error::InvalidPayload)
+    ));
+}
+
+#[rstest]
 #[case::short_trace(vec![1; 15], vec![2;8], 1, 2)]
 #[case::zero_trace(vec![0; 16], vec![2;8], 1, 2)]
 #[case::short_span(vec![1; 16], vec![2;7], 1, 2)]

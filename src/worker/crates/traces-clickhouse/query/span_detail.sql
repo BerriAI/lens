@@ -5,7 +5,10 @@ SELECT o.SpanId AS span_id,
        multiIf(body.output != '', body.output,
                o.Output = '' AND (o.ObservationType = 'agent' OR o.SpanName = 'session_task.turn'), answer.output,
                o.Output) AS output,
-       o.SpanAttributes AS attributes
+       o.SpanAttributes AS attributes,
+       arrayMap(time -> toString(toUnixTimestamp64Nano(time)), o.`Events.Timestamp`) AS event_timestamps_ns,
+       o.`Events.Name` AS event_names,
+       o.`Events.Attributes` AS event_attributes
 FROM otel_traces AS o
 LEFT JOIN (
     SELECT TeamId, ApiKeyHash, TraceId,

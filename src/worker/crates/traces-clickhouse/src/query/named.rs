@@ -379,7 +379,7 @@ mod tests {
             quoted,
         );
         round_trip::<SpanDetailRow>(
-            json!({"span_id": "span", "input": "input", "output": "output", "attributes": {"count": "42"}}),
+            json!({"span_id": "span", "input": "input", "output": "output", "attributes": {"count": "42"}, "event_timestamps_ns": ["1700000000000000001"], "event_names": ["exception"], "event_attributes": [{"exception.type": "ValueError"}]}),
             quoted,
         );
         round_trip::<SpanErrorRow>(

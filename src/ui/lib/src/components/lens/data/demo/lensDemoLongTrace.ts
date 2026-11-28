@@ -50,6 +50,7 @@ export function withReleaseCases(run: { trace: Trace; details: SpanDetail[] }) {
     for (const span of [agent, tool, model]) {
       const detail: SpanDetail = {
         span_id: span.span_id,
+        events: [],
         input:
           span.type === "tool"
             ? JSON.stringify({ case: index, check: question })
